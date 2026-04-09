@@ -15,4 +15,6 @@ uvicorn==0.30.6
 
 # Utilities
 python-dotenv==1.0.1
+# websockets >=14 rompe la API de extra_headers que usa alpaca-py 0.32.0
+websockets>=10.4,<14
 aiohttp==3.10.5
