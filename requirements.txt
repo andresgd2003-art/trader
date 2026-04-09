@@ -1,0 +1,24 @@
+# === ALPACA TRADING ENGINE - REQUIREMENTS ===
+# CRITICAL: Use alpaca-py, NOT alpaca-trade-api (deprecated)
+alpaca-py==0.32.0
+
+# Data & Math
+pandas==2.2.2
+numpy==1.26.4
+
+# Technical Indicators (TA-Lib must be compiled from C in Dockerfile)
+TA-Lib==0.4.29
+
+# Async & Scheduling
+asyncio-rlock==0.2.0
+
+# Database
+# SQLite is built-in to Python, no extra package needed
+
+# API Server (for Dashboard)
+fastapi==0.115.0
+uvicorn==0.30.6
+
+# Utilities
+python-dotenv==1.0.1
+aiohttp==3.10.5

@@ -1,0 +1,35 @@
+# =============================================
+# ALPACA TRADING ENGINE - DOCKER COMPOSE
+# Para pruebas locales y Easypanel
+# =============================================
+version: "3.8"
+
+services:
+  trading-bot:
+    build: .
+    container_name: alpaca-trader
+    restart: unless-stopped
+    volumes:
+      # Persistencia de datos: SQLite DB y logs sobreviven reinicios
+      - trader_data:/app/data
+    environment:
+      - ALPACA_API_KEY=${ALPACA_API_KEY}
+      - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY}
+      - PAPER_TRADING=${PAPER_TRADING:-True}
+      - DB_PATH=/app/data/trades.db
+      - LOG_PATH=/app/data/engine.log
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    ports:
+      # Puerto del dashboard API
+      - "8000:8000"
+    networks:
+      - trader_net
+
+volumes:
+  trader_data:
+    driver: local
+
+networks:
+  trader_net:
+    driver: bridge
