@@ -99,6 +99,29 @@
       animation: pulse 2s infinite;
     }
 
+    .btn-refresh {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-refresh:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn-refresh.spin { pointer-events: none; opacity: 0.7; }
+    .btn-refresh.spin .icon { animation: rotate 1s linear infinite; }
+
+    @keyframes rotate { 100% { transform: rotate(360deg); } }
     @keyframes pulse {
       0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,230,118,0.4); }
       50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(0,230,118,0); }
@@ -200,6 +223,21 @@
       color: var(--text-primary);
     }
 
+    .btn-reset-chart {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      display: none;
+    }
+    .btn-reset-chart:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
     .chart-container {
       position: relative;
       height: 200px;
@@ -286,7 +324,9 @@
     }
 
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(0,212,255,0.03); }
+    
+    .row-clickable { cursor: pointer; transition: background 0.2s; }
+    .row-clickable:hover { background: rgba(0,212,255,0.08); }
 
     .side-buy  { color: var(--green); font-weight: 600; }
     .side-sell { color: var(--red); font-weight: 600; }
@@ -381,20 +421,6 @@
     .log-source { color: #5c7aab; min-width: 120px; }
     .log-msg    { color: #c5d1e8; flex: 1; }
 
-    /* ── LOADING ── */
-    .loading {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-left: 8px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
     /* Scrollbar global */
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: var(--bg-primary); }
@@ -410,6 +436,9 @@
     AlpacaNode
   </div>
   <div class="nav-status">
+    <button class="btn-refresh" id="btn-refresh" onclick="manualRefresh()">
+      <span class="icon">↻</span> Actualizar
+    </button>
     <div class="status-pill">
       <div class="status-dot"></div>
       PAPER TRADING — EN VIVO
@@ -452,7 +481,10 @@
   <!-- Equity Chart -->
   <div class="card chart-card">
     <div class="chart-header">
-      <span class="chart-title">Rendimiento Histórico — Últimos 30 Días</span>
+      <div>
+        <span class="chart-title" id="chart-main-title">Rendimiento Histórico — Últimos 30 Días</span>
+        <button class="btn-reset-chart" id="btn-reset-chart" onclick="resetChartToGlobal()">← Volver a Global</button>
+      </div>
       <span class="badge" id="chart-last-date">Cargando...</span>
     </div>
     <div class="chart-container">
@@ -463,7 +495,7 @@
   <!-- Strategies -->
   <div class="card strategies-card">
     <div class="table-header">
-      <span class="section-title">Análisis por Estrategia (10 Activas)</span>
+      <span class="section-title">Análisis por Estrategia (10 Activas) — Clic para ver gráfica</span>
       <span class="badge" id="strat-count">10</span>
     </div>
     <div style="overflow-x:auto;">
@@ -515,7 +547,6 @@
           <div class="dot dot-green"></div>
         </div>
         <div class="logs-title">engine.log — stream en vivo</div>
-        <div class="loading" id="log-loader"></div>
       </div>
       <div class="logs-body" id="logs-body">
         <!-- injected by JS -->
@@ -529,7 +560,6 @@
 // ═══════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════
-const POLL_INTERVAL = 5000;   // ms entre actualizaciones
 const STRATEGIES = [
   { id: "GoldenCross",         name: "Golden Cross",       symbol: "SMH"  },
   { id: "DonchianBreakout",    name: "Donchian Breakout",  symbol: "QQQ"  },
@@ -542,6 +572,8 @@ const STRATEGIES = [
   { id: "PairsTrading",        name: "Pairs Trading",      symbol: "QQQ, XLK"},
   { id: "GridTrading",         name: "Grid Trading",       symbol: "SOXX" },
 ];
+
+let currentChartMode = 'global'; // 'global' or strategy.id
 
 // ═══════════════════════════════════════════════
 // CHART
@@ -559,7 +591,7 @@ function initChart() {
     data: {
       labels: [],
       datasets: [{
-        label: 'Capital',
+        label: 'Valor',
         data: [],
         borderColor: '#00d4ff',
         backgroundColor: gradient,
@@ -600,7 +632,7 @@ function initChart() {
           ticks: {
             color: '#3d4f6e',
             font: { family: 'JetBrains Mono', size: 10 },
-            callback: v => '$' + (v/1000).toFixed(0) + 'K',
+            callback: v => '$' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(1) + 'K' : v.toFixed(0)),
           },
           border: { color: 'transparent' },
         }
@@ -619,265 +651,206 @@ const colorClass = n => n > 0 ? 'positive' : n < 0 ? 'negative' : 'neutral';
 // ═══════════════════════════════════════════════
 // CLOCK
 // ═══════════════════════════════════════════════
-function updateClock() {
+setInterval(() => {
   const now = new Date();
   document.getElementById('nav-time').textContent =
     now.toLocaleTimeString('en-US', { hour12: false }) + ' UTC' + (now.getTimezoneOffset() < 0 ? '+' : '-') + Math.abs(now.getTimezoneOffset() / 60);
-}
-setInterval(updateClock, 1000);
-updateClock();
+}, 1000);
 
 // ═══════════════════════════════════════════════
-// ACCOUNT
+// DATA FETCHERS
 // ═══════════════════════════════════════════════
 async function refreshAccount() {
-  try {
-    const d = await fetch('/api/account').then(r => r.json());
-
-    document.getElementById('stat-equity').textContent = fmt$(d.equity);
-    document.getElementById('stat-equity').className = 'card-value ' + colorClass(d.pnl);
-
-    const pnlEl = document.getElementById('stat-pnl');
-    pnlEl.textContent = fmt$(d.pnl);
-    pnlEl.className = 'card-value ' + colorClass(d.pnl);
-
-    document.getElementById('stat-pnl-pct').textContent = fmtPct(d.pnl_pct) + ' vs $100,000 inicial';
-    document.getElementById('stat-cash').textContent = fmt$(d.cash);
-    document.getElementById('stat-buying').textContent = fmt$(d.buying_power);
-  } catch (e) { console.warn('account error', e); }
+  const d = await fetch('/api/account').then(r => r.json());
+  document.getElementById('stat-equity').textContent = fmt$(d.equity);
+  document.getElementById('stat-equity').className = 'card-value ' + colorClass(d.pnl);
+  document.getElementById('stat-pnl').textContent = fmt$(d.pnl);
+  document.getElementById('stat-pnl').className = 'card-value ' + colorClass(d.pnl);
+  document.getElementById('stat-pnl-pct').textContent = fmtPct(d.pnl_pct) + ' vs $100,000 inicial';
+  document.getElementById('stat-cash').textContent = fmt$(d.cash);
+  document.getElementById('stat-buying').textContent = fmt$(d.buying_power);
 }
 
-// ═══════════════════════════════════════════════
-// PORTFOLIO HISTORY (chart)
-// ═══════════════════════════════════════════════
-async function refreshHistory() {
-  try {
-    const history = await fetch('/api/history').then(r => r.json());
-    if (!history.length) return;
+async function refreshGlobalHistory() {
+  const history = await fetch('/api/history').then(r => r.json());
+  if (!history.length) return;
 
-    const labels = history.map(h => {
-      const d = new Date(h.date);
-      return d.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' });
-    });
-    const values = history.map(h => h.equity);
-    const last = history[history.length - 1];
+  const labels = history.map(h => new Date(h.date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' }));
+  const values = history.map(h => h.equity);
 
-    if (equityChart) {
-      equityChart.data.labels = labels;
-      equityChart.data.datasets[0].data = values;
-      equityChart.update('none');
-    }
-    document.getElementById('chart-last-date').textContent = last.date;
-  } catch (e) { console.warn('history error', e); }
+  if (equityChart) {
+    equityChart.data.labels = labels;
+    equityChart.data.datasets[0].data = values;
+    equityChart.update('none');
+  }
+  document.getElementById('chart-last-date').textContent = history[history.length - 1].date;
 }
 
-// ═══════════════════════════════════════════════
-// STRATEGIES & STATS
-// ═══════════════════════════════════════════════
-async function refreshStrategies() {
+// NUEVO: Ver la gráfica individual
+async function loadStrategyChart(strategyId, strategyName) {
+  currentChartMode = strategyId;
+  document.getElementById('chart-main-title').textContent = `Rendimiento P&L: ${strategyName}`;
+  document.getElementById('btn-reset-chart').style.display = 'inline-block';
+  document.getElementById('chart-last-date').textContent = 'Calculando...';
+
   try {
-    const stats = await fetch('/api/strategy/stats').then(r => r.json());
+    const history = await fetch(`/api/strategy/history/${strategyId}`).then(r => r.json());
     
-    const list = document.getElementById('strat-list');
-    list.innerHTML = STRATEGIES.map(s => {
-      // Intentar encontrar la estrategia en los estadísticos
-      const statIdMatch = Object.keys(stats).find(k => k === s.name.replace(/\s+/g, '').substring(0, 30));
-      const myStats = statIdMatch ? stats[statIdMatch] : { trades: 0, filled: 0, volume: 0.0 };
+    if (!history || history.length === 0) {
+      document.getElementById('chart-last-date').textContent = 'Faltan datos de operaciones para armar gráfica';
+      equityChart.data.labels = [];
+      equityChart.data.datasets[0].data = [];
+      equityChart.update();
+      return;
+    }
 
-      return `
-      <tr>
-        <td style="color:#e8eaf6;font-weight:600">${s.name}</td>
-        <td>${s.symbol}</td>
-        <td><span style="color:var(--green)">✓ Activa</span> &middot; ${myStats.filled} / ${myStats.trades} trades completados ($${Number(myStats.volume).toLocaleString('en-US')})</td>
-        <td>
-          <a href="/api/reports?strategy=${s.id}&period=weekly" target="_blank" class="btn-download">Semanal</a>
-          <a href="/api/reports?strategy=${s.id}&period=monthly" target="_blank" class="btn-download" style="margin-left: 6px;">Mensual</a>
-        </td>
-      </tr>
-      `;
-    }).join('');
-  } catch (e) { console.warn('strategies err', e); }
+    const labels = history.map(h => h.date);
+    const values = history.map(h => h.pnl);
+
+    equityChart.data.labels = labels;
+    equityChart.data.datasets[0].data = values;
+    equityChart.update();
+    
+    document.getElementById('chart-last-date').textContent = history[history.length - 1].date;
+  } catch (e) {
+    console.error(e);
+  }
 }
 
-// ═══════════════════════════════════════════════
-// POSITIONS
-// ═══════════════════════════════════════════════
+function resetChartToGlobal() {
+  currentChartMode = 'global';
+  document.getElementById('chart-main-title').textContent = 'Rendimiento Histórico — Últimos 30 Días';
+  document.getElementById('btn-reset-chart').style.display = 'none';
+  refreshGlobalHistory();
+}
+
+async function refreshStrategies() {
+  const stats = await fetch('/api/strategy/stats').then(r => r.json());
+  const list = document.getElementById('strat-list');
+  
+  list.innerHTML = STRATEGIES.map(s => {
+    const statIdMatch = Object.keys(stats).find(k => k === s.name.replace(/\s+/g, '').substring(0, 30));
+    const myStats = statIdMatch ? stats[statIdMatch] : { trades: 0, filled: 0, volume: 0.0 };
+
+    return `
+    <tr class="row-clickable" title="Haz clic para ver gráfico de ${s.name}" onclick="loadStrategyChart('${s.id}', '${s.name}')">
+      <td style="color:#e8eaf6;font-weight:600">${s.name}</td>
+      <td>${s.symbol}</td>
+      <td><span style="color:var(--green)">✓ Activa</span> &middot; ${myStats.filled}/${myStats.trades} trades ($${Number(myStats.volume).toLocaleString('en-US', {maximumFractionDigits:0})})</td>
+      <td onclick="event.stopPropagation()">
+        <a href="/api/reports?strategy=${s.id}&period=weekly" target="_blank" class="btn-download">Semanal</a>
+        <a href="/api/reports?strategy=${s.id}&period=monthly" target="_blank" class="btn-download" style="margin-left: 6px;">Mensual</a>
+      </td>
+    </tr>
+    `;
+  }).join('');
+}
+
 async function refreshPositions() {
-  try {
-    const positions = await fetch('/api/positions').then(r => r.json());
-    document.getElementById('pos-count').textContent = positions.length;
+  const positions = await fetch('/api/positions').then(r => r.json());
+  document.getElementById('pos-count').textContent = positions.length;
+  const wrap = document.getElementById('positions-table-wrap');
 
-    const wrap = document.getElementById('positions-table-wrap');
-    if (!positions.length) {
-      wrap.innerHTML = '<div class="empty-state">No hay posiciones abiertas</div>';
-      return;
-    }
-
-    wrap.innerHTML = `
-      <div style="overflow-x:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>Símbolo</th>
-            <th>Lado</th>
-            <th>Cant.</th>
-            <th>Entrada Prom.</th>
-            <th>Precio Act.</th>
-            <th>Valor Mercado</th>
-            <th>P&L No Realiz.</th>
-            <th>%</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${positions.map(p => `
-            <tr>
-              <td style="color:#e8eaf6;font-weight:600">${p.symbol}</td>
-              <td class="side-${p.side}">${p.side.toUpperCase()}</td>
-              <td>${p.qty}</td>
-              <td>${fmt$(p.avg_entry)}</td>
-              <td>${fmt$(p.current_price)}</td>
-              <td>${fmt$(p.market_value)}</td>
-              <td class="${colorClass(p.unrealized_pl)}">${fmt$(p.unrealized_pl)}</td>
-              <td class="${colorClass(p.unrealized_plpc)}">${fmtPct(p.unrealized_plpc)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      </div>
-    `;
-  } catch (e) { console.warn('positions error', e); }
+  if (!positions.length) {
+    wrap.innerHTML = '<div class="empty-state">No hay posiciones abiertas</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Símbolo</th><th>Lado</th><th>Cant.</th><th>Entrada</th><th>Actual</th><th>Mercado</th><th>P&L</th><th>%</th></tr></thead>
+      <tbody>${positions.map(p => `
+        <tr><td style="color:#e8eaf6;font-weight:600">${p.symbol}</td>
+        <td class="side-${p.side}">${p.side.toUpperCase()}</td><td>${p.qty}</td>
+        <td>${fmt$(p.avg_entry)}</td><td>${fmt$(p.current_price)}</td><td>${fmt$(p.market_value)}</td>
+        <td class="${colorClass(p.unrealized_pl)}">${fmt$(p.unrealized_pl)}</td>
+        <td class="${colorClass(p.unrealized_plpc)}">${fmtPct(p.unrealized_plpc)}</td></tr>
+      `).join('')}</tbody>
+    </table></div>
+  `;
 }
 
-// ═══════════════════════════════════════════════
-// ORDERS
-// ═══════════════════════════════════════════════
 async function refreshOrders() {
-  try {
-    const orders = await fetch('/api/orders').then(r => r.json());
-    document.getElementById('orders-count').textContent = orders.length;
+  const orders = await fetch('/api/orders').then(r => r.json());
+  document.getElementById('orders-count').textContent = orders.length;
+  const wrap = document.getElementById('orders-table-wrap');
 
-    const wrap = document.getElementById('orders-table-wrap');
-    if (!orders.length) {
-      wrap.innerHTML = '<div class="empty-state">No hay órdenes recientes</div>';
-      return;
-    }
-
-    const statusClass = s => {
-      if (s === 'filled') return 'status-filled';
-      if (s === 'new' || s === 'partially_filled') return 'status-open';
-      if (s === 'canceled' || s === 'expired') return 'status-cancelled';
-      return 'status-pending';
-    };
-
-    const fmtTime = iso => {
-      if (!iso) return '—';
-      const d = new Date(iso);
-      return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
-    };
-
-    wrap.innerHTML = `
-      <div style="overflow-x:auto;max-height:260px;overflow-y:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>Símbolo</th>
-            <th>Lado</th>
-            <th>Cant.</th>
-            <th>Precio</th>
-            <th>Estrategia</th>
-            <th>Estado</th>
-            <th>Hora</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${orders.map(o => `
-            <tr>
-              <td style="color:#e8eaf6;font-weight:600">${o.symbol}</td>
-              <td class="side-${o.side}">${o.side.toUpperCase()}</td>
-              <td>${o.filled_qty || o.qty}</td>
-              <td>${o.filled_price ? fmt$(o.filled_price) : (o.limit_price ? fmt$(o.limit_price)+' L' : 'MKT')}</td>
-              <td><span class="badge">${o.strategy && o.strategy !== 'Manual' ? o.strategy : 'Manual'}</span></td>
-              <td class="${statusClass(o.status)}">${o.status}</td>
-              <td style="color:#3d4f6e">${fmtTime(o.submitted_at)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      </div>
-    `;
-  } catch (e) { console.warn('orders error', e); }
+  if (!orders.length) {
+    wrap.innerHTML = '<div class="empty-state">No hay órdenes recientes</div>';
+    return;
+  }
+  const cls = s => s === 'filled' ? 'status-filled' : s.includes('cancel') ? 'status-cancelled' : 'status-open';
+  wrap.innerHTML = `
+    <div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table>
+      <thead><tr><th>Símbolo</th><th>Lado</th><th>Cant.</th><th>Precio</th><th>Estrategia</th><th>Estado</th><th>Hora</th></tr></thead>
+      <tbody>${orders.map(o => `
+        <tr><td style="color:#e8eaf6;font-weight:600">${o.symbol}</td>
+        <td class="side-${o.side}">${o.side.toUpperCase()}</td><td>${o.filled_qty || o.qty}</td>
+        <td>${o.filled_price ? fmt$(o.filled_price) : (o.limit_price ? fmt$(o.limit_price)+' L' : 'MKT')}</td>
+        <td><span class="badge">${o.strategy && o.strategy !== 'Manual' ? o.strategy : 'Manual'}</span></td>
+        <td class="${cls(o.status)}">${o.status}</td>
+        <td style="color:#3d4f6e">${(o.submitted_at || '').substring(11,16)}</td></tr>
+      `).join('')}</tbody>
+    </table></div>
+  `;
 }
 
-// ═══════════════════════════════════════════════
-// LOGS
-// ═══════════════════════════════════════════════
 let lastLogCount = 0;
-
 async function refreshLogs() {
-  try {
-    const logs = await fetch('/api/logs?limit=60').then(r => r.json());
-    if (!logs.length) return;
-    if (logs.length === lastLogCount) return;   // Sin cambios
+  const logs = await fetch('/api/logs?limit=60').then(r => r.json());
+  if (!logs.length || logs.length === lastLogCount) return;
+  lastLogCount = logs.length;
+  const container = document.getElementById('logs-body');
+  const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 40;
 
-    lastLogCount = logs.length;
-    const container = document.getElementById('logs-body');
-    const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 40;
-
-    container.innerHTML = logs.slice(0, 60).map(entry => {
-      const level = entry.level || 'INFO';
-      const src   = (entry.source || '').substring(0, 18);
-      const msg   = entry.msg || entry.message || '';
-      const time  = entry.time || '';
-
-      let msgColor = '#c5d1e8';
-      if (level === 'ERROR') msgColor = '#ff8080';
-      else if (level === 'WARNING') msgColor = '#ffd740';
-      else if (msg.includes('🟢') || msg.includes('COMPRANDO')) msgColor = '#69f0ae';
-      else if (msg.includes('🔴') || msg.includes('VENDIENDO')) msgColor = '#ff7070';
-      else if (msg.includes('✅') || msg.includes('Grid activo')) msgColor = '#69f0ae';
-      else if (msg.includes('INFO [alpaca.')) msgColor = '#4a6fa5';
-
-      return `
-        <div class="log-line">
-          <span class="log-time">${time}</span>
-          <span class="log-level-${level}">${level}</span>
-          <span class="log-source">[${src}]</span>
-          <span class="log-msg" style="color:${msgColor}">${msg.replace(/</g,'&lt;')}</span>
-        </div>
-      `;
-    }).join('');
-
-    document.getElementById('log-loader').style.display = 'none';
-
-    if (wasAtBottom) {
-      container.scrollTop = container.scrollHeight;
-    }
-  } catch (e) { console.warn('logs error', e); }
+  container.innerHTML = logs.slice(0, 60).map(entry => {
+    let clr = '#c5d1e8';
+    const m = (entry.msg||'');
+    if(entry.level==='ERROR'||m.includes('🔴')) clr='#ff8080';
+    else if(entry.level==='WARNING') clr='#ffd740';
+    else if(m.includes('🟢')||m.includes('COMPRA')||m.includes('✅')) clr='#69f0ae';
+    
+    return `<div class="log-line"><span class="log-time">${entry.time||''}</span>
+            <span class="log-level-${entry.level||'INFO'}">${entry.level||'INFO'}</span>
+            <span class="log-source">[${(entry.source||'').substring(0,18)}]</span>
+            <span class="log-msg" style="color:${clr}">${m.replace(/</g,'&lt;')}</span></div>`;
+  }).join('');
+  if (wasAtBottom) container.scrollTop = container.scrollHeight;
 }
 
 // ═══════════════════════════════════════════════
-// INIT & POLLING LOOP
+// INIT & INTERACTIONS
 // ═══════════════════════════════════════════════
-async function refreshAll() {
+async function refreshAllFull() {
   await Promise.allSettled([
     refreshAccount(),
     refreshStrategies(),
     refreshPositions(),
     refreshOrders(),
     refreshLogs(),
+    currentChartMode === 'global' ? refreshGlobalHistory() : Promise.resolve(),
   ]);
+}
+
+async function manualRefresh() {
+  const btn = document.getElementById('btn-refresh');
+  btn.classList.add('spin');
+  try {
+    await refreshAllFull();
+  } finally {
+    setTimeout(() => btn.classList.remove('spin'), 400);
+  }
 }
 
 async function init() {
   initChart();
-  
-  // Primera carga
-  await refreshAll();
-  await refreshHistory();
-
-  // Polling: datos rápidos cada 5s, historia cada 60s
-  setInterval(refreshAll, POLL_INTERVAL);
-  setInterval(refreshHistory, 60_000);
+  await refreshAllFull();
+  // Auto-polling
+  setInterval(() => {
+    refreshAccount(); refreshStrategies(); refreshPositions(); refreshOrders(); refreshLogs();
+  }, 5000);
+  setInterval(() => {
+    if (currentChartMode === 'global') refreshGlobalHistory();
+  }, 60000);
 }
 
 init();

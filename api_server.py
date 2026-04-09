@@ -242,6 +242,55 @@ async def download_report(strategy: str = "all", period: str = "weekly"):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/strategy/history/{strategy}")
+async def get_strategy_history(strategy: str):
+    """Retorna la curva de P&L de una estrategia específica calculando desde sus órdenes."""
+    try:
+        client = get_trading_client()
+        orders = client.get_orders(
+            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=500)
+        )
+        
+        strat_orders = []
+        for o in orders:
+            if o.status.value != "filled" or not o.client_order_id:
+                continue
+            if str(o.client_order_id).startswith(f"strat_{strategy}"):
+                strat_orders.append(o)
+                
+        strat_orders.sort(key=lambda x: x.filled_at)
+        
+        history = []
+        realized_pnl = 0.0
+        position = 0.0
+        avg_entry = 0.0
+        
+        for o in strat_orders:
+            qty = float(o.filled_qty) if o.filled_qty else 0
+            price = float(o.filled_avg_price) if o.filled_avg_price else 0
+            
+            if o.side.value == "buy":
+                new_cost = position * avg_entry + qty * price
+                position += qty
+                avg_entry = new_cost / position if position > 0 else 0
+            else:
+                profit = (price - avg_entry) * qty
+                realized_pnl += profit
+                position -= qty
+                if position <= 0:
+                    position = 0
+                    avg_entry = 0
+                    
+            history.append({
+                "date": o.filled_at.strftime("%Y-%m-%d %H:%M"),
+                "pnl": realized_pnl
+            })
+            
+        return history
+    except Exception as e:
+        logger.error(f"[API] Error obteniendo historia de estrategia: {e}")
+        return []
+
 @app.get("/api/logs")
 async def get_logs(limit: int = 100):
     """Retorna las últimas N líneas del log del engine."""
