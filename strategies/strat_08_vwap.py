@@ -45,8 +45,7 @@ class VWAPBounceStrategy(BaseStrategy):
         self._volumes = deque(maxlen=self.VOL_BARS)
         self._prev_price_below_vwap = None
         self._has_position = False
-
-        asyncio.create_task(self._eod_close_loop())
+        self._loop_started = False  # Se inicia en el primer on_bar
 
     def _reset_vwap(self):
         self._cumulative_tp_vol = 0.0
@@ -56,6 +55,11 @@ class VWAPBounceStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
+
+        # Iniciar EOD close loop la primera vez que llegue una barra
+        if not self._loop_started:
+            asyncio.create_task(self._eod_close_loop())
+            self._loop_started = True
 
         # Resetear VWAP si es un nuevo día
         bar_date = bar.timestamp.date() if hasattr(bar.timestamp, 'date') else None

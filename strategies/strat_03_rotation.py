@@ -39,12 +39,13 @@ class MomentumRotationStrategy(BaseStrategy):
             api_key=os.environ.get("ALPACA_API_KEY", ""),
             secret_key=os.environ.get("ALPACA_SECRET_KEY", "")
         )
-        # Iniciar el cron job semanal
-        asyncio.create_task(self._weekly_rotation_loop())
+        self._loop_started = False  # Se inicia en el primer on_bar
 
     async def on_bar(self, bar) -> None:
-        # Esta estrategia no reacciona a barras individuales, usa el cron
-        pass
+        # Iniciar el loop semanal la primera vez que llegue una barra
+        if not self._loop_started:
+            asyncio.create_task(self._weekly_rotation_loop())
+            self._loop_started = True
 
     async def _weekly_rotation_loop(self):
         """Loop que corre cada hora y ejecuta rotación los viernes a las 15:30 EST."""
