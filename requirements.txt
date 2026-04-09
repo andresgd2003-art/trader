@@ -7,7 +7,7 @@ pandas==2.2.2
 numpy==1.26.4
 
 # Technical Indicators - pandas-ta (pure Python, no C compilation needed)
-pandas-ta==0.3.14b
+pandas-ta
 
 # API Server (for Dashboard)
 fastapi==0.115.0
