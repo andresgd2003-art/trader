@@ -135,22 +135,27 @@ async def get_orders():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+import requests
+
 @app.get("/api/history")
 async def get_history():
     """Retorna la historia del portafolio para el gráfico de equity."""
     try:
-        client = get_trading_client()
-        history = client.get_portfolio_history(
-            history_filter=GetPortfolioHistoryRequest(
-                period="1M",
-                timeframe="1D",
-                extended_hours=False
-            )
-        )
+        url = "https://paper-api.alpaca.markets/v2/account/portfolio/history" if PAPER else "https://api.alpaca.markets/v2/account/portfolio/history"
+        headers = {"APCA-API-KEY-ID": API_KEY, "APCA-API-SECRET-KEY": SECRET_KEY}
+        
+        # Obtenemos historial del último mes, resolución diaria
+        res = requests.get(url, headers=headers, params={"period": "1M", "timeframe": "1D"})
+        data = res.json()
+        
+        if "timestamp" not in data or not data["timestamp"]:
+            return []
+            
         result = []
-        for i, ts in enumerate(history.timestamp):
-            equity = history.equity[i] if i < len(history.equity) else 0
-            pl = history.profit_loss[i] if history.profit_loss and i < len(history.profit_loss) else 0
+        for i, ts in enumerate(data["timestamp"]):
+            equity = data["equity"][i] if i < len(data["equity"]) else 0
+            pl = data["profit_loss"][i] if i < len(data["profit_loss"]) else 0
+            
             if equity and equity > 0:
                 result.append({
                     "date":   datetime.fromtimestamp(ts).strftime("%Y-%m-%d"),
@@ -159,8 +164,8 @@ async def get_history():
                 })
         return result
     except Exception as e:
-        logger.error(f"[API] Error obteniendo historia: {e}")
-        return []   # No fallar si no hay datos aún
+        logger.error(f"[API] Error obteniendo historia directa: {e}")
+        return []
 
 
 @app.get("/api/strategy/stats")
