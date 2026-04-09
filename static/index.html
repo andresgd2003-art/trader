@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -114,7 +114,7 @@
     .main-grid {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr 1fr;
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: auto auto auto 1fr;
       gap: 16px;
       padding: 20px 24px;
       max-width: 1600px;
@@ -180,9 +180,9 @@
       pointer-events: none;
     }
 
-    /* ── CHART (row 2, spans 3 cols) ── */
+    /* ── CHART (row 2, full width) ── */
     .chart-card {
-      grid-column: 1 / 4;
+      grid-column: 1 / 5;
       grid-row: 2;
       padding: 20px 24px;
     }
@@ -205,47 +205,37 @@
       height: 200px;
     }
 
-    /* ── STRATEGIES (row 2, col 4) ── */
+    /* ── STRATEGIES (row 3, spans 4 cols) ── */
     .strategies-card {
-      grid-column: 4;
-      grid-row: 2;
-      padding: 20px 24px;
-      overflow-y: auto;
+      grid-column: 1 / 5;
+      grid-row: 3;
     }
 
-    .strat-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 12px;
+    .btn-download {
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      color: var(--accent);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-download:hover {
+      background: rgba(0, 212, 255, 0.2);
     }
 
-    .strat-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: var(--bg-card-alt);
-      border-radius: 8px;
-      font-size: 12px;
-      border-left: 3px solid var(--text-dim);
-      transition: border-color 0.2s;
-    }
-
-    .strat-item.active { border-left-color: var(--green); }
-    .strat-name { font-weight: 500; color: var(--text-primary); }
-    .strat-symbol { color: var(--text-secondary); font-family: monospace; font-size: 11px; }
-
-    /* ── POSITIONS (row 3, 2 cols) ── */
+    /* ── POSITIONS (row 4, 2 cols) ── */
     .positions-card {
       grid-column: 1 / 3;
-      grid-row: 3;
+      grid-row: 4;
     }
 
-    /* ── ORDERS (row 3, col 3-4) ── */
+    /* ── ORDERS (row 4, col 3-4) ── */
     .orders-card {
       grid-column: 3 / 5;
-      grid-row: 3;
+      grid-row: 4;
     }
 
     /* ── TABLES ── */
@@ -319,7 +309,7 @@
     /* ── LOGS (bottom, full width) ── */
     .logs-section {
       grid-column: 1 / 5;
-      grid-row: 4;
+      grid-row: 5;
     }
 
     .logs-terminal {
@@ -422,7 +412,7 @@
   <div class="nav-status">
     <div class="status-pill">
       <div class="status-dot"></div>
-      PAPER TRADING — LIVE
+      PAPER TRADING — EN VIVO
     </div>
     <div class="nav-time" id="nav-time">--:--:--</div>
   </div>
@@ -433,37 +423,37 @@
 
   <!-- Equity -->
   <div class="card stat-equity equity-glow">
-    <div class="card-label">Portfolio Equity</div>
+    <div class="card-label">Valor del Portafolio</div>
     <div class="card-value neutral" id="stat-equity">$—</div>
-    <div class="card-sub">Total portfolio value</div>
+    <div class="card-sub">Capital total actual</div>
   </div>
 
   <!-- P&L -->
   <div class="card stat-pnl">
-    <div class="card-label">Total P&L</div>
+    <div class="card-label">P&L Total</div>
     <div class="card-value" id="stat-pnl">$—</div>
-    <div class="card-sub" id="stat-pnl-pct">vs $100,000 initial</div>
+    <div class="card-sub" id="stat-pnl-pct">vs $100,000 inicial</div>
   </div>
 
   <!-- Cash -->
   <div class="card stat-cash">
-    <div class="card-label">Cash Available</div>
+    <div class="card-label">Efectivo Disponible</div>
     <div class="card-value neutral" id="stat-cash">$—</div>
-    <div class="card-sub">Uninvested cash</div>
+    <div class="card-sub">Capital sin invertir</div>
   </div>
 
   <!-- Buying Power -->
   <div class="card stat-buying">
-    <div class="card-label">Buying Power</div>
+    <div class="card-label">Poder de Compra</div>
     <div class="card-value neutral" id="stat-buying">$—</div>
-    <div class="card-sub">Available for orders</div>
+    <div class="card-sub">Disponible para nuevas órdenes</div>
   </div>
 
   <!-- Equity Chart -->
   <div class="card chart-card">
     <div class="chart-header">
-      <span class="chart-title">Portfolio Equity — Last 30 Days</span>
-      <span class="badge" id="chart-last-date">Loading...</span>
+      <span class="chart-title">Rendimiento Histórico — Últimos 30 Días</span>
+      <span class="badge" id="chart-last-date">Cargando...</span>
     </div>
     <div class="chart-container">
       <canvas id="equity-chart"></canvas>
@@ -472,31 +462,46 @@
 
   <!-- Strategies -->
   <div class="card strategies-card">
-    <div class="section-title">10 Active Strategies</div>
-    <div class="strat-list" id="strat-list">
-      <!-- rendered by JS -->
+    <div class="table-header">
+      <span class="section-title">Análisis por Estrategia (10 Activas)</span>
+      <span class="badge" id="strat-count">10</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Estrategia</th>
+            <th>Símbolo</th>
+            <th>Métrica de Actividad</th>
+            <th>Reportes (CSV)</th>
+          </tr>
+        </thead>
+        <tbody id="strat-list">
+          <!-- rendered by JS -->
+        </tbody>
+      </table>
     </div>
   </div>
 
   <!-- Positions -->
   <div class="card positions-card">
     <div class="table-header">
-      <span class="section-title">Open Positions</span>
+      <span class="section-title">Posiciones Abiertas</span>
       <span class="badge" id="pos-count">0</span>
     </div>
     <div id="positions-table-wrap">
-      <div class="empty-state">No open positions yet</div>
+      <div class="empty-state">No hay posiciones abiertas</div>
     </div>
   </div>
 
   <!-- Orders -->
   <div class="card orders-card">
     <div class="table-header">
-      <span class="section-title">Recent Orders</span>
+      <span class="section-title">Órdenes Recientes</span>
       <span class="badge" id="orders-count">0</span>
     </div>
     <div id="orders-table-wrap">
-      <div class="empty-state">No orders yet</div>
+      <div class="empty-state">No hay órdenes recientes</div>
     </div>
   </div>
 
@@ -509,7 +514,7 @@
           <div class="dot dot-yellow"></div>
           <div class="dot dot-green"></div>
         </div>
-        <div class="logs-title">engine.log — live stream</div>
+        <div class="logs-title">engine.log — stream en vivo</div>
         <div class="loading" id="log-loader"></div>
       </div>
       <div class="logs-body" id="logs-body">
@@ -526,16 +531,16 @@
 // ═══════════════════════════════════════════════
 const POLL_INTERVAL = 5000;   // ms entre actualizaciones
 const STRATEGIES = [
-  { name: "Golden Cross",       symbol: "SMH"  },
-  { name: "Donchian Breakout",  symbol: "QQQ"  },
-  { name: "Momentum Rotation",  symbol: "Multi"},
-  { name: "MACD Trend",         symbol: "XLK"  },
-  { name: "RSI Dip",            symbol: "TQQQ" },
-  { name: "Bollinger Rev.",     symbol: "SRVR" },
-  { name: "RSI + VIX Filter",   symbol: "SPY"  },
-  { name: "VWAP Bounce",        symbol: "SMH"  },
-  { name: "Pairs Trading",      symbol: "QQQ/XLK"},
-  { name: "Grid Trading",       symbol: "SOXX" },
+  { id: "GoldenCross",         name: "Golden Cross",       symbol: "SMH"  },
+  { id: "DonchianBreakout",    name: "Donchian Breakout",  symbol: "QQQ"  },
+  { id: "MomentumRotation",    name: "Momentum Rotation",  symbol: "Multi"},
+  { id: "MACDTrend",           name: "MACD Trend",         symbol: "XLK"  },
+  { id: "RSIDip",              name: "RSI Buy the Dip",    symbol: "TQQQ" },
+  { id: "BollingerReversion",  name: "Bollinger Reversion",symbol: "SRVR" },
+  { id: "RSI+VIXFilter",       name: "RSI + VIX Filter",   symbol: "SPY"  },
+  { id: "VWAPBounce",          name: "VWAP Bounce",        symbol: "SMH"  },
+  { id: "PairsTrading",        name: "Pairs Trading",      symbol: "QQQ, XLK"},
+  { id: "GridTrading",         name: "Grid Trading",       symbol: "SOXX" },
 ];
 
 // ═══════════════════════════════════════════════
@@ -554,7 +559,7 @@ function initChart() {
     data: {
       labels: [],
       datasets: [{
-        label: 'Equity',
+        label: 'Capital',
         data: [],
         borderColor: '#00d4ff',
         backgroundColor: gradient,
@@ -636,7 +641,7 @@ async function refreshAccount() {
     pnlEl.textContent = fmt$(d.pnl);
     pnlEl.className = 'card-value ' + colorClass(d.pnl);
 
-    document.getElementById('stat-pnl-pct').textContent = fmtPct(d.pnl_pct) + ' vs $100,000 initial';
+    document.getElementById('stat-pnl-pct').textContent = fmtPct(d.pnl_pct) + ' vs $100,000 inicial';
     document.getElementById('stat-cash').textContent = fmt$(d.cash);
     document.getElementById('stat-buying').textContent = fmt$(d.buying_power);
   } catch (e) { console.warn('account error', e); }
@@ -652,7 +657,7 @@ async function refreshHistory() {
 
     const labels = history.map(h => {
       const d = new Date(h.date);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return d.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' });
     });
     const values = history.map(h => h.equity);
     const last = history[history.length - 1];
@@ -667,6 +672,34 @@ async function refreshHistory() {
 }
 
 // ═══════════════════════════════════════════════
+// STRATEGIES & STATS
+// ═══════════════════════════════════════════════
+async function refreshStrategies() {
+  try {
+    const stats = await fetch('/api/strategy/stats').then(r => r.json());
+    
+    const list = document.getElementById('strat-list');
+    list.innerHTML = STRATEGIES.map(s => {
+      // Intentar encontrar la estrategia en los estadísticos
+      const statIdMatch = Object.keys(stats).find(k => k === s.name.replace(/\s+/g, '').substring(0, 30));
+      const myStats = statIdMatch ? stats[statIdMatch] : { trades: 0, filled: 0, volume: 0.0 };
+
+      return `
+      <tr>
+        <td style="color:#e8eaf6;font-weight:600">${s.name}</td>
+        <td>${s.symbol}</td>
+        <td><span style="color:var(--green)">✓ Activa</span> &middot; ${myStats.filled} / ${myStats.trades} trades completados ($${Number(myStats.volume).toLocaleString('en-US')})</td>
+        <td>
+          <a href="/api/reports?strategy=${s.id}&period=weekly" target="_blank" class="btn-download">Semanal</a>
+          <a href="/api/reports?strategy=${s.id}&period=monthly" target="_blank" class="btn-download" style="margin-left: 6px;">Mensual</a>
+        </td>
+      </tr>
+      `;
+    }).join('');
+  } catch (e) { console.warn('strategies err', e); }
+}
+
+// ═══════════════════════════════════════════════
 // POSITIONS
 // ═══════════════════════════════════════════════
 async function refreshPositions() {
@@ -676,7 +709,7 @@ async function refreshPositions() {
 
     const wrap = document.getElementById('positions-table-wrap');
     if (!positions.length) {
-      wrap.innerHTML = '<div class="empty-state">No open positions</div>';
+      wrap.innerHTML = '<div class="empty-state">No hay posiciones abiertas</div>';
       return;
     }
 
@@ -685,13 +718,13 @@ async function refreshPositions() {
       <table>
         <thead>
           <tr>
-            <th>Symbol</th>
-            <th>Side</th>
-            <th>Qty</th>
-            <th>Avg Entry</th>
-            <th>Cur. Price</th>
-            <th>Market Val.</th>
-            <th>Unr. P&L</th>
+            <th>Símbolo</th>
+            <th>Lado</th>
+            <th>Cant.</th>
+            <th>Entrada Prom.</th>
+            <th>Precio Act.</th>
+            <th>Valor Mercado</th>
+            <th>P&L No Realiz.</th>
             <th>%</th>
           </tr>
         </thead>
@@ -725,7 +758,7 @@ async function refreshOrders() {
 
     const wrap = document.getElementById('orders-table-wrap');
     if (!orders.length) {
-      wrap.innerHTML = '<div class="empty-state">No orders yet</div>';
+      wrap.innerHTML = '<div class="empty-state">No hay órdenes recientes</div>';
       return;
     }
 
@@ -739,7 +772,7 @@ async function refreshOrders() {
     const fmtTime = iso => {
       if (!iso) return '—';
       const d = new Date(iso);
-      return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
     };
 
     wrap.innerHTML = `
@@ -747,12 +780,13 @@ async function refreshOrders() {
       <table>
         <thead>
           <tr>
-            <th>Symbol</th>
-            <th>Side</th>
-            <th>Qty</th>
-            <th>Price</th>
-            <th>Status</th>
-            <th>Time</th>
+            <th>Símbolo</th>
+            <th>Lado</th>
+            <th>Cant.</th>
+            <th>Precio</th>
+            <th>Estrategia</th>
+            <th>Estado</th>
+            <th>Hora</th>
           </tr>
         </thead>
         <tbody>
@@ -762,6 +796,7 @@ async function refreshOrders() {
               <td class="side-${o.side}">${o.side.toUpperCase()}</td>
               <td>${o.filled_qty || o.qty}</td>
               <td>${o.filled_price ? fmt$(o.filled_price) : (o.limit_price ? fmt$(o.limit_price)+' L' : 'MKT')}</td>
+              <td><span class="badge">${o.strategy && o.strategy !== 'Manual' ? o.strategy : 'Manual'}</span></td>
               <td class="${statusClass(o.status)}">${o.status}</td>
               <td style="color:#3d4f6e">${fmtTime(o.submitted_at)}</td>
             </tr>
@@ -821,24 +856,12 @@ async function refreshLogs() {
 }
 
 // ═══════════════════════════════════════════════
-// STRATEGIES GRID
-// ═══════════════════════════════════════════════
-function renderStrategies() {
-  const list = document.getElementById('strat-list');
-  list.innerHTML = STRATEGIES.map(s => `
-    <div class="strat-item active">
-      <span class="strat-name">${s.name}</span>
-      <span class="strat-symbol">${s.symbol}</span>
-    </div>
-  `).join('');
-}
-
-// ═══════════════════════════════════════════════
 // INIT & POLLING LOOP
 // ═══════════════════════════════════════════════
 async function refreshAll() {
   await Promise.allSettled([
     refreshAccount(),
+    refreshStrategies(),
     refreshPositions(),
     refreshOrders(),
     refreshLogs(),
@@ -847,8 +870,7 @@ async function refreshAll() {
 
 async function init() {
   initChart();
-  renderStrategies();
-
+  
   // Primera carga
   await refreshAll();
   await refreshHistory();

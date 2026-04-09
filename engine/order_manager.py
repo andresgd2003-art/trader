@@ -17,6 +17,8 @@ import os
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+import uuid
+from alpaca.trading.enums import OrderSide, TimeInForce
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +124,11 @@ class OrderManager:
         side = OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL
         strategy = order.get("strategy", "Unknown")
 
+        # Crear un ID único para rastrear qué estrategia emitió la orden
+        # Max longitud 48 caracteres. Quitamos espacios del nombre.
+        safe_strat_name = strategy.replace(" ", "")[:30]
+        client_id = f"strat_{safe_strat_name}_{uuid.uuid4().hex[:8]}"
+
         try:
             if order["limit_price"]:
                 # Orden límite
@@ -130,7 +137,8 @@ class OrderManager:
                     qty=qty,
                     side=side,
                     time_in_force=TimeInForce.DAY,
-                    limit_price=order["limit_price"]
+                    limit_price=order["limit_price"],
+                    client_order_id=client_id
                 )
                 order_type = f"LIMIT @ ${order['limit_price']}"
             else:
@@ -139,7 +147,8 @@ class OrderManager:
                     symbol=symbol,
                     qty=qty,
                     side=side,
-                    time_in_force=TimeInForce.DAY
+                    time_in_force=TimeInForce.DAY,
+                    client_order_id=client_id
                 )
                 order_type = "MARKET"
 

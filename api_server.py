@@ -15,11 +15,13 @@ Endpoints:
 import os
 import json
 import logging
+import csv
+import io
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -124,6 +126,7 @@ async def get_orders():
                 "filled_price": float(o.filled_avg_price) if o.filled_avg_price else None,
                 "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
                 "filled_at":    o.filled_at.isoformat() if o.filled_at else None,
+                "strategy":     str(o.client_order_id).split("_")[1] if (o.client_order_id and str(o.client_order_id).startswith("strat_")) else "Manual",
             }
             for o in orders
         ]
@@ -158,6 +161,80 @@ async def get_history():
     except Exception as e:
         logger.error(f"[API] Error obteniendo historia: {e}")
         return []   # No fallar si no hay datos aún
+
+
+@app.get("/api/strategy/stats")
+async def get_strategy_stats():
+    """Retorna estadísticas agrupadas por estrategia"""
+    try:
+        client = get_trading_client()
+        orders = client.get_orders(
+            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=500)
+        )
+        
+        stats = {}
+        for o in orders:
+            if not o.client_order_id or not str(o.client_order_id).startswith("strat_"):
+                continue
+                
+            strat_name = str(o.client_order_id).split("_")[1]
+            if strat_name not in stats:
+                stats[strat_name] = {"trades": 0, "filled": 0, "volume": 0.0, "symbol": o.symbol}
+            
+            stats[strat_name]["trades"] += 1
+            if o.status.value == "filled":
+                stats[strat_name]["filled"] += 1
+                qty = float(o.filled_qty) if o.filled_qty else 0
+                price = float(o.filled_avg_price) if o.filled_avg_price else 0
+                stats[strat_name]["volume"] += qty * price
+
+        return stats
+    except Exception as e:
+        logger.error(f"[API] Error obteniendo stats de estrategias: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reports")
+async def download_report(strategy: str = "all", period: str = "weekly"):
+    """Descarga el reporte de operaciones en CSV para una estrategia."""
+    try:
+        client = get_trading_client()
+        orders = client.get_orders(
+            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=500)
+        )
+        
+        filtered = []
+        for o in orders:
+            is_match = False
+            if strategy == "all":
+                is_match = True
+            elif o.client_order_id and str(o.client_order_id).startswith(f"strat_{strategy}"):
+                is_match = True
+                
+            if is_match and o.status.value == "filled":
+                filtered.append(o)
+                
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Fecha", "Estrategia", "Simbolo", "Lado", "Cantidad", "Precio", "Volumen USD", "ID Orden"])
+        
+        for o in filtered:
+            strat_name = str(o.client_order_id).split("_")[1] if (o.client_order_id and str(o.client_order_id).startswith("strat_")) else "Manual"
+            qty = float(o.filled_qty) if o.filled_qty else 0
+            price = float(o.filled_avg_price) if o.filled_avg_price else 0
+            date = o.filled_at.isoformat() if o.filled_at else ""
+            writer.writerow([date, strat_name, o.symbol, o.side.value.upper(), qty, price, round(qty * price, 2), str(o.id)])
+            
+        output.seek(0)
+        filename = f"reporte_{strategy}_{period}.csv"
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"[API] Error generando reporte CSV: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/logs")
