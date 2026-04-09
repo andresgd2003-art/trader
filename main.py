@@ -142,8 +142,14 @@ class TradingEngine:
         logger.info("[Engine] Conexión WebSocket Alpaca establecida. ¡Engine activo!")
 
         try:
-            # Este loop corre para siempre hasta que se detenga
-            await self.stream.run_async()
+            # stream.run() es bloqueante - inicia el loop de datos en tiempo real
+            # Se ejecuta en un thread separado para no bloquear asyncio
+            import threading
+            stream_thread = threading.Thread(target=self.stream.run, daemon=True)
+            stream_thread.start()
+            # Mantener el loop de asyncio activo para las tasks de las estrategias
+            while stream_thread.is_alive():
+                await asyncio.sleep(1)
         except KeyboardInterrupt:
             logger.info("[Engine] Apagado manual detectado.")
         finally:
