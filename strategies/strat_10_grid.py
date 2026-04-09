@@ -68,45 +68,33 @@ class GridTradingStrategy(BaseStrategy):
         )
 
     async def _place_grid(self):
-        """Coloca órdenes límite en todos los niveles del grid."""
+        """
+        Coloca órdenes BUY límite por debajo del baseline.
+        Las órdenes SELL se añaden dinámicamente cuando se ejecuta una BUY.
+        (Las cuentas Paper Trading no permiten short selling directo)
+        """
         if not self._baseline:
             return
 
-        logger.info(f"[{self.name}] Colocando grid de {self.GRID_LEVELS * 2} niveles...")
+        logger.info(f"[{self.name}] Colocando {self.GRID_LEVELS} niveles de compra...")
 
         for i in range(1, self.GRID_LEVELS + 1):
-            # Niveles de COMPRA (debajo del baseline)
-            buy_price  = round(self._baseline * (1 - self.GRID_STEP * i), 2)
-            # Niveles de VENTA (arriba del baseline)
-            sell_price = round(self._baseline * (1 + self.GRID_STEP * i), 2)
+            buy_price = round(self._baseline * (1 - self.GRID_STEP * i), 2)
 
             try:
-                # Orden límite de compra
                 buy_req = LimitOrderRequest(
                     symbol=self.SYMBOL,
                     qty=self.QTY_PER_LEVEL,
                     side=OrderSide.BUY,
-                    time_in_force=TimeInForce.GTC,   # Good Till Cancelled
+                    time_in_force=TimeInForce.GTC,
                     limit_price=buy_price
                 )
                 self._client.submit_order(buy_req)
-                logger.info(f"[{self.name}] Grid BUY  colocada @ ${buy_price:.2f}")
-
-                # Orden límite de venta
-                sell_req = LimitOrderRequest(
-                    symbol=self.SYMBOL,
-                    qty=self.QTY_PER_LEVEL,
-                    side=OrderSide.SELL,
-                    time_in_force=TimeInForce.GTC,
-                    limit_price=sell_price
-                )
-                self._client.submit_order(sell_req)
-                logger.info(f"[{self.name}] Grid SELL colocada @ ${sell_price:.2f}")
-
-                await asyncio.sleep(0.5)  # Rate limiting
+                logger.info(f"[{self.name}] Grid BUY colocada @ ${buy_price:.2f} (nivel -{i}%)")
+                await asyncio.sleep(0.5)
 
             except Exception as e:
-                logger.error(f"[{self.name}] Error colocando nivel {i} del grid: {e}")
+                logger.error(f"[{self.name}] Error en nivel {i}: {e}")
 
         self._grid_active = True
-        logger.info(f"[{self.name}] ✅ Grid activo. Base=${self._baseline:.2f} Step={self.GRID_STEP*100}%")
+        logger.info(f"[{self.name}] ✅ Grid activo. Base=${self._baseline:.2f} | {self.GRID_LEVELS} BUYs pendientes")
