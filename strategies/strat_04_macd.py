@@ -11,7 +11,7 @@ El MACD mide la diferencia entre dos tendencias. Cruzar la línea de señal
 en zona negativa captura el inicio de un movimiento alcista con momentum.
 """
 import logging
-import talib
+import pandas_ta as ta
 import numpy as np
 from collections import deque
 from engine.base_strategy import BaseStrategy
@@ -47,19 +47,24 @@ class MACDTrendStrategy(BaseStrategy):
             return
 
         closes = np.array(self._closes, dtype=float)
-        macd, signal, hist = talib.MACD(
-            closes,
-            fastperiod=self.FAST_EMA,
-            slowperiod=self.SLOW_EMA,
-            signalperiod=self.SIGNAL_EMA
-        )
-
-        # Tomar los últimos valores válidos
-        if np.isnan(macd[-1]) or np.isnan(signal[-1]):
+        import pandas as pd
+        s = pd.Series(closes)
+        macd_df = ta.macd(s, fast=self.FAST_EMA, slow=self.SLOW_EMA, signal=self.SIGNAL_EMA)
+        if macd_df is None or macd_df.empty:
             return
 
-        current_macd   = macd[-1]
-        current_signal = signal[-1]
+        macd_col   = [c for c in macd_df.columns if 'MACD_' in c and 'MACDs_' not in c and 'MACDh_' not in c]
+        signal_col = [c for c in macd_df.columns if 'MACDs_' in c]
+        if not macd_col or not signal_col:
+            return
+
+        current_macd   = float(macd_df[macd_col[0]].iloc[-1])
+        current_signal = float(macd_df[signal_col[0]].iloc[-1])
+
+        # Tomar los últimos valores válidos
+        if np.isnan(current_macd) or np.isnan(current_signal):
+            return
+
         macd_above     = current_macd > current_signal
 
         logger.info(f"[{self.name}] MACD={current_macd:.4f} Signal={current_signal:.4f}")

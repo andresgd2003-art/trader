@@ -12,7 +12,7 @@ VIX > 30 = el mercado tiene MUCHO miedo → "Risk Off" (modo defensivo).
 VIX < 20 = mercado tranquilo → normal trading.
 """
 import logging
-import talib
+import pandas_ta as ta
 import numpy as np
 from collections import deque
 from alpaca.data.historical import StockHistoricalDataClient
@@ -77,8 +77,12 @@ class VIXFilteredReversionStrategy(BaseStrategy):
             return
 
         closes = np.array(self._closes, dtype=float)
-        rsi_values = talib.RSI(closes, timeperiod=self.RSI_PERIOD)
-        current_rsi = rsi_values[-1]
+        import pandas as pd
+        s = pd.Series(closes)
+        rsi_series = ta.rsi(s, length=self.RSI_PERIOD)
+        if rsi_series is None or rsi_series.empty:
+            return
+        current_rsi = float(rsi_series.iloc[-1])
 
         if np.isnan(current_rsi):
             return

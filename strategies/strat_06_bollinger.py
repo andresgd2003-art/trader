@@ -12,7 +12,7 @@ cae 2 desviaciones estándar por debajo del promedio (la banda inferior),
 estadísticamente suele rebotar. Esta es una estrategia de "mean reversion".
 """
 import logging
-import talib
+import pandas_ta as ta
 import numpy as np
 from collections import deque
 from engine.base_strategy import BaseStrategy
@@ -47,17 +47,16 @@ class BollingerReversionStrategy(BaseStrategy):
             return
 
         closes = np.array(self._closes, dtype=float)
-        upper, middle, lower = talib.BBANDS(
-            closes,
-            timeperiod=self.PERIOD,
-            nbdevup=self.STD_DEV,
-            nbdevdn=self.STD_DEV
-        )
+        import pandas as pd
+        s = pd.Series(closes)
+        bb = ta.bbands(s, length=self.PERIOD, std=self.STD_DEV)
+        if bb is None or bb.empty:
+            return
 
+        curr_upper  = float(bb.iloc[-1, 0])  # BBU
+        curr_middle = float(bb.iloc[-1, 1])  # BBM
+        curr_lower  = float(bb.iloc[-1, 2])  # BBL
         curr_price  = float(bar.close)
-        curr_upper  = upper[-1]
-        curr_middle = middle[-1]
-        curr_lower  = lower[-1]
 
         if np.isnan(curr_lower):
             return

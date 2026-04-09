@@ -6,8 +6,8 @@ alpaca-py==0.32.0
 pandas==2.2.2
 numpy==1.26.4
 
-# Technical Indicators (TA-Lib wrapper - C library must be compiled first in Dockerfile)
-TA-Lib==0.4.29
+# Technical Indicators - pandas-ta (pure Python, no C compilation needed)
+pandas-ta==0.3.14b
 
 # API Server (for Dashboard)
 fastapi==0.115.0
