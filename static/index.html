@@ -215,6 +215,14 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .chart-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .chart-title {
@@ -236,6 +244,30 @@
     .btn-reset-chart:hover {
       border-color: var(--accent);
       color: var(--accent);
+    }
+    
+    .time-toggles {
+      display: flex;
+      background: rgba(30,45,71,0.3);
+      border-radius: 6px;
+      padding: 3px;
+    }
+    
+    .time-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .time-btn.active {
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
     }
 
     .chart-container {
@@ -481,8 +513,14 @@
   <!-- Equity Chart -->
   <div class="card chart-card">
     <div class="chart-header">
-      <div>
-        <span class="chart-title" id="chart-main-title">Rendimiento Histórico — Últimos 30 Días</span>
+      <div class="chart-header-left">
+        <span class="chart-title" id="chart-main-title">Rendimiento Histórico</span>
+        <div class="time-toggles" id="time-toggles">
+          <button class="time-btn" onclick="setTimeframe('1D')">1D</button>
+          <button class="time-btn" onclick="setTimeframe('1W')">1W</button>
+          <button class="time-btn active" onclick="setTimeframe('1M')">1M</button>
+          <button class="time-btn" onclick="setTimeframe('1A')">1Y</button>
+        </div>
         <button class="btn-reset-chart" id="btn-reset-chart" onclick="resetChartToGlobal()">← Volver a Global</button>
       </div>
       <span class="badge" id="chart-last-date">Cargando...</span>
@@ -574,6 +612,7 @@ const STRATEGIES = [
 ];
 
 let currentChartMode = 'global'; // 'global' or strategy.id
+let currentTimeframe = '1M'; // '1D', '1W', '1M', '1A'
 
 // ═══════════════════════════════════════════════
 // CHART
@@ -672,10 +711,18 @@ async function refreshAccount() {
 }
 
 async function refreshGlobalHistory() {
-  const history = await fetch('/api/history').then(r => r.json());
-  if (!history.length) return;
+  const history = await fetch(`/api/history?period=${currentTimeframe}`).then(r => r.json());
+  if (!history.length) {
+      if (equityChart) equityChart.data.labels=[], equityChart.data.datasets[0].data=[], equityChart.update('none');
+      document.getElementById('chart-last-date').textContent = '—';
+      return;
+  }
 
-  const labels = history.map(h => new Date(h.date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' }));
+  const useTime = currentTimeframe === '1D';
+  const labels = history.map(h => {
+      const d = new Date(h.date.replace(' ', 'T') + 'Z'); 
+      return useTime ? d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' });
+  });
   const values = history.map(h => h.equity);
 
   if (equityChart) {
@@ -686,6 +733,17 @@ async function refreshGlobalHistory() {
   document.getElementById('chart-last-date').textContent = history[history.length - 1].date;
 }
 
+function setTimeframe(tf) {
+  currentTimeframe = tf;
+  document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  if (currentChartMode === 'global') {
+    refreshGlobalHistory();
+  } else {
+    loadStrategyChart(currentChartMode, document.getElementById('chart-main-title').textContent.replace('Rendimiento P&L: ', '')); 
+  }
+}
+
 // NUEVO: Ver la gráfica individual
 async function loadStrategyChart(strategyId, strategyName) {
   currentChartMode = strategyId;
@@ -694,7 +752,7 @@ async function loadStrategyChart(strategyId, strategyName) {
   document.getElementById('chart-last-date').textContent = 'Calculando...';
 
   try {
-    const history = await fetch(`/api/strategy/history/${strategyId}`).then(r => r.json());
+    const history = await fetch(`/api/strategy/history/${strategyId}?period=${currentTimeframe}`).then(r => r.json());
     
     if (!history || history.length === 0) {
       document.getElementById('chart-last-date').textContent = 'Faltan datos de operaciones para armar gráfica';
@@ -704,7 +762,11 @@ async function loadStrategyChart(strategyId, strategyName) {
       return;
     }
 
-    const labels = history.map(h => h.date);
+    const useTime = currentTimeframe === '1D';
+    const labels = history.map(h => {
+        const d = new Date(h.date.replace(' ', 'T') + 'Z'); 
+        return useTime ? d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' });
+    });
     const values = history.map(h => h.pnl);
 
     equityChart.data.labels = labels;
@@ -719,7 +781,7 @@ async function loadStrategyChart(strategyId, strategyName) {
 
 function resetChartToGlobal() {
   currentChartMode = 'global';
-  document.getElementById('chart-main-title').textContent = 'Rendimiento Histórico — Últimos 30 Días';
+  document.getElementById('chart-main-title').textContent = 'Rendimiento Histórico';
   document.getElementById('btn-reset-chart').style.display = 'none';
   refreshGlobalHistory();
 }

@@ -137,15 +137,19 @@ async def get_orders():
 
 import requests
 
+from datetime import timedelta
 @app.get("/api/history")
-async def get_history():
+async def get_history(period: str = "1M"):
     """Retorna la historia del portafolio para el gráfico de equity."""
     try:
         url = "https://paper-api.alpaca.markets/v2/account/portfolio/history" if PAPER else "https://api.alpaca.markets/v2/account/portfolio/history"
         headers = {"APCA-API-KEY-ID": API_KEY, "APCA-API-SECRET-KEY": SECRET_KEY}
         
-        # Obtenemos historial del último mes, resolución diaria
-        res = requests.get(url, headers=headers, params={"period": "1M", "timeframe": "1D"})
+        # Mapa de resolución optima
+        timeframes = {"1D": "5Min", "1W": "15Min", "1M": "1D", "1A": "1D"}
+        tf = timeframes.get(period, "1D")
+        
+        res = requests.get(url, headers=headers, params={"period": period, "timeframe": tf})
         data = res.json()
         
         if "timestamp" not in data or not data["timestamp"]:
@@ -158,7 +162,7 @@ async def get_history():
             
             if equity and equity > 0:
                 result.append({
-                    "date":   datetime.fromtimestamp(ts).strftime("%Y-%m-%d"),
+                    "date":   datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M"),
                     "equity": equity,
                     "pl":     pl or 0,
                 })
@@ -243,7 +247,7 @@ async def download_report(strategy: str = "all", period: str = "weekly"):
 
 
 @app.get("/api/strategy/history/{strategy}")
-async def get_strategy_history(strategy: str):
+async def get_strategy_history(strategy: str, period: str = "1M"):
     """Retorna la curva de P&L de una estrategia específica calculando desde sus órdenes."""
     try:
         client = get_trading_client()
@@ -286,7 +290,17 @@ async def get_strategy_history(strategy: str):
                 "pnl": realized_pnl
             })
             
-        return history
+        # Slicing the history array based on period
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
+        if period == "1D": threshold = now - timedelta(days=1)
+        elif period == "1W": threshold = now - timedelta(days=7)
+        elif period == "1A": threshold = now - timedelta(days=365)
+        else: threshold = now - timedelta(days=30)  # default 1M
+        
+        filtered = [h for h in history if datetime.strptime(h["date"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc) >= threshold]
+        
+        return filtered
     except Exception as e:
         logger.error(f"[API] Error obteniendo historia de estrategia: {e}")
         return []
