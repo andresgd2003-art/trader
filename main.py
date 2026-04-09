@@ -12,6 +12,7 @@ ARQUITECTURA: "Central Dispatcher"
 import asyncio
 import os
 import logging
+import threading
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env (si existe localmente)
@@ -22,6 +23,17 @@ from engine.logger import setup_logger
 setup_logger(log_path=os.environ.get("LOG_PATH", "/app/data/engine.log"))
 
 logger = logging.getLogger("Engine")
+
+# Iniciar el API server en background (Dashboard)
+from api_server import start_api_server
+_api_thread = threading.Thread(
+    target=start_api_server,
+    kwargs={"host": "0.0.0.0", "port": 8000},
+    daemon=True,
+    name="api-server"
+)
+_api_thread.start()
+logger.info("[Engine] API Dashboard arrancado en http://0.0.0.0:8000")
 
 from alpaca.data.live import StockDataStream
 from alpaca.data.enums import DataFeed
