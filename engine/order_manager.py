@@ -17,6 +17,7 @@ import os
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from engine.notifier import TelegramNotifier
 import uuid
 from alpaca.trading.enums import OrderSide, TimeInForce
 
@@ -50,6 +51,9 @@ class OrderManager:
         # Cola de órdenes pendientes
         self._queue: asyncio.Queue = asyncio.Queue()
         self._running = False
+        
+        # Subsistema de alertas
+        self.notifier = TelegramNotifier()
 
         logger.info(f"[OrderManager] Inicializado. Paper={self.paper}")
 
@@ -157,9 +161,19 @@ class OrderManager:
                 f"[{strategy}] EXEC → {order['side'].upper()} {qty}x {symbol} "
                 f"@ {order_type} | ID: {result.id}"
             )
+            
+            # Alerta de Telegram
+            emoji = "🟢" if order["side"] == "buy" else "🔴"
+            self.notifier.send_message(
+                f"{emoji} <b>[Orden Emitida - {strategy}]</b>\n"
+                f"Operación: {order['side'].upper()}\n"
+                f"Activo: <b>{qty}x {symbol}</b>\n"
+                f"Tipo: {order_type}"
+            )
 
         except Exception as e:
             logger.error(f"[{strategy}] ERROR al enviar orden {symbol}: {e}")
+            self.notifier.send_message(f"⚠️ <b>[ERROR {strategy}]</b>\nFallo al enviar orden por {symbol}: {e}")
 
     def get_account(self) -> dict:
         """Retorna info de la cuenta (capital, PnL, etc.) para el dashboard."""

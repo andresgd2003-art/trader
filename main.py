@@ -24,6 +24,9 @@ setup_logger(log_path=os.environ.get("LOG_PATH", "/app/data/engine.log"))
 
 logger = logging.getLogger("Engine")
 
+from engine.notifier import TelegramNotifier
+notifier = TelegramNotifier()
+
 # Iniciar el API server en background (Dashboard)
 from api_server import start_api_server
 _api_thread = threading.Thread(
@@ -76,6 +79,8 @@ class TradingEngine:
         logger.info("AlpacaNode Trading Engine arrancando...")
         logger.info(f"Modo: {'PAPER TRADING' if PAPER else '⚠️ LIVE TRADING'}")
         logger.info("=" * 50)
+        
+        notifier.send_message(f"🚀 <b>AlpacaNode Trading Engine</b> arrancando...\nModo: {'PAPER TRADING' if PAPER else 'LIVE TRADING'}")
 
         # Gestor de órdenes compartido por todas las estrategias
         self.order_manager = OrderManager()
