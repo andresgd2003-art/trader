@@ -1,20 +1,11 @@
 """
 strategies/strat_07_vix_filter.py — RSI + Filtro VIX
-======================================================
-LÓGICA:
-- Igual que la estrategia RSI (compra en sobreventa, vende en sobrecompra)
-- PERO: si el VIX (índice de miedo) > 30, se bloquean TODAS las compras
-- Cuando el mercado tiene mucho miedo (VIX alto), es más arriesgado comprar
-
-¿Qué es el VIX?
-El VIX mide la volatilidad implícita del S&P 500.
-VIX > 30 = el mercado tiene MUCHO miedo → "Risk Off" (modo defensivo).
-VIX < 20 = mercado tranquilo → normal trading.
 """
 import logging
-import pandas_ta as ta
 import numpy as np
+import pandas as pd
 from collections import deque
+from ta.momentum import RSIIndicator
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
@@ -28,7 +19,7 @@ logger = logging.getLogger(__name__)
 class VIXFilteredReversionStrategy(BaseStrategy):
 
     SYMBOL      = "SPY"
-    VIX_SYMBOL  = "VIXY"   # ETF proxy del VIX (VIX real no es tradeable directamente)
+    VIX_SYMBOL  = "VIXY"
     RSI_PERIOD  = 14
     RSI_BUY     = 30
     RSI_SELL    = 70
@@ -50,7 +41,6 @@ class VIXFilteredReversionStrategy(BaseStrategy):
         )
 
     async def _update_vix(self):
-        """Obtiene el nivel actual de VIXY como proxy del VIX."""
         try:
             end = datetime.now(timezone.utc)
             start = end - timedelta(days=5)
@@ -76,26 +66,22 @@ class VIXFilteredReversionStrategy(BaseStrategy):
         if len(self._closes) < self.RSI_PERIOD + 1:
             return
 
-        closes = np.array(self._closes, dtype=float)
-        import pandas as pd
-        s = pd.Series(closes)
-        rsi_series = ta.rsi(s, length=self.RSI_PERIOD)
-        if rsi_series is None or rsi_series.empty:
-            return
-        current_rsi = float(rsi_series.iloc[-1])
+        s = pd.Series(list(self._closes))
+        rsi_indicator = RSIIndicator(close=s, window=self.RSI_PERIOD)
+        current_rsi = rsi_indicator.rsi().iloc[-1]
 
-        if np.isnan(current_rsi):
+        if pd.isna(current_rsi):
             return
 
         risk_off = self._vix_level > self.VIX_LIMIT
         logger.info(
             f"[{self.name}] RSI={current_rsi:.1f} VIXY={self._vix_level:.1f} "
-            f"{'🛑 RISK OFF' if risk_off else '✅ Risk On'}"
+            f"{'RISK OFF' if risk_off else 'Risk On'}"
         )
 
         if current_rsi < self.RSI_BUY and not self._has_position:
             if risk_off:
-                logger.warning(f"[{self.name}] Señal de COMPRA bloqueada: VIXY={self._vix_level:.1f} > {self.VIX_LIMIT}")
+                logger.warning(f"[{self.name}] Señal bloqueada: VIXY={self._vix_level:.1f} > {self.VIX_LIMIT}")
             else:
                 logger.info(f"[{self.name}] 🟢 RSI bajo + VIX ok → COMPRANDO {self.SYMBOL}")
                 await self.order_manager.buy(self.SYMBOL, qty=self.QTY, strategy_name=self.name)

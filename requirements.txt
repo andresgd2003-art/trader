@@ -6,8 +6,8 @@ alpaca-py==0.32.0
 pandas==2.2.2
 numpy==1.26.4
 
-# Technical Indicators - pandas-ta (pure Python, no C compilation needed)
-pandas-ta
+# Technical Indicators - ta library (pure Python, available on PyPI)
+ta==0.11.0
 
 # API Server (for Dashboard)
 fastapi==0.115.0
