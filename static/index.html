@@ -304,6 +304,12 @@
     </div>
   </div>
   <div class="navbar-right">
+    <button class="time-btn" onclick="window.open('/api/reports?period=weekly', '_blank')" style="margin-right:8px; padding:5px 10px; background:rgba(0,230,118,0.1); color:var(--green); border-color:var(--green); font-size:0.7rem;">
+      📥 CSV (7 Días)
+    </button>
+    <button class="time-btn" onclick="window.open('/api/reports?period=all', '_blank')" style="margin-right:20px; padding:5px 10px; font-size:0.7rem;">
+      📥 CSV (Todo)
+    </button>
     <div class="live-badge"><span class="live-dot"></span> LIVE</div>
     <div class="paper-badge">📄 Paper Trading</div>
     <span id="clock" style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text-secondary)"></span>

@@ -275,14 +275,53 @@ async def download_report(strategy: str = "all", period: str = "weekly"):
                 
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Fecha", "Estrategia", "Simbolo", "Lado", "Cantidad", "Precio", "Volumen USD", "ID Orden"])
+        writer.writerow(["Fecha (UTC)", "Estrategia", "Simbolo", "Lado", "Cantidad", "Precio ($)", "Volumen ($)", "P&L Realizado ($)", "ID Orden"])
+        
+        from datetime import timezone, timedelta
+        now = datetime.now(timezone.utc)
+        if period == "weekly": threshold = now - timedelta(days=7)
+        elif period == "monthly": threshold = now - timedelta(days=30)
+        else: threshold = now - timedelta(days=3650) # all
+        
+        # Diccionario para trackear la posicion y avg_entry por símbolo y estrategia
+        tracker = {}
+        
+        # Ordenar chronológicamente para el tracking de P&L
+        filtered.sort(key=lambda x: x.filled_at)
         
         for o in filtered:
+            if o.filled_at and o.filled_at < threshold:
+                continue
+                
             strat_name = str(o.client_order_id).split("_")[1] if (o.client_order_id and str(o.client_order_id).startswith("strat_")) else "Manual"
             qty = float(o.filled_qty) if o.filled_qty else 0
             price = float(o.filled_avg_price) if o.filled_avg_price else 0
-            date = o.filled_at.isoformat() if o.filled_at else ""
-            writer.writerow([date, strat_name, o.symbol, o.side.value.upper(), qty, price, round(qty * price, 2), str(o.id)])
+            date = o.filled_at.strftime("%Y-%m-%d %H:%M:%S") if o.filled_at else ""
+            vol = round(qty * price, 2)
+            
+            # Calcular ganancia
+            tracker_key = f"{strat_name}_{o.symbol}"
+            if tracker_key not in tracker:
+                tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
+            
+            pos = tracker[tracker_key]["pos"]
+            avg = tracker[tracker_key]["avg"]
+            realized_pnl = 0.0
+            
+            if o.side.value == "buy":
+                new_cost = (pos * avg) + vol
+                pos += qty
+                avg = new_cost / pos if pos > 0 else 0
+                tracker[tracker_key] = {"pos": pos, "avg": avg}
+            else:
+                realized_pnl = round((price - avg) * qty, 4)
+                pos -= qty
+                if pos <= 0:
+                    pos = 0.0
+                    avg = 0.0
+                tracker[tracker_key] = {"pos": pos, "avg": avg}
+                
+            writer.writerow([date, strat_name, o.symbol, o.side.value.upper(), qty, price, vol, realized_pnl if o.side.value == "sell" else "-", str(o.id)])
             
         output.seek(0)
         filename = f"reporte_{strategy}_{period}.csv"
