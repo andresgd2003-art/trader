@@ -433,6 +433,30 @@
         </div>
     </div>
 
+    <!-- KPIs Rapidos Cuenta -->
+    <div class="stats-grid" style="margin-bottom: 30px;">
+      <div class="stat-card etf">
+        <div class="stat-label">Equity Total</div>
+        <div class="stat-value" id="home-equity">—</div>
+        <div class="stat-sub" id="home-pnl-sub">P&amp;L del día</div>
+      </div>
+      <div class="stat-card" style="border-left: 3px solid #4caf50;">
+        <div class="stat-label">💵 Efectivo Disponible</div>
+        <div class="stat-value green" id="home-cash">—</div>
+        <div class="stat-sub" id="home-cash-pct">Sin invertir</div>
+      </div>
+      <div class="stat-card" style="border-left: 3px solid #ff9800;">
+        <div class="stat-label">📊 Capital Invertido</div>
+        <div class="stat-value" id="home-invested">—</div>
+        <div class="stat-sub" id="home-invested-pct">En posiciones abiertas</div>
+      </div>
+      <div class="stat-card crypto">
+        <div class="stat-label">⚡ Buying Power</div>
+        <div class="stat-value" id="home-bp">—</div>
+        <div class="stat-sub">Con margen 2x disponible</div>
+      </div>
+    </div>
+
     <!-- Motores -->
     <div class="three-col" style="gap: 24px; margin-top: 40px;">
       
@@ -857,6 +881,37 @@ async function updateGlobalHealth(acct) {
   lb.style.width = pLong + '%'; lb.textContent = pLong > 10 ? `${Math.round(pLong)}% L` : '';
   sb.style.width = pShort + '%'; sb.textContent = pShort > 10 ? `${Math.round(pShort)}% S` : '';
   cb.style.width = pCash + '%'; cb.textContent = pCash > 10 ? `${Math.round(pCash)}% Cash` : '';
+
+  // Efectivo + Inversión
+  const cashVal = acct.cash || 0;
+  const investedVal = acct.long_market_value || 0;
+  const totalEquity = acct.equity || 1;
+  const cashPct = ((cashVal / totalEquity) * 100).toFixed(1);
+  const investedPct = ((investedVal / totalEquity) * 100).toFixed(1);
+  
+  // Home KPIs
+  const homeEq = document.getElementById('home-equity');
+  if (homeEq) {
+    homeEq.textContent = fmtMoney(acct.equity);
+    const dayPnl = (acct.equity || 0) - (acct.last_equity || acct.equity || 0);
+    const pnlSub = document.getElementById('home-pnl-sub');
+    if (pnlSub) pnlSub.textContent = `P&L hoy: ${dayPnl >= 0 ? '+' : ''}${fmtMoney(dayPnl)}`;
+    if (pnlSub) pnlSub.style.color = dayPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+  const homeCash = document.getElementById('home-cash');
+  if (homeCash) {
+    homeCash.textContent = fmtMoney(cashVal);
+    const cashSub = document.getElementById('home-cash-pct');
+    if (cashSub) cashSub.textContent = `${cashPct}% del portafolio sin invertir`;
+  }
+  const homeInv = document.getElementById('home-invested');
+  if (homeInv) {
+    homeInv.textContent = fmtMoney(investedVal);
+    const invSub = document.getElementById('home-invested-pct');
+    if (invSub) invSub.textContent = `${investedPct}% en posiciones abiertas`;
+  }
+  const homeBp = document.getElementById('home-bp');
+  if (homeBp) homeBp.textContent = fmtMoney(acct.buying_power);
 
   // Reloj
   const clock = await fetchJSON('/api/clock');
