@@ -253,11 +253,18 @@ async def get_strategy_stats():
         tracker = {}
         
         # Sort first to calculate PNL correctly
-        valid_orders = [o for o in orders if o.client_order_id and str(o.client_order_id).startswith("strat_")]
+        valid_orders = [o for o in orders if o.client_order_id and (
+            str(o.client_order_id).startswith("strat_") or 
+            str(o.client_order_id).startswith("cry_") or 
+            str(o.client_order_id).startswith("eq_")
+        )]
         valid_orders.sort(key=lambda x: (x.filled_at if x.filled_at else x.created_at) if (x.filled_at or x.created_at) else datetime.min)
         
         for o in valid_orders:
-            strat_name = str(o.client_order_id).split("_")[1]
+            # Obtiene el nombre real sin importar si es strat_, cry_, o eq_
+            parts = str(o.client_order_id).split("_")
+            strat_name = parts[1] if len(parts) >= 2 else "unknown"
+            
             if strat_name not in stats:
                 stats[strat_name] = {"trades": 0, "filled": 0, "volume": 0.0, "symbol": o.symbol, "realized_pnl": 0.0}
             

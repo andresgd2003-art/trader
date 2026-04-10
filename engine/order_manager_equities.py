@@ -182,6 +182,26 @@ class OrderManagerEquities:
         strategy = order.get("strategy", "Unknown")
         client_id = self._client_id(strategy)
 
+        # ==========================================
+        # 🛡️ COMPLIANCE SHIELD: Prevención de Baneos
+        # ==========================================
+        if order["type"] in ["bracket_buy", "bracket_short"]:
+            try:
+                acc = self.client.get_account()
+                dt_count = getattr(acc, 'daytrade_count', 0)
+                is_pdt = getattr(acc, 'pattern_day_trader', False)
+                
+                if is_pdt or dt_count >= 3:
+                    logger.error(f"🛑 [COMPLIANCE SHIELD] ORDEN BLOQUEADA para {symbol}. Riesgo de Baneo P.D.T. (Day Trades: {dt_count}/3)")
+                    self.notifier.send_message(
+                        f"🛑 <b>[ESCUDO ANTI-BAN]</b>\nSe bloqueó de emergencia la entrada a <b>{symbol}</b> ({strategy}).\n"
+                        f"Límite legal de Day Trades alcanzado. Esto previno que el broker congelara tu cuenta."
+                    )
+                    return # Abortamos la compra para salvar la cuenta
+            except Exception as compliance_err:
+                logger.warning(f"No se pudo validar el Compliance Shield: {compliance_err}")
+        # ==========================================
+
         try:
             if order["type"] == "bracket_buy":
                 stop_price = round(order["price"] * (1 - order["stop_loss_pct"]), 2)

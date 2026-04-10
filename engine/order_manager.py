@@ -128,6 +128,26 @@ class OrderManager:
         side = OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL
         strategy = order.get("strategy", "Unknown")
 
+        # ==========================================
+        # 🛡️ COMPLIANCE SHIELD: Prevención de Baneos
+        # ==========================================
+        if order["side"] == "buy":
+            try:
+                acc = self.client.get_account()
+                dt_count = getattr(acc, 'daytrade_count', 0)
+                is_pdt = getattr(acc, 'pattern_day_trader', False)
+                
+                if is_pdt or dt_count >= 3:
+                    logger.error(f"🛑 [COMPLIANCE SHIELD] ORDEN BLOQUEADA para {symbol}. Riesgo de Baneo P.D.T. (Day Trades: {dt_count}/3)")
+                    self.notifier.send_message(
+                        f"🛑 <b>[ESCUDO ANTI-BAN]</b>\nSe bloqueó la compra de <b>{symbol}</b> ({strategy}).\n"
+                        f"Límite legal de Day Trades agotado."
+                    )
+                    return # Abortamos
+            except Exception as e:
+                pass
+        # ==========================================
+
         # Crear un ID único para rastrear qué estrategia emitió la orden
         # Max longitud 48 caracteres. Quitamos espacios del nombre.
         safe_strat_name = strategy.replace(" ", "")[:30]
