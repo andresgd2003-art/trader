@@ -16,7 +16,12 @@ RUN apt-get update && apt-get install -y \
 
 # Instalar dependencias Python primero (aprovecha cache de Docker)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Instalar torch CPU primero (necesita extra-index-url)
+RUN pip install --no-cache-dir \
+    torch==2.3.1+cpu \
+    --extra-index-url https://download.pytorch.org/whl/cpu
+# Instalar resto de dependencias (sin torch)
+RUN grep -v torch requirements.txt | pip install --no-cache-dir -r /dev/stdin
 
 # Copiar el código fuente
 COPY . .

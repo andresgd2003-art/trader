@@ -22,6 +22,6 @@ aiohttp==3.10.5
 requests==2.32.3
 
 # NLP Sentiment (Equities Engine - Strat 08)
-# torch CPU-only para no saturar el VPS de 4GB (sin GPU)
-torch==2.3.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+# torch CPU-only se instala en el Dockerfile vía --extra-index-url
+# aquí solo la librería de transformers (sin torch como dependencia pip directa)
 transformers==4.41.2
