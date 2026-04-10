@@ -28,12 +28,13 @@ class MomentumRotationStrategy(BaseStrategy):
     UNIVERSE = ["XLY", "XLF", "XLV", "XLE"]
     LOOKBACK_DAYS = 30
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Momentum Rotation",
             symbols=self.UNIVERSE,
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         self._current_holding = None
         self._data_client = StockHistoricalDataClient(
             api_key=os.environ.get("ALPACA_API_KEY", ""),
@@ -59,6 +60,10 @@ class MomentumRotationStrategy(BaseStrategy):
 
     async def _rotate(self):
         """Calcula el mejor ETF y rota el portafolio."""
+        # Verificar régimen antes de rotar
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(3):
+            logger.info(f"[{self.name}] Rotación pausada por régimen de mercado.")
+            return
         from datetime import timedelta
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=self.LOOKBACK_DAYS + 5)

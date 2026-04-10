@@ -33,12 +33,13 @@ class GridTradingStrategy(BaseStrategy):
     GRID_LEVELS = 5       # Niveles de grid arriba y abajo del baseline
     QTY_PER_LEVEL = 3     # Acciones por nivel del grid
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Grid Trading",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         self._baseline    = None    # Precio inicial de referencia
         self._grid_active = False
         self._grid_orders = {}      # {precio: side}
@@ -50,6 +51,8 @@ class GridTradingStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(10):
             return
 
         current_price = float(bar.close)

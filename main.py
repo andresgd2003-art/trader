@@ -52,6 +52,7 @@ from alpaca.data.live import StockDataStream
 from alpaca.data.enums import DataFeed
 
 from engine.order_manager import OrderManager
+from engine.regime_manager import RegimeManager
 from strategies import (
     GoldenCrossStrategy,
     DonchianBreakoutStrategy,
@@ -95,6 +96,13 @@ class TradingEngine:
         # Gestor de órdenes compartido por todas las estrategias
         self.order_manager = OrderManager()
 
+        # Árbitro de régimen de mercado (Propuesta A — market-environment-analysis skill)
+        self.regime_manager = RegimeManager()
+        try:
+            self.regime_manager.assess()  # Evaluación inicial
+        except Exception as e:
+            logger.warning(f"[Engine] Evaluación de régimen inicial fallida: {e}")
+
         # Registro de estrategias
         self.strategies = self._register_strategies()
 
@@ -110,22 +118,23 @@ class TradingEngine:
 
     def _register_strategies(self) -> list:
         """
-        Instancia y registra las 10 estrategias.
-        Cada una recibe una referencia al order_manager compartido.
+        Instancia y registra las 10 estrategias ETF.
+        Cada una recibe una referencia al order_manager y al regime_manager.
         """
+        rm = self.regime_manager
         strategies = [
-            GoldenCrossStrategy(order_manager=self.order_manager),
-            DonchianBreakoutStrategy(order_manager=self.order_manager),
-            MomentumRotationStrategy(order_manager=self.order_manager),
-            MACDTrendStrategy(order_manager=self.order_manager),
-            RSIDipStrategy(order_manager=self.order_manager),
-            BollingerReversionStrategy(order_manager=self.order_manager),
-            VIXFilteredReversionStrategy(order_manager=self.order_manager),
-            VWAPBounceStrategy(order_manager=self.order_manager),
-            PairsTradingStrategy(order_manager=self.order_manager),
-            GridTradingStrategy(order_manager=self.order_manager),
+            GoldenCrossStrategy(order_manager=self.order_manager, regime_manager=rm),
+            DonchianBreakoutStrategy(order_manager=self.order_manager, regime_manager=rm),
+            MomentumRotationStrategy(order_manager=self.order_manager, regime_manager=rm),
+            MACDTrendStrategy(order_manager=self.order_manager, regime_manager=rm),
+            RSIDipStrategy(order_manager=self.order_manager, regime_manager=rm),
+            BollingerReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
+            VIXFilteredReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
+            VWAPBounceStrategy(order_manager=self.order_manager, regime_manager=rm),
+            PairsTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
+            GridTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
         ]
-        logger.info(f"[Engine] {len(strategies)} estrategias registradas.")
+        logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas con RegimeManager.")
         return strategies
 
     async def _on_bar(self, bar):
@@ -176,6 +185,18 @@ class TradingEngine:
         from engine.daily_reporter import run_daily_summary_loop
         # Lanzar verificador diario
         daily_reporter_task = asyncio.create_task(run_daily_summary_loop())
+
+        # ── NUEVO: Re-evaluación horaria del régimen de mercado (Propuesta A)
+        async def hourly_regime_task():
+            while True:
+                await asyncio.sleep(3600)  # cada hora
+                try:
+                    self.regime_manager.assess_if_needed()
+                except Exception as e:
+                    logger.warning(f"[Engine] Regime re-assess error: {e}")
+
+        regime_task = asyncio.create_task(hourly_regime_task())
+        logger.info("[Engine] Evaluación horaria de régimen activada.")
 
         logger.info("[Engine] Conexión WebSocket Alpaca establecida. ¡Engine activo!")
 

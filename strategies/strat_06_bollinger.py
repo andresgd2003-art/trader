@@ -18,17 +18,20 @@ class BollingerReversionStrategy(BaseStrategy):
     STD_DEV = 2.0
     QTY     = 10
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Bollinger Reversion",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         self._closes = deque(maxlen=50)
         self._has_position = False
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(6):
             return
 
         self._closes.append(float(bar.close))

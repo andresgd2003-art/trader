@@ -142,9 +142,57 @@ async def _build_charts_task():
 async def startup_event():
     asyncio.create_task(_build_charts_task())
 
+# R\u00e9gimen de mercado compartido entre el api_server y main.py
+_regime_manager_instance = None
+
+def _get_or_create_regime_manager():
+    global _regime_manager_instance
+    if _regime_manager_instance is None:
+        try:
+            from engine.regime_manager import RegimeManager
+            _regime_manager_instance = RegimeManager()
+        except Exception:
+            pass
+    return _regime_manager_instance
+
 # ============================================================
 # ENDPOINTS DE DATOS
 # ============================================================
+
+@app.get("/api/market-regime")
+async def get_market_regime():
+    """Retorna el r\u00e9gimen actual del mercado y qu\u00e9 bots est\u00e1n activos por motor."""
+    try:
+        from engine.regime_manager import get_current_regime, REGIME_ETF_MAP, REGIME_CRYPTO_MAP, REGIME_EQUITIES_MAP, Regime
+        state = get_current_regime()
+
+        regime_str = state.get("regime", "UNKNOWN")
+        try:
+            regime = Regime(regime_str)
+        except Exception:
+            regime = Regime.UNKNOWN
+
+        return {
+            "regime": regime_str,
+            "spy_price": state.get("spy_price", 0),
+            "spy_sma200": state.get("spy_sma200", 0),
+            "vix_price": state.get("vix_price", 0),
+            "last_assessed": state.get("last_assessed"),
+            "active_strategies": {
+                "etf": REGIME_ETF_MAP.get(regime, []),
+                "crypto": REGIME_CRYPTO_MAP.get(regime, []),
+                "equities": REGIME_EQUITIES_MAP.get(regime, []),
+            },
+            "description": {
+                "BULL": "\u2601\ufe0f Mercado alcista \u2014 Estrategias de momentum activas",
+                "BEAR": "\ud83d\udfe5 Mercado bajista \u2014 Solo estrategias defensivas activas",
+                "CHOP": "\ud83d\udd04 Mercado lateral \u2014 Grids y arbitraje activos",
+                "UNKNOWN": "\u2753 Sin clasificar \u2014 Modo conservador",
+            }.get(regime_str, "Sin datos")
+        }
+    except Exception as e:
+        logger.error(f"[API] Error en /api/market-regime: {e}")
+        return {"regime": "UNKNOWN", "error": str(e)}
 
 @app.get("/api/account")
 async def get_account():

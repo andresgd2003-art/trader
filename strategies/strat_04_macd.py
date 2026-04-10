@@ -23,18 +23,21 @@ class MACDTrendStrategy(BaseStrategy):
     SLOW_EMA   = 26
     SIGNAL_EMA = 9
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="MACD Trend",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         self._closes = deque(maxlen=100)
         self._prev_macd_above_signal = None
         self._has_position = False
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(4):
             return
 
         self._closes.append(float(bar.close))

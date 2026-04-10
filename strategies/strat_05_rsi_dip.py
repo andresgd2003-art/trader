@@ -18,17 +18,20 @@ class RSIDipStrategy(BaseStrategy):
     RSI_BUY    = 30
     RSI_SELL   = 70
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="RSI Buy the Dip",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         self._closes = deque(maxlen=50)
         self._has_position = False
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(5):
             return
 
         self._closes.append(float(bar.close))

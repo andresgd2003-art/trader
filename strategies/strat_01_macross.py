@@ -25,12 +25,13 @@ class GoldenCrossStrategy(BaseStrategy):
     SMA_FAST = 50   # días
     SMA_SLOW = 200  # días
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Golden Cross",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         # Almacenamos los últimos 200 cierres para calcular SMAs
         self._closes = deque(maxlen=self.SMA_SLOW + 1)
         self._prev_fast_above = None    # Estado anterior (¿SMA50 estaba arriba?)
@@ -38,6 +39,8 @@ class GoldenCrossStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(1):
             return
 
         # Agregar el precio de cierre al histórico
