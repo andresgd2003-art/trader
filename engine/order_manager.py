@@ -161,16 +161,6 @@ class OrderManager:
                 f"[{strategy}] EXEC → {order['side'].upper()} {qty}x {symbol} "
                 f"@ {order_type} | ID: {result.id}"
             )
-            
-            # Alerta de Telegram
-            emoji = "🟢" if order["side"] == "buy" else "🔴"
-            self.notifier.send_message(
-                f"{emoji} <b>[Orden Emitida - {strategy}]</b>\n"
-                f"Operación: {order['side'].upper()}\n"
-                f"Activo: <b>{qty}x {symbol}</b>\n"
-                f"Tipo: {order_type}"
-            )
-
         except Exception as e:
             logger.error(f"[{strategy}] ERROR al enviar orden {symbol}: {e}")
             self.notifier.send_message(f"⚠️ <b>[ERROR {strategy}]</b>\nFallo al enviar orden por {symbol}: {e}")

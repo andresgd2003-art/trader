@@ -163,6 +163,9 @@ class TradingEngine:
 
         # Iniciar procesamiento de órdenes en segundo plano
         order_task = asyncio.create_task(self.order_manager.start())
+        from engine.daily_reporter import run_daily_summary_loop
+        # Lanzar verificador diario
+        daily_reporter_task = asyncio.create_task(run_daily_summary_loop())
 
         logger.info("[Engine] Conexión WebSocket Alpaca establecida. ¡Engine activo!")
 
@@ -180,6 +183,7 @@ class TradingEngine:
         finally:
             await self.order_manager.stop()
             order_task.cancel()
+            daily_reporter_task.cancel()
             logger.info("[Engine] Engine detenido correctamente.")
 
 
