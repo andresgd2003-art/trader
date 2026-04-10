@@ -244,6 +244,9 @@ if __name__ == "__main__":
     engine.equities_engine = equities_engine
     
     async def run_both():
+        # Precargar símbolos del universo de equities ANTES de suscribir el WebSocket
+        await equities_engine.initialize()
+        
         await asyncio.gather(
             engine.run(),
             crypto_engine.start_engine(),

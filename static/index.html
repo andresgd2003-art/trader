@@ -394,6 +394,12 @@
         </div>
       </div>
     </div>
+    
+    <!-- Estrategias ETF -->
+    <div class="section-header" style="margin-top:20px"><div class="section-title">🎯 Las 10 Estrategias ETF</div></div>
+    <div class="strat-grid" id="etf-strat-grid">
+      <!-- generado por JS -->
+    </div>
 
     <!-- Órdenes recientes -->
     <div class="card" style="margin-bottom:20px">
@@ -606,6 +612,20 @@
 <script>
 'use strict';
 
+// ── DEFINICION DE ESTRATEGIAS ──
+const ETF_STRATEGIES = [
+  { name: 'Golden Cross', regime: 'BULL', symbols: 'SPY, QQQ' },
+  { name: 'Donchian Breakout', regime: 'BULL', symbols: 'XLK, SMH' },
+  { name: 'Momentum Rotation', regime: 'BULL', symbols: 'Top ETFs' },
+  { name: 'MACD Trend', regime: 'BULL', symbols: 'SPY, QQQ' },
+  { name: 'RSI Dip', regime: 'CHOP', symbols: 'TQQQ' },
+  { name: 'Bollinger Reversion', regime: 'CHOP', symbols: 'SOXX' },
+  { name: 'VIX Filtered Rever', regime: 'BEAR', symbols: 'SPY' },
+  { name: 'VWAP Bounce', regime: 'CHOP', symbols: 'QQQ' },
+  { name: 'Pairs Trading', regime: 'CHOP', symbols: 'QQQ/SPY' },
+  { name: 'Grid Trading', regime: 'CHOP', symbols: 'TQQQ' },
+];
+
 // ── TAB SWITCHING ──
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -692,10 +712,11 @@ async function updateChartPeriod(type, period) {
 //  TAB ETF — carga de datos
 // ══════════════════════════════════════════════════════
 async function loadEtfData() {
-  const [acct, pos, orders] = await Promise.all([
+  const [acct, pos, orders, stratStats] = await Promise.all([
     fetchJSON('/api/account'),
     fetchJSON('/api/positions'),
-    fetchJSON('/api/orders')
+    fetchJSON('/api/orders'),
+    fetchJSON('/api/strategy/stats')
   ]);
 
   if (acct) {
@@ -746,7 +767,29 @@ async function loadEtfData() {
   // Logs
   const logs = await fetchJSON('/api/logs');
   renderLogs('etf-logs', logs);
-}
+
+  // Render strategy cards
+  const grid = document.getElementById('etf-strat-grid');
+  if (grid) {
+    grid.innerHTML = ETF_STRATEGIES.map(s => {
+      const stratID = s.name.replace(/\s+/g, '').substring(0, 15); // GoldenCross
+      let pnl = 0;
+      Object.keys(stratStats||{}).forEach(k => { if(k.includes(stratID)) pnl += stratStats[k].realized_pnl });
+      return `
+      <div class="strat-card">
+        <div class="strat-top">
+          <div class="strat-name">${s.name}</div>
+          <div class="strat-status active" title="Activa"></div>
+        </div>
+        <div class="strat-regime" style="color:var(--text-dim)">${s.regime}</div>
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px">
+            <div class="strat-symbol">${s.symbols}</div>
+            <div style="font-size:0.75rem; font-weight:700" class="${colorClass(pnl)}">${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+} // End loadEtfData
 
 // ══════════════════════════════════════════════════════
 //  TAB CRYPTO — carga de datos
@@ -765,10 +808,11 @@ const CRYPTO_STRATEGIES = [
 ];
 
 async function loadCryptoData() {
-  const [acct, pos, orders] = await Promise.all([
+  const [acct, pos, orders, stratStats] = await Promise.all([
     fetchJSON('/api/account'),
     fetchJSON('/api/positions'),
-    fetchJSON('/api/orders')
+    fetchJSON('/api/orders'),
+    fetchJSON('/api/strategy/stats')
   ]);
 
   if (acct) {
@@ -818,6 +862,9 @@ async function loadCryptoData() {
   const grid = document.getElementById('crypto-strat-grid');
   grid.innerHTML = CRYPTO_STRATEGIES.map(s => {
     const owned = cryptoPos.some(p => p.symbol?.replace('/','/') === s.symbols);
+    const stratID = s.name.replace(/\s+/g, '');
+    let pnl = 0;
+    Object.keys(stratStats||{}).forEach(k => { if(k.includes(stratID)) pnl += stratStats[k].realized_pnl });
     return `
     <div class="strat-card">
       <div class="strat-top">
@@ -825,7 +872,10 @@ async function loadCryptoData() {
         <div class="strat-status ${owned ? 'active' : 'standby'}" title="${owned?'Posición abierta':'Stand-by'}"></div>
       </div>
       <div class="strat-regime">P${s.p} • ${s.regime}</div>
-      <div class="strat-symbol">${s.symbols}</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px">
+          <div class="strat-symbol">${s.symbols}</div>
+          <div style="font-size:0.75rem; font-weight:700" class="${colorClass(pnl)}">${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -847,12 +897,13 @@ const EQ_STRATEGIES = [
 ];
 
 async function loadEquitiesData() {
-  const [regime, universe, portfolio, eqOrders, pos] = await Promise.all([
+  const [regime, universe, portfolio, eqOrders, pos, stratStats] = await Promise.all([
     fetchJSON('/api/equities/regime'),
     fetchJSON('/api/equities/universe'),
     fetchJSON('/api/equities/portfolio'),
     fetchJSON('/api/equities/orders'),
     fetchJSON('/api/positions'),
+    fetchJSON('/api/strategy/stats')
   ]);
 
   // Regime banner
@@ -938,6 +989,11 @@ async function loadEquitiesData() {
   grid.innerHTML = EQ_STRATEGIES.map(s => {
     const isEnabled = enabledStrats.includes(s.strat);
     const regiColor = s.regime === 'BULL' ? 'var(--green)' : s.regime === 'BEAR' ? 'var(--red)' : 'var(--yellow)';
+    
+    const stratID = s.name.replace(/\s+/g, '');
+    let pnl = 0;
+    Object.keys(stratStats||{}).forEach(k => { if(k.includes(stratID)) pnl += stratStats[k].realized_pnl });
+    
     return `
     <div class="strat-card">
       <div class="strat-top">
@@ -945,7 +1001,10 @@ async function loadEquitiesData() {
         <div class="strat-status ${isEnabled ? 'active' : 'standby'}" title="${isEnabled?'Habilitada en régimen actual':'Stand-by'}"></div>
       </div>
       <div class="strat-regime" style="color:${regiColor}">${s.regime}</div>
-      <div class="strat-symbol">${s.symbols}</div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px">
+          <div class="strat-symbol">${s.symbols}</div>
+          <div style="font-size:0.75rem; font-weight:700" class="${colorClass(pnl)}">${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}</div>
+      </div>
     </div>`;
   }).join('');
 }
