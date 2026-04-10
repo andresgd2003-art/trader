@@ -2,6 +2,9 @@ import asyncio
 import os
 import logging
 import threading
+import signal
+import sys
+import time
 from alpaca.data.live.crypto import CryptoDataStream
 from engine.order_manager_crypto import OrderManagerCrypto
 from engine.asset_arbiter import AssetArbiter
@@ -63,8 +66,12 @@ class CryptoTradingEngine:
         
         order_task = asyncio.create_task(self.order_manager.start())
 
+        # Configurar cierre limpio
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
+
         # El stream cripto se corre en background (Thread no bloqueante)
-        # Esto permite que coexista con el motor de acciones en el main.py
         stream_thread = threading.Thread(target=self.stream.run, daemon=True)
         stream_thread.start()
         
@@ -73,11 +80,24 @@ class CryptoTradingEngine:
         try:
             while stream_thread.is_alive():
                 await asyncio.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("Apagado de Cripto")
+        except Exception as e:
+            logger.error(f"[CryptoEngine] Error en loop: {e}")
         finally:
-            await self.order_manager.stop()
+            await self.stop()
             order_task.cancel()
+
+    async def stop(self):
+        """Detiene el motor cripto de forma limpia."""
+        logger.info("[CryptoEngine] Deteniendo stream y motor...")
+        try:
+            if hasattr(self.stream, 'stop'):
+                await self.stream.stop()
+            elif hasattr(self.stream, 'close'):
+                await self.stream.close()
+            logger.info("[CryptoEngine] Stream cripto cerrado.")
+        except:
+            pass
+        await self.order_manager.stop()
 
 # Se exporta la funcion para poder ser llamada desde FastAPI o main original
 async def run_crypto_background():

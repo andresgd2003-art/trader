@@ -28,6 +28,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import GetOrdersRequest, GetPortfolioHistoryRequest
 from alpaca.trading.enums import QueryOrderStatus
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
 
 logger = logging.getLogger("api_server")
 
@@ -61,20 +64,28 @@ def get_trading_client() -> TradingClient:
 
 @app.get("/api/account")
 async def get_account():
-    """Retorna balance, equity, P&L y buying power de la cuenta."""
+    """Retorna balance, equity, P&L y buying power de la cuenta dinámicamente."""
     try:
         client = get_trading_client()
         acc = client.get_account()
+        
+        equity = float(acc.equity)
+        last_equity = float(acc.last_equity) if acc.last_equity else equity
+        
+        # P&L del día basado en el cierre de ayer
+        pnl_day = equity - last_equity
+        pnl_day_pct = (pnl_day / last_equity * 100) if last_equity > 0 else 0
+        
         return {
-            "equity":           float(acc.equity),
+            "equity":           equity,
             "cash":             float(acc.cash),
             "buying_power":     float(acc.buying_power),
             "portfolio_value":  float(acc.portfolio_value),
-            "initial_capital":  100_000.0,   # Capital inicial de paper trading
-            "pnl":              float(acc.equity) - 100_000.0,
-            "pnl_pct":          (float(acc.equity) - 100_000.0) / 100_000.0 * 100,
-            "daytrade_count":   acc.daytrade_count,
+            "pnl_day":          pnl_day,
+            "pnl_day_pct":      round(pnl_day_pct, 2),
+            "total_pnl":        equity - last_equity, # Simplificado como cambio diario si no hay capital inicial
             "status":           acc.status.value if acc.status else "active",
+            "currency":         acc.currency,
         }
     except Exception as e:
         logger.error(f"[API] Error obteniendo cuenta: {e}")
@@ -139,16 +150,28 @@ import requests
 from datetime import timedelta
 @app.get("/api/history")
 async def get_history(period: str = "1M"):
-    """Retorna la historia del portafolio para el gráfico de equity."""
+    """Retorna la historia del portafolio con mayor flexibilidad de periodos."""
     try:
         url = "https://paper-api.alpaca.markets/v2/account/portfolio/history" if PAPER else "https://api.alpaca.markets/v2/account/portfolio/history"
         headers = {"APCA-API-KEY-ID": API_KEY, "APCA-API-SECRET-KEY": SECRET_KEY}
         
-        # Mapa de resolución optima
-        timeframes = {"1D": "5Min", "1W": "15Min", "1M": "1D", "1A": "1D"}
-        tf = timeframes.get(period, "1D")
+        # Mapa de resolución óptima para Alpaca
+        res_map = {
+            "1D": "5Min",
+            "1W": "1H",
+            "1M": "1D",
+            "3M": "1D",
+            "1A": "1W"
+        }
+        tf = res_map.get(period, "1D")
         
-        res = requests.get(url, headers=headers, params={"period": period, "timeframe": tf, "extended_hours": "true"})
+        params = {
+            "period": period,
+            "timeframe": tf,
+            "extended_hours": "true" if period == "1D" else "false"
+        }
+        
+        res = requests.get(url, headers=headers, params=params)
         data = res.json()
         
         if "timestamp" not in data or not data["timestamp"]:
@@ -157,17 +180,46 @@ async def get_history(period: str = "1M"):
         result = []
         for i, ts in enumerate(data["timestamp"]):
             equity = data["equity"][i] if i < len(data["equity"]) else 0
-            pl = data["profit_loss"][i] if i < len(data["profit_loss"]) else 0
-            
             if equity and equity > 0:
                 result.append({
-                    "date":   datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M"),
+                    "date": datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M"),
                     "equity": equity,
-                    "pl":     pl or 0,
+                    "profit": data["profit_loss"][i] if "profit_loss" in data else 0
                 })
         return result
     except Exception as e:
-        logger.error(f"[API] Error obteniendo historia directa: {e}")
+        logger.error(f"[API] Error en historia: {e}")
+        return []
+
+@app.get("/api/symbol/history/{symbol}")
+async def get_symbol_history(symbol: str, period: str = "1D"):
+    """Retorna historial de barras para un símbolo específico (para mini-charts)."""
+    try:
+        client = StockHistoricalDataClient(API_KEY, SECRET_KEY)
+        
+        if period == "1D":
+            tf = TimeFrame.Minute
+            qty = 390 # un día de mercado aprox
+        else:
+            tf = TimeFrame.Day
+            qty = 30
+            
+        request_params = StockBarsRequest(
+            symbol_or_symbols=symbol,
+            timeframe=tf,
+            limit=qty
+        )
+        bars = client.get_stock_bars(request_params)
+        
+        return [
+            {
+                "t": b.timestamp.isoformat(),
+                "c": b.close
+            }
+            for b in bars[symbol]
+        ]
+    except Exception as e:
+        logger.error(f"[API] Error historia símbolo {symbol}: {e}")
         return []
 
 
