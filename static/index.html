@@ -389,7 +389,10 @@
 
 <!-- ── TABS ── -->
 <div class="tab-bar">
-  <button class="tab-btn active" data-tab="etf" onclick="switchTab('etf')">
+  <button class="tab-btn active" data-tab="home" onclick="switchTab('home')">
+    <span class="tab-icon">🏠</span> Home
+  </button>
+  <button class="tab-btn" data-tab="etf" onclick="switchTab('etf')">
     <span class="tab-icon">📈</span> ETF Stocks
     <span class="tab-count" id="etf-pos-count">–</span>
   </button>
@@ -404,9 +407,52 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
+     TAB 0: HOME DASHBOARD (Visión General)
+════════════════════════════════════════════════════════════ -->
+<div class="tab-panel active" id="panel-home">
+  <div class="page-content" style="max-width: 1000px; margin: 0 auto;">
+    
+    <div class="section-header" style="text-align: center; margin-bottom: 30px; margin-top: 20px;">
+      <h1 style="font-size: 1.6rem; color: var(--text-primary); margin-bottom: 8px;">🌐 Resumen Maestro del Portafolio</h1>
+      <p style="color: var(--text-secondary); font-size: 0.9rem;">30 Estrategias operando simultáneamente en la nube de forma automatizada</p>
+    </div>
+
+    <!-- Motores -->
+    <div class="three-col" style="gap: 24px; margin-top: 40px;">
+      
+      <!-- Card ETF -->
+      <div class="card stat-card etf" style="cursor: pointer; text-align: center; padding: 40px 20px; transition: transform 0.2s;" onclick="switchTab('etf')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div style="font-size: 3.5rem; margin-bottom: 16px;">📈</div>
+        <h2 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">10 Bots ETF</h2>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 30px; padding: 0 10px;">Enfocado en ETFs apalancados 3X, coberturas SPY y rotación sectorial.</p>
+        <button style="background: rgba(0, 191, 165, 0.15); color: var(--etf-accent); border: 1px solid rgba(0, 191, 165, 0.4); padding: 10px 20px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer;">Entrar al Panel ETF</button>
+      </div>
+
+      <!-- Card Crypto -->
+      <div class="card stat-card crypto" style="cursor: pointer; text-align: center; padding: 40px 20px; transition: transform 0.2s;" onclick="switchTab('crypto')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div style="font-size: 3.5rem; margin-bottom: 16px;">₿</div>
+        <h2 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">10 Bots Cripto</h2>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 30px; padding: 0 10px;">Motor sin descanso 24/7. Opera fracciones directas en base a Momentum y Ondas.</p>
+        <button style="background: rgba(247, 147, 26, 0.15); color: var(--crypto-accent); border: 1px solid rgba(247, 147, 26, 0.4); padding: 10px 20px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer;">Entrar al Panel Cripto</button>
+      </div>
+
+      <!-- Card Equities -->
+      <div class="card stat-card eq" style="cursor: pointer; text-align: center; padding: 40px 20px; transition: transform 0.2s;" onclick="switchTab('eq')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div style="font-size: 3.5rem; margin-bottom: 16px;">⚡</div>
+        <h2 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">10 Bots Acciones</h2>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 30px; padding: 0 10px;">Acciones sumamente volátiles, intratiempo y detección de huecos de apertura (Gaps).</p>
+        <button style="background: rgba(144, 202, 249, 0.15); color: var(--eq-accent); border: 1px solid rgba(144, 202, 249, 0.4); padding: 10px 20px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer;">Entrar a Equities</button>
+      </div>
+
+    </div>
+    
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      TAB 1: ETF STOCKS (motor original)
 ════════════════════════════════════════════════════════════ -->
-<div class="tab-panel active" id="panel-etf">
+<div class="tab-panel" id="panel-etf">
   <div class="page-content">
 
     <!-- Stats Row -->
