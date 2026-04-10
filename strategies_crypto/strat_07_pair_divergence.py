@@ -1,0 +1,79 @@
+import logging
+import pandas as pd
+from collections import deque
+from engine.base_strategy import BaseStrategy
+
+logger = logging.getLogger(__name__)
+
+class CryptoPairDivergenceStrategy(BaseStrategy):
+    """
+    07 - Spot Pair Statistical Divergence (ETH/BTC)
+    Timeframe 15m. Mide el ratio ETH/BTC. 
+    Si ETH se vuelve demasiado 'barato' en términos de BTC (SMA 50 - 2 STD), compra ETH.
+    """
+    SMA_PERIOD = 50
+
+    def __init__(self, order_manager):
+        super().__init__("Pair Divergence", ["BTC/USD", "ETH/USD"], order_manager)
+        self.last_btc_close = None
+        self.last_eth_close = None
+        self.ratios = deque(maxlen=self.SMA_PERIOD * 2)
+        
+        self.in_position = False
+        self.current_qty = 0.0
+        self.last_minute = -1
+
+    async def on_bar(self, bar):
+        # Timeframe control de 15m
+        minute = bar.timestamp.minute
+        is_15m_crossover = minute % 15 == 0 and minute != self.last_minute
+
+        if bar.symbol == "BTC/USD":
+            self.last_btc_close = bar.close
+        elif bar.symbol == "ETH/USD":
+            self.last_eth_close = bar.close
+
+        if not self.last_btc_close or not self.last_eth_close:
+            return
+
+        if is_15m_crossover:
+            self.last_minute = minute
+            
+            # Ratio: Precio ETH / Precio BTC
+            ratio = self.last_eth_close / self.last_btc_close
+            self.ratios.append(ratio)
+
+            if len(self.ratios) < self.SMA_PERIOD:
+                return
+
+            s_ratios = pd.Series(list(self.ratios))
+            sma = s_ratios.rolling(window=self.SMA_PERIOD).mean().iloc[-1]
+            std = s_ratios.rolling(window=self.SMA_PERIOD).std().iloc[-1]
+
+            lower_band = sma - (2 * std)
+
+            if self.in_position:
+                # Regresión a la media
+                if ratio >= sma:
+                    logger.info(f"[{self.name}] Ratio volvió a la media ({ratio:.5f}). Saliendo de ETH.")
+                    await self.order_manager.submit_order(
+                        symbol="ETH/USD",
+                        qty=self.current_qty,
+                        side="sell",
+                        type="market",
+                        strategy_id=f"cry_pairsell"
+                    )
+                    self.in_position = False
+                    self.current_qty = 0.0
+            else:
+                if ratio < lower_band:
+                    logger.info(f"[{self.name}] Divergencia detectada. Ratio ({ratio:.5f}) < Band ({lower_band:.5f}). Comprando ETH.")
+                    self.in_position = True
+                    self.current_qty = round(100.0 / self.last_eth_close, 5)
+                    await self.order_manager.submit_order(
+                        symbol="ETH/USD",
+                        qty=self.current_qty,
+                        side="buy",
+                        type="market",
+                        strategy_id=f"cry_pairbuy"
+                    )

@@ -1,0 +1,77 @@
+import logging
+import numpy as np
+import pandas as pd
+from collections import deque
+from ta.trend import SMAIndicator
+from engine.base_strategy import BaseStrategy
+
+logger = logging.getLogger(__name__)
+
+class CryptoVolAnomalyStrategy(BaseStrategy):
+    """
+    06 - Volume Anomaly / Pump Catcher
+    Busca picos anormales de volumen en 1 minuto en High Beta Altcoins (LINK/USD).
+    """
+    SMA_VOL_PERIOD = 20
+
+    def __init__(self, order_manager):
+        super().__init__("Volume Anomaly", ["LINK/USD"], order_manager)
+        self._volumes = deque(maxlen=self.SMA_VOL_PERIOD * 2)
+        
+        self.in_position = False
+        self.entry_price = 0.0
+        self.max_price = 0.0
+        self.current_qty = 0.0
+
+    async def on_bar(self, bar):
+        self._volumes.append(bar.volume)
+
+        # Manejo del trailing stop primero
+        if self.in_position:
+            if bar.high > self.max_price:
+                self.max_price = bar.high
+            
+            ts_price = self.max_price * 0.985 # 1.5%
+            if bar.close <= ts_price:
+                logger.info(f"[{self.name}] Saliendo por TSL de 1.5%. Max: {self.max_price}")
+                await self.order_manager.submit_order(
+                    symbol=bar.symbol,
+                    qty=self.current_qty,
+                    side="sell",
+                    type="market",
+                    strategy_id=f"cry_volsell"
+                )
+                self.in_position = False
+                self.entry_price = 0.0
+                self.max_price = 0.0
+                self.current_qty = 0.0
+                return # Salimos, no evaluamos compra
+
+        if len(self._volumes) < self.SMA_VOL_PERIOD:
+            return
+
+        if not self.in_position:
+            vol_s = pd.Series(list(self._volumes)[:-1]) # sma sin incluir barra actual para no sesgar
+            if len(vol_s) < self.SMA_VOL_PERIOD:
+                return
+            sma_vol = SMAIndicator(vol_s, window=self.SMA_VOL_PERIOD).sma_indicator().iloc[-1]
+            
+            if sma_vol > 0:
+                is_pump = bar.volume > (sma_vol * 5)
+                is_bullish = bar.close > bar.open
+                
+                if is_pump and is_bullish:
+                    logger.info(f"[{self.name}] ANOMALIA DETECTADA. Vol: {bar.volume} | SMA: {sma_vol}. Comprando!")
+                    self.in_position = True
+                    self.entry_price = bar.close
+                    self.max_price = bar.close
+                    
+                    # Size 100 USD
+                    self.current_qty = round(100.0 / bar.close, 5)
+                    await self.order_manager.submit_order(
+                        symbol=bar.symbol,
+                        qty=self.current_qty,
+                        side="buy",
+                        type="market",
+                        strategy_id=f"cry_volbuy"
+                    )

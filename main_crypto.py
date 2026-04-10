@@ -22,11 +22,25 @@ class CryptoTradingEngine:
         from strategies_crypto.strat_01_ema_cross import CryptoEMACrossStrategy
         from strategies_crypto.strat_02_bb_breakout import CryptoBBBreakoutStrategy
         from strategies_crypto.strat_03_grid_spot import CryptoGridSpotStrategy
+        from strategies_crypto.strat_04_smart_twap import CryptoSmartTWAPStrategy
+        from strategies_crypto.strat_05_funding_squeeze import CryptoFundingSqueezeStrategy
+        from strategies_crypto.strat_06_vol_anomaly import CryptoVolAnomalyStrategy
+        from strategies_crypto.strat_07_pair_divergence import CryptoPairDivergenceStrategy
+        from strategies_crypto.strat_08_ema_ribbon import CryptoEMARibbonStrategy
+        from strategies_crypto.strat_09_vwap_touch import CryptoVWAPTouchStrategy
+        from strategies_crypto.strat_10_sentiment import CryptoSentimentStrategy
 
         return [
             CryptoEMACrossStrategy(self.order_manager),
             CryptoBBBreakoutStrategy(self.order_manager),
-            CryptoGridSpotStrategy(self.order_manager)
+            CryptoGridSpotStrategy(self.order_manager),
+            CryptoSmartTWAPStrategy(self.order_manager),
+            CryptoFundingSqueezeStrategy(self.order_manager),
+            CryptoVolAnomalyStrategy(self.order_manager),
+            CryptoPairDivergenceStrategy(self.order_manager),
+            CryptoEMARibbonStrategy(self.order_manager),
+            CryptoVWAPTouchStrategy(self.order_manager),
+            CryptoSentimentStrategy(self.order_manager)
         ]
 
     async def _on_crypto_bar(self, bar):

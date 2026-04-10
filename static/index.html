@@ -618,7 +618,14 @@ const STRATEGIES = [
   // CRYPTO STRATEGIES
   { id: "CryptoEMACross",      name: "EMA Trend Crossover", symbol: "BTC/USD", group: "crypto" },
   { id: "CryptoBBBreakout",    name: "Bollinger Volatility Breakout", symbol: "ETH/USD", group: "crypto" },
-  { id: "CryptoGridSpot",      name: "Dynamic Spot Grid",   symbol: "SOL/USD", group: "crypto" }
+  { id: "CryptoGridSpot",      name: "Dynamic Spot Grid",   symbol: "SOL/USD", group: "crypto" },
+  { id: "CryptoSmartTWAP",     name: "Smart TWAP Accum",    symbol: "BTC/USD", group: "crypto" },
+  { id: "CryptoFundingSqueeze",name: "Funding Squeeze",     symbol: "ETH/USD", group: "crypto" },
+  { id: "CryptoVolAnomaly",    name: "Volume Anomaly",      symbol: "LINK/USD", group: "crypto" },
+  { id: "CryptoPairDivergence",name: "Pair Divergence",     symbol: "BTC/USD, ETH/USD", group: "crypto" },
+  { id: "CryptoEMARibbon",     name: "EMA Ribbon Pullback", symbol: "BCH/USD", group: "crypto" },
+  { id: "CryptoVWAPTouch",     name: "VWAP Touch-and-Go",   symbol: "BTC/USD", group: "crypto" },
+  { id: "CryptoSentiment",     name: "Sentiment F&G",       symbol: "BTC/USD", group: "crypto" }
 ];
 
 let currentAppGroup = 'stocks'; // 'stocks' o 'crypto'
