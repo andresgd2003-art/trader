@@ -1063,7 +1063,11 @@ async function loadCryptoData() {
   setEl('crypto-open-pos', cryptoPos.length);
   document.getElementById('crypto-pos-count').textContent = cryptoPos.length;
 
-  const cryptoOrds = (orders||[]).filter(o => String(o.client_id||'').startsWith('cry_'));
+  // Filtramos órdenes cripto por client_id (prefijo 'cry_')
+  const cryptoOrds = (orders||[]).filter(o => {
+    const cid = String(o.client_id || o.client_order_id || '');
+    return cid.startsWith('cry_');
+  });
 
   document.getElementById('crypto-arbiter').textContent = cryptoPos.length > 0
     ? `${cryptoPos.map(p=>p.symbol).join(', ')}`
@@ -1080,15 +1084,15 @@ async function loadCryptoData() {
     </tr>`).join('') : '<tr><td colspan="5" class="empty-msg">Sin posiciones crypto</td></tr>';
 
   const ordBody = document.getElementById('crypto-orders-body');
-  ordBody.innerHTML = cryptoOrds.slice(0,15).map(o => `
+  ordBody.innerHTML = cryptoOrds.length ? cryptoOrds.slice(0,15).map(o => `
     <tr>
       <td style="font-weight:600;color:var(--crypto-accent)">${o.symbol}</td>
       <td class="${o.side==='buy'?'badge-buy':'badge-sell'}">${o.side?.toUpperCase()}</td>
-      <td>${o.qty}</td>
+      <td>${o.filled_qty || o.qty}</td>
       <td class="${o.status==='filled'?'badge-filled':'badge-new'}">${o.status}</td>
-      <td>${o.filled_avg_price ? fmtMoney(o.filled_avg_price) : '—'}</td>
-      <td style="color:var(--text-dim)">${(o.created_at||'').substring(11,19)}</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="empty-msg">Sin órdenes crypto hoy</td></tr>';
+      <td>${(o.filled_avg_price || o.filled_price) ? fmtMoney(o.filled_avg_price || o.filled_price) : '—'}</td>
+      <td style="color:var(--text-dim)">${(o.created_at||o.submitted_at||'').substring(11,19)}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-msg">Sin órdenes crypto hoy</td></tr>';
 
   // Chart
   const histData = await fetchJSON(`/api/history?period=${_currentPeriod['crypto']}&engine=crypto`);
