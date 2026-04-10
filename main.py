@@ -200,11 +200,15 @@ if __name__ == "__main__":
     
     from main_crypto import CryptoTradingEngine
     crypto_engine = CryptoTradingEngine()
+
+    from main_equities import EquitiesEngine
+    equities_engine = EquitiesEngine()
     
     async def run_both():
         await asyncio.gather(
             engine.run(),
             crypto_engine.start_engine(),
+            equities_engine.start_engine(),
             return_exceptions=True
         )
 

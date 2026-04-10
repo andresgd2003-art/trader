@@ -331,7 +331,79 @@ async def get_logs(limit: int = 100):
 @app.get("/api/health")
 async def health():
     """Health check."""
-    return {"status": "ok", "engine": "AlpacaNode v1.0", "paper": PAPER}
+    return {"status": "ok", "engine": "AlpacaNode v2.0", "paper": PAPER}
+
+
+# ============================================================
+# ENDPOINTS EQUITIES ENGINE
+# ============================================================
+
+@app.get("/api/equities/status")
+async def get_equities_status():
+    """Estado del EquitiesEngine: estrategias activas, is_running, etc."""
+    try:
+        from main_equities import get_eq_engine_status
+        return get_eq_engine_status()
+    except Exception as e:
+        return {"error": str(e), "is_running": False, "strategies": []}
+
+
+@app.get("/api/equities/regime")
+async def get_equities_regime():
+    """Régimen de mercado actual (BULL/BEAR/CHOP) + datos de SPY y VIX."""
+    try:
+        from engine.regime_manager import get_current_regime
+        return get_current_regime()
+    except Exception as e:
+        return {"error": str(e), "regime": "UNKNOWN"}
+
+
+@app.get("/api/equities/universe")
+async def get_equities_universe():
+    """Universo dinámico del día: gainers y losers filtrados."""
+    try:
+        from engine.screener import get_daily_universe
+        return get_daily_universe()
+    except Exception as e:
+        return {"error": str(e), "gainers": [], "losers": [], "all": []}
+
+
+@app.get("/api/equities/portfolio")
+async def get_equities_portfolio():
+    """Estado del portfolio: equity, ATH, drawdown, circuit breaker."""
+    try:
+        from engine.portfolio_manager import get_portfolio_status
+        return get_portfolio_status()
+    except Exception as e:
+        return {"error": str(e), "equity": 0, "is_halted": False}
+
+
+@app.get("/api/equities/orders")
+async def get_equities_orders():
+    """Órdenes del día filtradas con prefijo 'eq_'."""
+    try:
+        client = get_trading_client()
+        request = GetOrdersRequest(status=QueryOrderStatus.ALL, limit=50)
+        orders = client.get_orders(request)
+        eq_orders = [
+            {
+                "id": str(o.id),
+                "symbol": o.symbol,
+                "side": o.side.value if o.side else "?",
+                "qty": str(o.qty),
+                "status": o.status.value if o.status else "?",
+                "type": o.type.value if o.type else "?",
+                "client_id": str(o.client_order_id or ""),
+                "created_at": o.created_at.isoformat() if o.created_at else "",
+                "filled_avg_price": str(o.filled_avg_price or ""),
+            }
+            for o in orders
+            if str(o.client_order_id or "").startswith("eq_")
+        ]
+        return eq_orders
+    except Exception as e:
+        logger.error(f"[API] Error obteniendo órdenes de equities: {e}")
+        return []
 
 
 # ============================================================

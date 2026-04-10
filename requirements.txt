@@ -5,6 +5,7 @@ alpaca-py==0.32.0
 # Data & Math
 pandas==2.2.2
 numpy==1.26.4
+scipy==1.13.1
 
 # Technical Indicators - ta library (pure Python, available on PyPI)
 ta==0.11.0
@@ -18,3 +19,9 @@ python-dotenv==1.0.1
 # websockets >=14 rompe la API de extra_headers que usa alpaca-py 0.32.0
 websockets>=10.4,<14
 aiohttp==3.10.5
+requests==2.32.3
+
+# NLP Sentiment (Equities Engine - Strat 08)
+# torch CPU-only para no saturar el VPS de 4GB (sin GPU)
+torch==2.3.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+transformers==4.41.2

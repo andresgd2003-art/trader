@@ -3,27 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AlpacaNode — Trading Dashboard</title>
+  <title>AlpacaNode v2 — Trading Dashboard</title>
+  <meta name="description" content="AlpacaNode: Motor de trading algorítmico para ETFs, Cripto y Acciones individuales. Dashboard en tiempo real." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg-primary:   #080c14;
-      --bg-secondary: #0d1424;
-      --bg-card:      #111827;
-      --bg-card-alt:  #0f1929;
-      --border:       #1e2d47;
-      --accent:       #00d4ff;
-      --accent-glow:  rgba(0, 212, 255, 0.15);
-      --green:        #00e676;
-      --green-dim:    rgba(0, 230, 118, 0.1);
-      --red:          #ff5252;
-      --red-dim:      rgba(255, 82, 82, 0.1);
-      --yellow:       #ffd740;
-      --text-primary: #e8eaf6;
+      --bg-primary:    #060a12;
+      --bg-secondary:  #0a1120;
+      --bg-card:       #0f1929;
+      --bg-card-alt:   #0c1520;
+      --border:        #1a2d47;
+      --border-bright: #243d60;
+      --accent:        #00d4ff;
+      --accent-glow:   rgba(0, 212, 255, 0.18);
+      --accent-dim:    rgba(0, 212, 255, 0.08);
+      /* Tab colors */
+      --etf-accent:    #4f8ef7;
+      --etf-glow:      rgba(79, 142, 247, 0.18);
+      --crypto-accent: #f7931a;
+      --crypto-glow:   rgba(247, 147, 26, 0.18);
+      --eq-accent:     #00e5a0;
+      --eq-glow:       rgba(0, 229, 160, 0.18);
+      /* Status colors */
+      --green:         #00e676;
+      --green-dim:     rgba(0, 230, 118, 0.12);
+      --red:           #ff4f6d;
+      --red-dim:       rgba(255, 79, 109, 0.12);
+      --yellow:        #ffd740;
+      --yellow-dim:    rgba(255, 215, 64, 0.12);
+      --text-primary:  #e8eaf6;
       --text-secondary: #7986cb;
-      --text-dim:     #3d4f6e;
+      --text-dim:      #3a4f6e;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -38,933 +50,888 @@
 
     /* ── NAVBAR ── */
     .navbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 28px;
-      height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px; height: 64px;
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      position: sticky; top: 0; z-index: 200;
+    }
+    .navbar-brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #7b5ea7);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: #000;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .brand-name { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
+    .brand-sub { font-size: 0.68rem; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
+    .navbar-right { display: flex; align-items: center; gap: 16px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 1px;
+      color: var(--green); text-transform: uppercase;
+    }
+    .live-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+
+    .paper-badge {
+      padding: 4px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 600;
+      background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,215,64,.25);
+      letter-spacing: .8px; text-transform: uppercase;
     }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: -0.3px;
+    /* ── TABS ── */
+    .tab-bar {
+      display: flex; align-items: center; gap: 0;
+      background: var(--bg-secondary); border-bottom: 1px solid var(--border);
+      padding: 0 24px; position: sticky; top: 64px; z-index: 150;
+    }
+    .tab-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 22px; height: 48px;
+      background: none; border: none; cursor: pointer;
+      font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600;
+      color: var(--text-secondary); border-bottom: 2px solid transparent;
+      transition: all .25s ease; position: relative; top: 1px;
+      white-space: nowrap; letter-spacing: .3px;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active[data-tab="etf"]    { color: var(--etf-accent);    border-bottom-color: var(--etf-accent); }
+    .tab-btn.active[data-tab="crypto"] { color: var(--crypto-accent);  border-bottom-color: var(--crypto-accent); }
+    .tab-btn.active[data-tab="eq"]     { color: var(--eq-accent);     border-bottom-color: var(--eq-accent); }
+    .tab-icon { font-size: 1.1rem; }
+    .tab-count {
+      font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 10px;
+      background: var(--bg-card); color: var(--text-secondary);
     }
 
-    .logo-icon {
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, var(--accent), #7c4dff);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
+    /* ── TAB PANELS ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
 
-    .nav-status {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      font-size: 13px;
-    }
+    /* ── LAYOUT ── */
+    .page-content { padding: 24px 28px; max-width: 1800px; margin: 0 auto; }
 
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--green-dim);
-      border: 1px solid rgba(0,230,118,0.3);
-      padding: 5px 12px;
-      border-radius: 20px;
-      color: var(--green);
-      font-weight: 500;
-      font-size: 12px;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s infinite;
-    }
-
-    .btn-refresh {
+    /* ── REGIME BANNER ── */
+    .regime-banner {
+      display: flex; align-items: center; gap: 16px;
+      padding: 14px 20px; margin-bottom: 20px;
+      border-radius: 12px; border: 1px solid var(--border);
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
+      animation: fadeIn .4s ease;
     }
-    .btn-refresh:hover {
-      border-color: var(--accent);
-      color: var(--accent);
+    .regime-badge {
+      font-size: 0.75rem; font-weight: 700; padding: 5px 14px; border-radius: 20px;
+      letter-spacing: 1px; text-transform: uppercase;
     }
-    .btn-refresh.spin { pointer-events: none; opacity: 0.7; }
-    .btn-refresh.spin .icon { animation: rotate 1s linear infinite; }
+    .regime-badge.BULL { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+    .regime-badge.BEAR { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,79,109,.3); }
+    .regime-badge.CHOP { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,215,64,.3); }
+    .regime-badge.UNKNOWN { background: var(--bg-card-alt); color: var(--text-secondary); border: 1px solid var(--border); }
+    .regime-detail { font-size: 0.8rem; color: var(--text-secondary); }
+    .regime-detail span { color: var(--text-primary); font-weight: 600; }
 
-    @keyframes rotate { 100% { transform: rotate(360deg); } }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,230,118,0.4); }
-      50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(0,230,118,0); }
+    /* ── STAT CARDS ── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px; margin-bottom: 20px;
     }
-
-    .nav-time {
-      color: var(--text-secondary);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px 20px; position: relative; overflow: hidden;
+      transition: border-color .2s, transform .2s;
     }
-
-    /* ── LAYOUT GRID ── */
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr;
-      grid-template-rows: auto auto auto 1fr;
-      gap: 16px;
-      padding: 20px 24px;
-      max-width: 1600px;
-      margin: 0 auto;
+    .stat-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
+    .stat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      border-radius: 14px 14px 0 0;
     }
+    .stat-card.etf::before    { background: linear-gradient(90deg, var(--etf-accent), transparent); }
+    .stat-card.crypto::before { background: linear-gradient(90deg, var(--crypto-accent), transparent); }
+    .stat-card.eq::before     { background: linear-gradient(90deg, var(--eq-accent), transparent); }
+    .stat-card.neutral::before { background: linear-gradient(90deg, var(--accent), transparent); }
+    .stat-label { font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 8px; }
+    .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 600; line-height: 1; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red   { color: var(--red); }
+    .stat-value.yellow{ color: var(--yellow); }
+    .stat-sub { font-size: 0.72rem; color: var(--text-secondary); margin-top: 6px; }
 
-    /* ── CARDS ── */
+    /* ── TWO COLUMN LAYOUT ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+    @media (max-width: 1200px) { .three-col { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 900px)  { .two-col, .three-col { grid-template-columns: 1fr; } }
+
+    /* ── CARD ── */
     .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px 24px;
-      transition: border-color 0.2s;
-    }
-
-    .card:hover {
-      border-color: rgba(0,212,255,0.25);
-    }
-
-    .card-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-    }
-
-    .card-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 28px;
-      font-weight: 500;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-
-    .card-sub {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-top: 6px;
-    }
-
-    .positive { color: var(--green); }
-    .negative { color: var(--red); }
-    .neutral  { color: var(--text-primary); }
-
-    /* ── STAT CARDS (row 1) ── */
-    .stat-equity    { grid-column: 1; grid-row: 1; }
-    .stat-pnl       { grid-column: 2; grid-row: 1; }
-    .stat-cash      { grid-column: 3; grid-row: 1; }
-    .stat-buying    { grid-column: 4; grid-row: 1; }
-
-    .equity-glow {
-      position: relative;
-    }
-    .equity-glow::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent), #7c4dff);
-      opacity: 0.08;
-      pointer-events: none;
-    }
-
-    /* ── CHART (row 2, full width) ── */
-    .chart-card {
-      grid-column: 1 / 5;
-      grid-row: 2;
-      padding: 20px 24px;
-    }
-
-    .chart-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .chart-header-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .chart-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .btn-reset-chart {
-      background: var(--bg-card-alt);
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      cursor: pointer;
-      display: none;
-    }
-    .btn-reset-chart:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    
-    .time-toggles {
-      display: flex;
-      background: rgba(30,45,71,0.3);
-      border-radius: 6px;
-      padding: 3px;
-    }
-    
-    .time-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      padding: 4px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .time-btn.active {
-      background: var(--accent);
-      color: #000;
-      font-weight: 600;
-    }
-
-    .chart-container {
-      position: relative;
-      height: 200px;
-    }
-
-    /* ── STRATEGIES (row 3, spans 4 cols) ── */
-    .strategies-card {
-      grid-column: 1 / 5;
-      grid-row: 3;
-    }
-
-    .btn-download {
-      background: rgba(0, 212, 255, 0.1);
-      border: 1px solid rgba(0, 212, 255, 0.3);
-      color: var(--accent);
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.2s;
-    }
-    .btn-download:hover {
-      background: rgba(0, 212, 255, 0.2);
-    }
-
-    /* ── POSITIONS (row 4, 2 cols) ── */
-    .positions-card {
-      grid-column: 1 / 3;
-      grid-row: 4;
-    }
-
-    /* ── ORDERS (row 4, col 3-4) ── */
-    .orders-card {
-      grid-column: 3 / 5;
-      grid-row: 4;
-    }
-
-    /* ── TABLES ── */
-    .table-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-
-    .section-title {
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .badge {
-      background: var(--bg-card-alt);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 500;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12.5px;
-    }
-
-    th {
-      text-align: left;
-      padding: 6px 8px;
-      color: var(--text-secondary);
-      font-weight: 500;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      border-bottom: 1px solid var(--border);
-    }
-
-    td {
-      padding: 9px 8px;
-      border-bottom: 1px solid rgba(30,45,71,0.5);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-    }
-
-    tr:last-child td { border-bottom: none; }
-    
-    .row-clickable { cursor: pointer; transition: background 0.2s; }
-    .row-clickable:hover { background: rgba(0,212,255,0.08); }
-
-    .side-buy  { color: var(--green); font-weight: 600; }
-    .side-sell { color: var(--red); font-weight: 600; }
-
-    .status-filled    { color: var(--green); }
-    .status-open      { color: var(--yellow); }
-    .status-cancelled { color: var(--text-dim); }
-    .status-pending   { color: var(--accent); }
-
-    .empty-state {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 32px;
-      color: var(--text-dim);
-      font-size: 13px;
-      font-style: italic;
-    }
-
-    /* ── LOGS (bottom, full width) ── */
-    .logs-section {
-      grid-column: 1 / 5;
-      grid-row: 5;
-    }
-
-    .logs-terminal {
-      background: #060a11;
-      border: 1px solid var(--border);
-      border-radius: 14px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
       overflow: hidden;
     }
-
-    .logs-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 20px;
-      background: #0a1120;
-      border-bottom: 1px solid var(--border);
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
     }
+    .card-title { font-size: 0.82rem; font-weight: 600; letter-spacing: .3px; color: var(--text-primary); }
+    .card-body { padding: 16px 18px; }
 
-    .terminal-dots {
-      display: flex;
-      gap: 6px;
+    /* ── CHART ── */
+    .chart-wrap { position: relative; height: 200px; }
+
+    /* ── TABLE ── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      font-size: 0.65rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;
+      letter-spacing: .8px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+      text-align: left;
     }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .dot-red    { background: #ff5f57; }
-    .dot-yellow { background: #febc2e; }
-    .dot-green  { background: #28c840; }
-
-    .logs-title {
-      font-size: 12px;
-      color: var(--text-secondary);
+    .data-table td {
+      font-size: 0.78rem; padding: 10px 12px; border-bottom: 1px solid rgba(26,45,71,.5);
       font-family: 'JetBrains Mono', monospace;
     }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--bg-card-alt); }
+    .badge-buy   { color: var(--green); font-weight: 600; }
+    .badge-sell  { color: var(--red); font-weight: 600; }
+    .badge-filled { color: var(--green); font-size: 0.65rem; }
+    .badge-new    { color: var(--yellow); font-size: 0.65rem; }
+    .badge-held   { color: var(--text-secondary); font-size: 0.65rem; }
 
-    .logs-body {
-      padding: 14px 20px;
-      height: 260px;
-      overflow-y: auto;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11.5px;
-      line-height: 1.8;
+    /* ── STRATEGY GRID ── */
+    .strat-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;
     }
-
-    .logs-body::-webkit-scrollbar { width: 4px; }
-    .logs-body::-webkit-scrollbar-track { background: transparent; }
-    .logs-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-    .log-line {
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-      padding: 2px 0;
-      animation: fadeIn 0.3s ease;
+    .strat-card {
+      background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 16px; position: relative; transition: border-color .2s;
     }
+    .strat-card:hover { border-color: var(--border-bright); }
+    .strat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .strat-name { font-size: 0.8rem; font-weight: 600; }
+    .strat-status { width: 8px; height: 8px; border-radius: 50%; }
+    .strat-status.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .strat-status.paused { background: var(--red); }
+    .strat-status.standby { background: var(--yellow); }
+    .strat-regime { font-size: 0.65rem; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; }
+    .strat-symbol { font-size: 0.72rem; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
 
-    @keyframes fadeIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; } }
+    /* ── TICKER CHIPS ── */
+    .ticker-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 5px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace; transition: transform .15s;
+      cursor: default;
+    }
+    .chip:hover { transform: scale(1.05); }
+    .chip-gainer { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.2); }
+    .chip-loser  { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,79,109,.2); }
+    .chip-neutral { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
 
-    .log-time { color: var(--text-dim); min-width: 60px; }
+    /* ── CIRCUIT BREAKER ── */
+    .circuit-alert {
+      display: none; align-items: center; gap: 12px;
+      background: var(--red-dim); border: 1px solid rgba(255,79,109,.4); border-radius: 12px;
+      padding: 14px 20px; margin-bottom: 20px;
+    }
+    .circuit-alert.visible { display: flex; animation: shake .4s ease; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+    .circuit-icon { font-size: 1.4rem; }
+    .circuit-text strong { color: var(--red); }
+    .circuit-text p { font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
 
-    .log-level-INFO    { color: var(--accent); min-width: 42px; }
-    .log-level-WARNING { color: var(--yellow); min-width: 42px; }
-    .log-level-ERROR   { color: var(--red); min-width: 42px; }
+    /* ── DRAWDOWN METER ── */
+    .drawdown-bar-wrap { margin-top: 10px; }
+    .drawdown-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 4px; }
+    .drawdown-bar { height: 6px; background: var(--bg-card-alt); border-radius: 3px; overflow: hidden; }
+    .drawdown-fill { height: 100%; background: var(--green); border-radius: 3px; transition: width .6s ease, background .4s; }
 
-    .log-source { color: #5c7aab; min-width: 120px; }
-    .log-msg    { color: #c5d1e8; flex: 1; }
+    /* ── LOG VIEWER ── */
+    .log-box {
+      background: #030609; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; max-height: 280px; overflow-y: auto; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem; line-height: 1.6;
+    }
+    .log-box::-webkit-scrollbar { width: 5px; }
+    .log-box::-webkit-scrollbar-track { background: transparent; }
+    .log-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+    .log-line { padding: 1px 0; }
+    .log-line.INFO  { color: #7cbcff; }
+    .log-line.WARNING { color: var(--yellow); }
+    .log-line.ERROR { color: var(--red); }
+    .log-line.DEBUG { color: var(--text-dim); }
 
-    /* Scrollbar global */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: var(--bg-primary); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    /* ── MISC ── */
+    .empty-msg { text-align: center; color: var(--text-secondary); font-size: 0.8rem; padding: 24px; }
+    .refresh-btn {
+      padding: 6px 14px; background: var(--accent-dim); border: 1px solid rgba(0,212,255,.2);
+      color: var(--accent); border-radius: 8px; font-size: 0.72rem; font-weight: 600;
+      cursor: pointer; transition: all .2s; font-family: 'Space Grotesk', sans-serif;
+    }
+    .refresh-btn:hover { background: rgba(0,212,255,.2); }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in { animation: fadeIn .35s ease; }
+
+    /* ── SECTION HEADER ── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .section-title { font-size: 0.9rem; font-weight: 700; letter-spacing: -.2px; }
+    .last-updated { font-size: 0.68rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+    /* ── RESPONSIVE PADDING ── */
+    @media (max-width: 768px) { .page-content { padding: 16px; } .navbar { padding: 0 16px; } }
   </style>
 </head>
 <body>
 
 <!-- ── NAVBAR ── -->
 <nav class="navbar">
-  <div class="logo">
-    <div class="logo-icon">🦙</div>
-    AlpacaNode
-  </div>
-  <div class="nav-status">
-    <button class="btn-refresh" id="btn-refresh" onclick="manualRefresh()">
-      <span class="icon">↻</span> Actualizar
-    </button>
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      PAPER TRADING — EN VIVO
+  <div class="navbar-brand">
+    <div class="brand-logo">A</div>
+    <div>
+      <div class="brand-name">AlpacaNode <span style="color:var(--accent)">v2</span></div>
+      <div class="brand-sub">Algorithmic Trading Engine</div>
     </div>
-    <div class="nav-time" id="nav-time">--:--:--</div>
+  </div>
+  <div class="navbar-right">
+    <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+    <div class="paper-badge">📄 Paper Trading</div>
+    <span id="clock" style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text-secondary)"></span>
   </div>
 </nav>
 
-<div style="padding: 15px 24px 0 24px; max-width: 1600px; margin: 0 auto; display: flex; gap: 10px;">
-  <button id="btn-tab-stocks" onclick="switchTab('stocks')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(0, 212, 255, 0.1); color: var(--accent); font-weight: 600; cursor: pointer; transition: all 0.2s;">📈 Mercado Acciones (L-V)</button>
-  <button id="btn-tab-crypto" onclick="switchTab('crypto')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-weight: 600; cursor: pointer; transition: all 0.2s;">⚡ Mercado Cripto (24/7)</button>
+<!-- ── TABS ── -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="etf" onclick="switchTab('etf')">
+    <span class="tab-icon">📈</span> ETF Stocks
+    <span class="tab-count" id="etf-pos-count">–</span>
+  </button>
+  <button class="tab-btn" data-tab="crypto" onclick="switchTab('crypto')">
+    <span class="tab-icon">₿</span> Crypto 24/7
+    <span class="tab-count" id="crypto-pos-count">–</span>
+  </button>
+  <button class="tab-btn" data-tab="eq" onclick="switchTab('eq')">
+    <span class="tab-icon">⚡</span> Equities
+    <span class="tab-count" id="eq-pos-count">–</span>
+  </button>
 </div>
 
-<!-- ── MAIN GRID ── -->
-<div class="main-grid">
+<!-- ════════════════════════════════════════════════════════════
+     TAB 1: ETF STOCKS (motor original)
+════════════════════════════════════════════════════════════ -->
+<div class="tab-panel active" id="panel-etf">
+  <div class="page-content">
 
-  <!-- Equity -->
-  <div class="card stat-equity equity-glow">
-    <div class="card-label">Valor del Portafolio</div>
-    <div class="card-value neutral" id="stat-equity">$—</div>
-    <div class="card-sub">Capital total actual</div>
-  </div>
+    <!-- Stats Row -->
+    <div class="stats-grid" id="etf-stats-grid">
+      <div class="stat-card etf">
+        <div class="stat-label">Equity Total</div>
+        <div class="stat-value" id="etf-equity">—</div>
+        <div class="stat-sub">Cuenta Alpaca</div>
+      </div>
+      <div class="stat-card etf">
+        <div class="stat-label">P&L Hoy</div>
+        <div class="stat-value" id="etf-pnl">—</div>
+        <div class="stat-sub" id="etf-pnl-pct">—</div>
+      </div>
+      <div class="stat-card etf">
+        <div class="stat-label">Posiciones Abiertas</div>
+        <div class="stat-value" id="etf-open-pos">—</div>
+        <div class="stat-sub">10 Estrategias ETF</div>
+      </div>
+      <div class="stat-card etf">
+        <div class="stat-label">Órdenes Hoy</div>
+        <div class="stat-value" id="etf-orders-count">—</div>
+        <div class="stat-sub">Ejecutadas / Pendientes</div>
+      </div>
+    </div>
 
-  <!-- P&L -->
-  <div class="card stat-pnl">
-    <div class="card-label">P&L Total</div>
-    <div class="card-value" id="stat-pnl">$—</div>
-    <div class="card-sub" id="stat-pnl-pct">vs $100,000 inicial</div>
-  </div>
-
-  <!-- Cash -->
-  <div class="card stat-cash">
-    <div class="card-label">Efectivo Disponible</div>
-    <div class="card-value neutral" id="stat-cash">$—</div>
-    <div class="card-sub">Capital sin invertir</div>
-  </div>
-
-  <!-- Buying Power -->
-  <div class="card stat-buying">
-    <div class="card-label">Poder de Compra</div>
-    <div class="card-value neutral" id="stat-buying">$—</div>
-    <div class="card-sub">Disponible para nuevas órdenes</div>
-  </div>
-
-  <!-- Equity Chart -->
-  <div class="card chart-card">
-    <div class="chart-header">
-      <div class="chart-header-left">
-        <span class="chart-title" id="chart-main-title">Rendimiento Histórico</span>
-        <div class="time-toggles" id="time-toggles">
-          <button class="time-btn" onclick="setTimeframe('1D')">1D</button>
-          <button class="time-btn" onclick="setTimeframe('1W')">1W</button>
-          <button class="time-btn active" onclick="setTimeframe('1M')">1M</button>
-          <button class="time-btn" onclick="setTimeframe('1A')">1Y</button>
+    <div class="two-col">
+      <!-- Histórico Portfolio -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📊 Portfolio History (ETF)</span>
         </div>
-        <button class="btn-reset-chart" id="btn-reset-chart" onclick="resetChartToGlobal()">← Volver a Global</button>
-      </div>
-      <span class="badge" id="chart-last-date">Cargando...</span>
-    </div>
-    <div class="chart-container">
-      <canvas id="equity-chart"></canvas>
-    </div>
-  </div>
-
-  <!-- Strategies -->
-  <div class="card strategies-card">
-    <div class="table-header">
-      <span class="section-title">Análisis por Estrategia (10 Activas) — Clic para ver gráfica</span>
-      <span class="badge" id="strat-count">10</span>
-    </div>
-    <div style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>Estrategia</th>
-            <th>Símbolo</th>
-            <th>Métrica de Actividad</th>
-            <th>Reportes (CSV)</th>
-          </tr>
-        </thead>
-        <tbody id="strat-list">
-          <!-- rendered by JS -->
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Positions -->
-  <div class="card positions-card">
-    <div class="table-header">
-      <span class="section-title">Posiciones Abiertas</span>
-      <span class="badge" id="pos-count">0</span>
-    </div>
-    <div id="positions-table-wrap">
-      <div class="empty-state">No hay posiciones abiertas</div>
-    </div>
-  </div>
-
-  <!-- Orders -->
-  <div class="card orders-card">
-    <div class="table-header">
-      <span class="section-title">Órdenes Recientes</span>
-      <span class="badge" id="orders-count">0</span>
-    </div>
-    <div id="orders-table-wrap">
-      <div class="empty-state">No hay órdenes recientes</div>
-    </div>
-  </div>
-
-  <!-- Logs -->
-  <div class="logs-section">
-    <div class="logs-terminal">
-      <div class="logs-header">
-        <div class="terminal-dots">
-          <div class="dot dot-red"></div>
-          <div class="dot dot-yellow"></div>
-          <div class="dot dot-green"></div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="etf-chart"></canvas></div>
         </div>
-        <div class="logs-title">engine.log — stream en vivo</div>
       </div>
-      <div class="logs-body" id="logs-body">
-        <!-- injected by JS -->
+      <!-- Posiciones -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📁 Posiciones Abiertas</span>
+          <button class="refresh-btn" onclick="loadEtfData()">↻ Refresh</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr>
+              <th>Símbolo</th><th>Qty</th><th>P&L $</th><th>P&L %</th><th>Precio Avg</th>
+            </tr></thead>
+            <tbody id="etf-positions-body"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
-  </div>
 
+    <!-- Órdenes recientes -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">🔄 Órdenes Recientes (ETF)</span>
+        <span class="last-updated" id="etf-last-updated">–</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr>
+            <th>Símbolo</th><th>Lado</th><th>Qty</th><th>Tipo</th><th>Estado</th><th>Fill Price</th><th>Hora</th>
+          </tr></thead>
+          <tbody id="etf-orders-body"><tr><td colspan="7" class="empty-msg">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">📋 Engine Logs</span></div>
+      <div class="card-body" style="padding:10px"><div class="log-box" id="etf-logs"></div></div>
+    </div>
+
+  </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════════════
+     TAB 2: CRYPTO 24/7
+════════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-crypto">
+  <div class="page-content">
+
+    <div class="stats-grid">
+      <div class="stat-card crypto">
+        <div class="stat-label">Equity Total</div>
+        <div class="stat-value" id="crypto-equity">—</div>
+        <div class="stat-sub">Cuenta Alpaca</div>
+      </div>
+      <div class="stat-card crypto">
+        <div class="stat-label">P&L Hoy</div>
+        <div class="stat-value" id="crypto-pnl">—</div>
+        <div class="stat-sub" id="crypto-pnl-pct">24/7 Operativo</div>
+      </div>
+      <div class="stat-card crypto">
+        <div class="stat-label">Posiciones Crypto</div>
+        <div class="stat-value" id="crypto-open-pos">—</div>
+        <div class="stat-sub">BTC/ETH/SOL/LINK/BCH</div>
+      </div>
+      <div class="stat-card crypto">
+        <div class="stat-label">Árbitro Activo</div>
+        <div class="stat-value" id="crypto-arbiter" style="font-size:1rem;">—</div>
+        <div class="stat-sub">1 posición/símbolo</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <!-- Chart -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">₿ Portfolio History (Crypto)</span></div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="crypto-chart"></canvas></div>
+        </div>
+      </div>
+      <!-- Posiciones -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">₿ Posiciones Crypto</span>
+          <button class="refresh-btn" onclick="loadCryptoData()">↻ Refresh</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr>
+              <th>Par</th><th>Qty</th><th>P&L $</th><th>P&L %</th><th>Precio Avg</th>
+            </tr></thead>
+            <tbody id="crypto-positions-body"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estrategias Crypto -->
+    <div class="section-header"><div class="section-title">🎯 Estrategias Crypto (AssetArbiter)</div></div>
+    <div class="strat-grid" id="crypto-strat-grid">
+      <!-- generado por JS -->
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <div class="card-header"><span class="card-title">🔄 Órdenes Crypto Recientes</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Par</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Fill Price</th><th>Hora</th></tr></thead>
+          <tbody id="crypto-orders-body"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     TAB 3: EQUITIES (acciones individuales)
+════════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-eq">
+  <div class="page-content">
+
+    <!-- Circuit Breaker Alert -->
+    <div class="circuit-alert" id="circuit-alert">
+      <div class="circuit-icon">🚨</div>
+      <div class="circuit-text">
+        <strong>CIRCUIT BREAKER ACTIVADO</strong>
+        <p id="circuit-reason">Drawdown superó el 10% del ATH. Todas las posiciones liquidadas.</p>
+      </div>
+    </div>
+
+    <!-- Regime Banner -->
+    <div class="regime-banner" id="regime-banner">
+      <div class="regime-badge UNKNOWN" id="regime-badge">UNKNOWN</div>
+      <div class="regime-detail">
+        SPY: <span id="regime-spy">—</span> &nbsp;|&nbsp;
+        SMA200: <span id="regime-sma">—</span> &nbsp;|&nbsp;
+        VIX~: <span id="regime-vix">—</span> &nbsp;|&nbsp;
+        Estrategias activas: <span id="regime-strats">—</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card eq">
+        <div class="stat-label">Equity</div>
+        <div class="stat-value" id="eq-equity">—</div>
+        <div class="stat-sub">Portfolio Equities</div>
+      </div>
+      <div class="stat-card eq">
+        <div class="stat-label">Drawdown vs ATH</div>
+        <div class="stat-value" id="eq-drawdown">—</div>
+        <div class="drawdown-bar-wrap">
+          <div class="drawdown-bar"><div class="drawdown-fill" id="eq-drawdown-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div class="stat-card eq">
+        <div class="stat-label">Órdenes Hoy</div>
+        <div class="stat-value" id="eq-orders-count">—</div>
+        <div class="stat-sub">Bracket + Trailing</div>
+      </div>
+      <div class="stat-card eq">
+        <div class="stat-label">Universo del Día</div>
+        <div class="stat-value" id="eq-universe-count">—</div>
+        <div class="stat-sub">Tickers Screener</div>
+      </div>
+    </div>
+
+    <!-- Universo dinámico -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">🔍 Universo Dinámico del Día (PreMarket Screener)</span>
+        <button class="refresh-btn" onclick="loadEquitiesData()">↻ Refresh</button>
+      </div>
+      <div class="card-body">
+        <div style="margin-bottom:10px;font-size:.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.6px;">📈 Gainers ($1-$25)</div>
+        <div class="ticker-chips" id="eq-gainers-chips"></div>
+        <div style="margin:14px 0 10px;font-size:.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.6px;">📉 Losers</div>
+        <div class="ticker-chips" id="eq-losers-chips"></div>
+        <div style="margin-top:10px;font-size:.68rem;color:var(--text-dim)" id="eq-universe-updated">Última actualización: —</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <!-- Posiciones abiertas equities -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">📁 Posiciones Equities</span></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Símbolo</th><th>Qty</th><th>P&L $</th><th>Estrategia</th></tr></thead>
+            <tbody id="eq-positions-body"><tr><td colspan="4" class="empty-msg">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Órdenes equities -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔄 Órdenes Equities Hoy</span></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Símbolo</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Estrategia</th></tr></thead>
+            <tbody id="eq-orders-body"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estrategias Equities -->
+    <div class="section-header">
+      <div class="section-title">🎯 Las 10 Estrategias Equities</div>
+    </div>
+    <div class="strat-grid" id="eq-strat-grid">
+      <!-- generado por JS -->
+    </div>
+
+  </div>
+</div>
+
+<!-- ── JS ── -->
 <script>
-// ═══════════════════════════════════════════════
-// CONFIG
-// ═══════════════════════════════════════════════
-const STRATEGIES = [
-  { id: "GoldenCross",         name: "Golden Cross",       symbol: "XLC",   group: "stocks" },
-  { id: "DonchianBreakout",    name: "Donchian Breakout",  symbol: "IWM",   group: "stocks" },
-  { id: "MomentumRotation",    name: "Momentum Rotation",  symbol: "Multi", group: "stocks" },
-  { id: "MACDTrend",           name: "MACD Trend",         symbol: "DIA",   group: "stocks" },
-  { id: "RSIDip",              name: "RSI Buy the Dip",    symbol: "TQQQ",  group: "stocks" },
-  { id: "BollingerReversion",  name: "Bollinger Reversion",symbol: "SRVR",  group: "stocks" },
-  { id: "RSI+VIXFilter",       name: "RSI + VIX Filter",   symbol: "SPY",   group: "stocks" },
-  { id: "VWAPBounce",          name: "VWAP Bounce",        symbol: "SMH",   group: "stocks" },
-  { id: "PairsTrading",        name: "Pairs Trading",      symbol: "QQQ, XLK", group: "stocks" },
-  { id: "GridTrading",         name: "Grid Trading",       symbol: "SOXX",  group: "stocks" },
-  
-  // CRYPTO STRATEGIES
-  { id: "CryptoEMACross",      name: "EMA Trend Crossover", symbol: "BTC/USD", group: "crypto" },
-  { id: "CryptoBBBreakout",    name: "Bollinger Volatility Breakout", symbol: "ETH/USD", group: "crypto" },
-  { id: "CryptoGridSpot",      name: "Dynamic Spot Grid",   symbol: "SOL/USD", group: "crypto" },
-  { id: "CryptoSmartTWAP",     name: "Smart TWAP Accum",    symbol: "BTC/USD", group: "crypto" },
-  { id: "CryptoFundingSqueeze",name: "Funding Squeeze",     symbol: "ETH/USD", group: "crypto" },
-  { id: "CryptoVolAnomaly",    name: "Volume Anomaly",      symbol: "LINK/USD", group: "crypto" },
-  { id: "CryptoPairDivergence",name: "Pair Divergence",     symbol: "BTC/USD, ETH/USD", group: "crypto" },
-  { id: "CryptoEMARibbon",     name: "EMA Ribbon Pullback", symbol: "BCH/USD", group: "crypto" },
-  { id: "CryptoVWAPTouch",     name: "VWAP Touch-and-Go",   symbol: "BTC/USD", group: "crypto" },
-  { id: "CryptoSentiment",     name: "Sentiment F&G",       symbol: "BTC/USD", group: "crypto" }
-];
+'use strict';
 
-let currentAppGroup = 'stocks'; // 'stocks' o 'crypto'
+// ── TAB SWITCHING ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById(`panel-${tab}`).classList.add('active');
 
-function switchTab(group) {
-  currentAppGroup = group;
-  // Update UI toggles
-  if (group === 'crypto') {
-    document.getElementById('btn-tab-crypto').style.background = 'rgba(255, 215, 64, 0.1)';
-    document.getElementById('btn-tab-crypto').style.borderColor = 'var(--yellow)';
-    document.getElementById('btn-tab-crypto').style.color = 'var(--yellow)';
-    
-    document.getElementById('btn-tab-stocks').style.background = 'var(--bg-card)';
-    document.getElementById('btn-tab-stocks').style.borderColor = 'var(--border)';
-    document.getElementById('btn-tab-stocks').style.color = 'var(--text-secondary)';
-  } else {
-    document.getElementById('btn-tab-stocks').style.background = 'rgba(0, 212, 255, 0.1)';
-    document.getElementById('btn-tab-stocks').style.borderColor = 'var(--accent)';
-    document.getElementById('btn-tab-stocks').style.color = 'var(--accent)';
-    
-    document.getElementById('btn-tab-crypto').style.background = 'var(--bg-card)';
-    document.getElementById('btn-tab-crypto').style.borderColor = 'var(--border)';
-    document.getElementById('btn-tab-crypto').style.color = 'var(--text-secondary)';
-  }
-  refreshStrategies(); // Reload list
-  refreshOrdersAndPositions(); // Reload
+  if (tab === 'etf')    loadEtfData();
+  if (tab === 'crypto') loadCryptoData();
+  if (tab === 'eq')     loadEquitiesData();
 }
 
-let currentChartMode = 'global'; // 'global' or strategy.id
-let currentTimeframe = '1M'; // '1D', '1W', '1M', '1A'
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date().toLocaleTimeString('en-US', {timeZone:'America/New_York', hour12:false});
+  document.getElementById('clock').textContent = `EST ${now}`;
+}
+setInterval(updateClock, 1000); updateClock();
 
-// ═══════════════════════════════════════════════
-// CHART
-// ═══════════════════════════════════════════════
-let equityChart = null;
+// ── HELPERS ──
+const fmt = (n, d=2) => parseFloat(n || 0).toFixed(d);
+const fmtMoney = n => `$${parseFloat(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+function colorClass(val) { return parseFloat(val) >= 0 ? 'green' : 'red'; }
+function setEl(id, html, cls='') {
+  const el = document.getElementById(id);
+  if (el) { el.innerHTML = html; if (cls) el.className = `stat-value ${cls}`; }
+}
 
-function initChart() {
-  const ctx = document.getElementById('equity-chart').getContext('2d');
-  const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-  gradient.addColorStop(0, 'rgba(0, 212, 255, 0.2)');
-  gradient.addColorStop(1, 'rgba(0, 212, 255, 0.0)');
+async function fetchJSON(url) {
+  try { const r = await fetch(url); return await r.json(); } catch { return null; }
+}
 
-  equityChart = new Chart(ctx, {
+// ── CHART FACTORY ──
+const charts = {};
+function makeChart(id, color) {
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return null;
+  if (charts[id]) { charts[id].destroy(); }
+  charts[id] = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Valor',
-        data: [],
-        borderColor: '#00d4ff',
-        backgroundColor: gradient,
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        fill: true,
-        tension: 0.3,
-      }]
-    },
+    data: { labels: [], datasets: [{ data: [], borderColor: color, backgroundColor: color+'18',
+      borderWidth: 2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 4 }] },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 300 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          backgroundColor: '#111827',
-          titleColor: '#7986cb',
-          bodyColor: '#e8eaf6',
-          borderColor: '#1e2d47',
-          borderWidth: 1,
-          callbacks: {
-            label: ctx => `  $${Number(ctx.raw).toLocaleString('en-US', {minimumFractionDigits: 2})}`,
-          }
-        }
-      },
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false,
+        callbacks: { label: c => ` $${c.parsed.y.toLocaleString()}` } } },
       scales: {
-        x: {
-          grid: { color: 'rgba(30,45,71,0.6)', drawTicks: false },
-          ticks: { color: '#3d4f6e', maxTicksLimit: 8, font: { family: 'JetBrains Mono', size: 10 } },
-          border: { color: 'transparent' },
-        },
-        y: {
-          grid: { color: 'rgba(30,45,71,0.6)', drawTicks: false },
-          ticks: {
-            color: '#3d4f6e',
-            font: { family: 'JetBrains Mono', size: 10 },
-            callback: v => '$' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(1) + 'K' : v.toFixed(0)),
-          },
-          border: { color: 'transparent' },
-        }
+        x: { ticks: { color: '#3a4f6e', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: '#111e33' } },
+        y: { ticks: { color: '#3a4f6e', font: { size: 10 }, callback: v => '$'+v.toLocaleString() }, grid: { color: '#111e33' } }
       }
     }
   });
+  return charts[id];
 }
 
-// ═══════════════════════════════════════════════
-// FORMATTERS
-// ═══════════════════════════════════════════════
-const fmt$ = n => n == null ? '—' : '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-const fmtPct = n => n == null ? '—' : (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
-const colorClass = n => n > 0 ? 'positive' : n < 0 ? 'negative' : 'neutral';
-
-// ═══════════════════════════════════════════════
-// CLOCK
-// ═══════════════════════════════════════════════
-setInterval(() => {
-  const now = new Date();
-  document.getElementById('nav-time').textContent =
-    now.toLocaleTimeString('en-US', { hour12: false }) + ' UTC' + (now.getTimezoneOffset() < 0 ? '+' : '-') + Math.abs(now.getTimezoneOffset() / 60);
-}, 1000);
-
-// ═══════════════════════════════════════════════
-// DATA FETCHERS
-// ═══════════════════════════════════════════════
-async function refreshAccount() {
-  const d = await fetch('/api/account').then(r => r.json());
-  document.getElementById('stat-equity').textContent = fmt$(d.equity);
-  document.getElementById('stat-equity').className = 'card-value ' + colorClass(d.pnl);
-  document.getElementById('stat-pnl').textContent = fmt$(d.pnl);
-  document.getElementById('stat-pnl').className = 'card-value ' + colorClass(d.pnl);
-  document.getElementById('stat-pnl-pct').textContent = fmtPct(d.pnl_pct) + ' vs $100,000 inicial';
-  document.getElementById('stat-cash').textContent = fmt$(d.cash);
-  document.getElementById('stat-buying').textContent = fmt$(d.buying_power);
+function updateChart(id, color, data) {
+  let ch = charts[id];
+  if (!ch) ch = makeChart(id, color);
+  if (!ch || !data?.length) return;
+  ch.data.labels = data.map(p => p.t || '');
+  ch.data.datasets[0].data = data.map(p => p.v);
+  ch.update('none');
 }
 
-async function refreshGlobalHistory() {
-  const history = await fetch(`/api/history?period=${currentTimeframe}`).then(r => r.json());
-  if (!history.length) {
-      if (equityChart) equityChart.data.labels=[], equityChart.data.datasets[0].data=[], equityChart.update('none');
-      document.getElementById('chart-last-date').textContent = '—';
-      return;
-  }
-
-  const useTime = currentTimeframe === '1D';
-  const labels = history.map(h => {
-      const d = new Date(h.date.replace(' ', 'T') + 'Z'); 
-      return useTime ? d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' });
-  });
-  const values = history.map(h => h.equity);
-
-  if (equityChart) {
-    equityChart.data.labels = labels;
-    equityChart.data.datasets[0].data = values;
-    equityChart.update('none');
-  }
-  document.getElementById('chart-last-date').textContent = history[history.length - 1].date;
-}
-
-function setTimeframe(tf) {
-  currentTimeframe = tf;
-  document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
-  if (currentChartMode === 'global') {
-    refreshGlobalHistory();
-  } else {
-    loadStrategyChart(currentChartMode, document.getElementById('chart-main-title').textContent.replace('Rendimiento P&L: ', '')); 
-  }
-}
-
-// NUEVO: Ver la gráfica individual
-async function loadStrategyChart(strategyId, strategyName) {
-  currentChartMode = strategyId;
-  document.getElementById('chart-main-title').textContent = `Rendimiento P&L: ${strategyName}`;
-  document.getElementById('btn-reset-chart').style.display = 'inline-block';
-  document.getElementById('chart-last-date').textContent = 'Calculando...';
-
-  try {
-    const history = await fetch(`/api/strategy/history/${strategyId}?period=${currentTimeframe}`).then(r => r.json());
-    
-    if (!history || history.length === 0) {
-      document.getElementById('chart-last-date').textContent = 'Faltan datos de operaciones para armar gráfica';
-      equityChart.data.labels = [];
-      equityChart.data.datasets[0].data = [];
-      equityChart.update();
-      return;
-    }
-
-    const useTime = currentTimeframe === '1D';
-    const labels = history.map(h => {
-        const d = new Date(h.date.replace(' ', 'T') + 'Z'); 
-        return useTime ? d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}) : d.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' });
-    });
-    const values = history.map(h => h.pnl);
-
-    equityChart.data.labels = labels;
-    equityChart.data.datasets[0].data = values;
-    equityChart.update();
-    
-    document.getElementById('chart-last-date').textContent = history[history.length - 1].date;
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function resetChartToGlobal() {
-  currentChartMode = 'global';
-  document.getElementById('chart-main-title').textContent = 'Rendimiento Histórico';
-  document.getElementById('btn-reset-chart').style.display = 'none';
-  refreshGlobalHistory();
-}
-
-async function refreshStrategies() {
-  const stats = await fetch('/api/strategy/stats').then(r => r.json());
-  const list = document.getElementById('strat-list');
-  
-  const filteredStrats = STRATEGIES.filter(s => s.group === currentAppGroup);
-  document.getElementById('strat-count').textContent = filteredStrats.length;
-  list.innerHTML = filteredStrats.map(s => {
-    const statIdMatch = Object.keys(stats).find(k => k === s.name.replace(/\s+/g, '').substring(0, 30));
-    const myStats = statIdMatch ? stats[statIdMatch] : { trades: 0, filled: 0, volume: 0.0 };
-
-    return `
-    <tr class="row-clickable" title="Haz clic para ver gráfico de ${s.name}" onclick="loadStrategyChart('${s.id}', '${s.name}')">
-      <td style="color:#e8eaf6;font-weight:600">${s.name}</td>
-      <td>${s.symbol}</td>
-      <td><span style="color:var(--green)">✓ Activa</span> &middot; ${myStats.filled}/${myStats.trades} trades ($${Number(myStats.volume).toLocaleString('en-US', {maximumFractionDigits:0})})</td>
-      <td onclick="event.stopPropagation()">
-        <a href="/api/reports?strategy=${s.id}&period=weekly" target="_blank" class="btn-download">Semanal</a>
-        <a href="/api/reports?strategy=${s.id}&period=monthly" target="_blank" class="btn-download" style="margin-left: 6px;">Mensual</a>
-      </td>
-    </tr>
-    `;
-  }).join('');
-}
-
-async function refreshPositions() {
-  const positions = await fetch('/api/positions').then(r => r.json());
-  const isCrypto = currentAppGroup === 'crypto';
-  const filtered = positions.filter(p => isCrypto ? p.symbol.includes('/') : !p.symbol.includes('/'));
-  document.getElementById('pos-count').textContent = filtered.length;
-  const wrap = document.getElementById('positions-table-wrap');
-
-  if (!filtered.length) {
-    wrap.innerHTML = '<div class="empty-state">No hay posiciones abiertas</div>';
-    return;
-  }
-  wrap.innerHTML = `
-    <div style="overflow-x:auto"><table>
-      <thead><tr><th>Símbolo</th><th>Lado</th><th>Cant.</th><th>Entrada</th><th>Actual</th><th>Mercado</th><th>P&L</th><th>%</th></tr></thead>
-      <tbody>${filtered.map(p => `
-        <tr><td style="color:#e8eaf6;font-weight:600">${p.symbol}</td>
-        <td class="side-${p.side}">${p.side.toUpperCase()}</td><td>${p.qty}</td>
-        <td>${fmt$(p.avg_entry)}</td><td>${fmt$(p.current_price)}</td><td>${fmt$(p.market_value)}</td>
-        <td class="${colorClass(p.unrealized_pl)}">${fmt$(p.unrealized_pl)}</td>
-        <td class="${colorClass(p.unrealized_plpc)}">${fmtPct(p.unrealized_plpc)}</td></tr>
-      `).join('')}</tbody>
-    </table></div>
-  `;
-}
-
-async function refreshOrders() {
-  const orders = await fetch('/api/orders').then(r => r.json());
-  const isCrypto = currentAppGroup === 'crypto';
-  const filtered = orders.filter(o => isCrypto ? o.symbol.includes('/') : !o.symbol.includes('/'));
-  document.getElementById('orders-count').textContent = filtered.length;
-  const wrap = document.getElementById('orders-table-wrap');
-
-  if (!filtered.length) {
-    wrap.innerHTML = '<div class="empty-state">No hay órdenes recientes</div>';
-    return;
-  }
-  const cls = s => s === 'filled' ? 'status-filled' : s.includes('cancel') ? 'status-cancelled' : 'status-open';
-  wrap.innerHTML = `
-    <div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table>
-      <thead><tr><th>Símbolo</th><th>Lado</th><th>Cant.</th><th>Precio</th><th>Estrategia</th><th>Estado</th><th>Hora</th></tr></thead>
-      <tbody>${filtered.map(o => `
-        <tr><td style="color:#e8eaf6;font-weight:600">${o.symbol}</td>
-        <td class="side-${o.side}">${o.side.toUpperCase()}</td><td>${o.filled_qty || o.qty}</td>
-        <td>${o.filled_price ? fmt$(o.filled_price) : (o.limit_price ? fmt$(o.limit_price)+' L' : 'MKT')}</td>
-        <td><span class="badge">${o.strategy && o.strategy !== 'Manual' ? o.strategy : 'Manual'}</span></td>
-        <td class="${cls(o.status)}">${o.status}</td>
-        <td style="color:#3d4f6e">${(o.submitted_at || '').substring(11,16)}</td></tr>
-      `).join('')}</tbody>
-    </table></div>
-  `;
-}
-
-let lastLogCount = 0;
-async function refreshLogs() {
-  const logs = await fetch('/api/logs?limit=60').then(r => r.json());
-  if (!logs.length || logs.length === lastLogCount) return;
-  lastLogCount = logs.length;
-  const container = document.getElementById('logs-body');
-  const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 40;
-
-  container.innerHTML = logs.slice(0, 60).map(entry => {
-    let clr = '#c5d1e8';
-    const m = (entry.msg||'');
-    if(entry.level==='ERROR'||m.includes('🔴')) clr='#ff8080';
-    else if(entry.level==='WARNING') clr='#ffd740';
-    else if(m.includes('🟢')||m.includes('COMPRA')||m.includes('✅')) clr='#69f0ae';
-    
-    return `<div class="log-line"><span class="log-time">${entry.time||''}</span>
-            <span class="log-level-${entry.level||'INFO'}">${entry.level||'INFO'}</span>
-            <span class="log-source">[${(entry.source||'').substring(0,18)}]</span>
-            <span class="log-msg" style="color:${clr}">${m.replace(/</g,'&lt;')}</span></div>`;
-  }).join('');
-  if (wasAtBottom) container.scrollTop = container.scrollHeight;
-}
-
-// ═══════════════════════════════════════════════
-// INIT & INTERACTIONS
-// ═══════════════════════════════════════════════
-async function refreshAllFull() {
-  await Promise.allSettled([
-    refreshAccount(),
-    refreshStrategies(),
-    refreshPositions(),
-    refreshOrders(),
-    refreshLogs(),
-    currentChartMode === 'global' ? refreshGlobalHistory() : Promise.resolve(),
+// ══════════════════════════════════════════════════════
+//  TAB ETF — carga de datos
+// ══════════════════════════════════════════════════════
+async function loadEtfData() {
+  const [acct, pos, orders, hist] = await Promise.all([
+    fetchJSON('/api/account'),
+    fetchJSON('/api/positions'),
+    fetchJSON('/api/orders'),
+    fetchJSON('/api/history')
   ]);
-}
 
-async function manualRefresh() {
-  const btn = document.getElementById('btn-refresh');
-  btn.classList.add('spin');
-  try {
-    await refreshAllFull();
-  } finally {
-    setTimeout(() => btn.classList.remove('spin'), 400);
+  if (acct) {
+    const pnl = parseFloat(acct.equity || 0) - parseFloat(acct.last_equity || acct.equity || 0);
+    const pnlPct = acct.last_equity ? (pnl / parseFloat(acct.last_equity) * 100) : 0;
+    setEl('etf-equity', fmtMoney(acct.equity));
+    setEl('etf-pnl', (pnl >= 0 ? '+' : '') + fmtMoney(pnl), colorClass(pnl));
+    document.getElementById('etf-pnl-pct') && (document.getElementById('etf-pnl-pct').textContent = `${fmt(pnlPct)}%`);
   }
+
+  // Posiciones
+  const etfPos = (pos || []).filter(p => !['BTC','ETH','SOL','LINK','BCH'].some(c => p.symbol?.includes(c)));
+  setEl('etf-open-pos', etfPos.length);
+  document.getElementById('etf-pos-count').textContent = etfPos.length;
+
+  const posBody = document.getElementById('etf-positions-body');
+  posBody.innerHTML = etfPos.length ? etfPos.map(p => `
+    <tr>
+      <td style="font-weight:600;color:var(--etf-accent)">${p.symbol}</td>
+      <td>${fmt(p.qty, 4)}</td>
+      <td class="${colorClass(p.unrealized_pl)}">${fmtMoney(p.unrealized_pl)}</td>
+      <td class="${colorClass(p.unrealized_plpc)}">${fmt(parseFloat(p.unrealized_plpc||0)*100)}%</td>
+      <td>${fmtMoney(p.avg_entry_price)}</td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty-msg">Sin posiciones abiertas</td></tr>';
+
+  // Órdenes
+  const etfOrds = (orders || []).filter(o => !String(o.client_id||'').startsWith('cry_') && !String(o.client_id||'').startsWith('eq_'));
+  setEl('etf-orders-count', etfOrds.length);
+  const ordBody = document.getElementById('etf-orders-body');
+  ordBody.innerHTML = etfOrds.slice(0, 15).map(o => `
+    <tr>
+      <td style="font-weight:600">${o.symbol}</td>
+      <td class="${o.side==='buy'?'badge-buy':'badge-sell'}">${o.side?.toUpperCase()}</td>
+      <td>${o.qty}</td>
+      <td style="color:var(--text-secondary)">${o.type}</td>
+      <td class="${o.status==='filled'?'badge-filled':o.status==='new'?'badge-new':'badge-held'}">${o.status}</td>
+      <td>${o.filled_avg_price ? fmtMoney(o.filled_avg_price) : '—'}</td>
+      <td style="color:var(--text-dim)">${(o.created_at||'').substring(11,19)}</td>
+    </tr>`).join('') || '<tr><td colspan="7" class="empty-msg">Sin órdenes</td></tr>';
+
+  document.getElementById('etf-last-updated').textContent = `Actualizado: ${new Date().toLocaleTimeString()}`;
+
+  // Chart
+  if (hist?.length) {
+    const mapped = hist.map(p => ({ t: (p.timestamp||'').substring(0,10), v: parseFloat(p.equity||0) }));
+    updateChart('etf-chart', '#4f8ef7', mapped);
+  }
+
+  // Logs
+  const logs = await fetchJSON('/api/logs');
+  renderLogs('etf-logs', logs);
 }
 
-async function init() {
-  initChart();
-  await refreshAllFull();
-  // Auto-polling
-  setInterval(() => {
-    refreshAccount(); refreshStrategies(); refreshPositions(); refreshOrders(); refreshLogs();
-  }, 5000);
-  setInterval(() => {
-    if (currentChartMode === 'global') refreshGlobalHistory();
-  }, 60000);
+// ══════════════════════════════════════════════════════
+//  TAB CRYPTO — carga de datos
+// ══════════════════════════════════════════════════════
+const CRYPTO_STRATEGIES = [
+  { name: 'EMA Cross', regime: 'BULL', symbols: 'BTC/USD', p: 4 },
+  { name: 'BB Breakout', regime: 'BULL', symbols: 'ETH/USD', p: 4 },
+  { name: 'Grid Spot', regime: 'CHOP', symbols: 'SOL/USD', p: 6 },
+  { name: 'Smart TWAP', regime: 'BULL', symbols: 'BTC/USD', p: 6 },
+  { name: 'Funding Squeeze', regime: 'BEAR', symbols: 'ETH/USD', p: 3 },
+  { name: 'Vol Anomaly', regime: 'BEAR', symbols: 'LINK/USD', p: 1 },
+  { name: 'Pair Divergence', regime: 'CHOP', symbols: 'ETH/USD', p: 5 },
+  { name: 'EMA Ribbon', regime: 'BULL', symbols: 'BCH/USD', p: 5 },
+  { name: 'VWAP Touch', regime: 'BULL', symbols: 'BTC/USD', p: 2 },
+  { name: 'Sentiment F&G', regime: 'BEAR', symbols: 'BTC/USD', p: 7 },
+];
+
+async function loadCryptoData() {
+  const [acct, pos, orders, hist] = await Promise.all([
+    fetchJSON('/api/account'),
+    fetchJSON('/api/positions'),
+    fetchJSON('/api/orders'),
+    fetchJSON('/api/history')
+  ]);
+
+  if (acct) {
+    const pnl = parseFloat(acct.equity||0) - parseFloat(acct.last_equity||acct.equity||0);
+    setEl('crypto-equity', fmtMoney(acct.equity));
+    setEl('crypto-pnl', (pnl>=0?'+':'')+fmtMoney(pnl), colorClass(pnl));
+  }
+
+  const cryptoPos = (pos||[]).filter(p => ['BTC','ETH','SOL','LINK','BCH'].some(c => p.symbol?.includes(c)));
+  setEl('crypto-open-pos', cryptoPos.length);
+  document.getElementById('crypto-pos-count').textContent = cryptoPos.length;
+
+  const cryptoOrds = (orders||[]).filter(o => String(o.client_id||'').startsWith('cry_'));
+
+  document.getElementById('crypto-arbiter').textContent = cryptoPos.length > 0
+    ? `${cryptoPos.map(p=>p.symbol).join(', ')}`
+    : 'Sin posiciones';
+
+  const posBody = document.getElementById('crypto-positions-body');
+  posBody.innerHTML = cryptoPos.length ? cryptoPos.map(p => `
+    <tr>
+      <td style="font-weight:600;color:var(--crypto-accent)">${p.symbol}</td>
+      <td>${fmt(p.qty, 6)}</td>
+      <td class="${colorClass(p.unrealized_pl)}">${fmtMoney(p.unrealized_pl)}</td>
+      <td class="${colorClass(p.unrealized_plpc)}">${fmt(parseFloat(p.unrealized_plpc||0)*100)}%</td>
+      <td>${fmtMoney(p.avg_entry_price)}</td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty-msg">Sin posiciones crypto</td></tr>';
+
+  const ordBody = document.getElementById('crypto-orders-body');
+  ordBody.innerHTML = cryptoOrds.slice(0,15).map(o => `
+    <tr>
+      <td style="font-weight:600;color:var(--crypto-accent)">${o.symbol}</td>
+      <td class="${o.side==='buy'?'badge-buy':'badge-sell'}">${o.side?.toUpperCase()}</td>
+      <td>${o.qty}</td>
+      <td class="${o.status==='filled'?'badge-filled':'badge-new'}">${o.status}</td>
+      <td>${o.filled_avg_price ? fmtMoney(o.filled_avg_price) : '—'}</td>
+      <td style="color:var(--text-dim)">${(o.created_at||'').substring(11,19)}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty-msg">Sin órdenes crypto hoy</td></tr>';
+
+  if (hist?.length) {
+    const mapped = hist.map(p => ({ t: (p.timestamp||'').substring(0,10), v: parseFloat(p.equity||0) }));
+    updateChart('crypto-chart', '#f7931a', mapped);
+  }
+
+  // Render strategy cards
+  const grid = document.getElementById('crypto-strat-grid');
+  grid.innerHTML = CRYPTO_STRATEGIES.map(s => {
+    const owned = cryptoPos.some(p => p.symbol?.replace('/','/') === s.symbols);
+    return `
+    <div class="strat-card">
+      <div class="strat-top">
+        <div class="strat-name">${s.name}</div>
+        <div class="strat-status ${owned ? 'active' : 'standby'}" title="${owned?'Posición abierta':'Stand-by'}"></div>
+      </div>
+      <div class="strat-regime">P${s.p} • ${s.regime}</div>
+      <div class="strat-symbol">${s.symbols}</div>
+    </div>`;
+  }).join('');
 }
 
-init();
+// ══════════════════════════════════════════════════════
+//  TAB EQUITIES — carga de datos
+// ══════════════════════════════════════════════════════
+const EQ_STRATEGIES = [
+  { name: 'Gapper Momentum',  regime: 'BULL', symbols: 'Dynamic Gainers', strat: 1 },
+  { name: 'VCP Minervini',    regime: 'BULL', symbols: 'High Beta ETF',  strat: 2 },
+  { name: 'Opening Gap Fade', regime: 'BEAR', symbols: 'Dynamic Gainers', strat: 3 },
+  { name: 'PEAD Earnings',    regime: 'BULL', symbols: 'News Driven',     strat: 4 },
+  { name: 'Gamma Squeeze',    regime: 'BULL', symbols: 'Short Interest',  strat: 5 },
+  { name: 'RSI Extreme',      regime: 'BEAR', symbols: 'Dynamic Losers',  strat: 6 },
+  { name: 'Stat Pairs Arb',   regime: 'CHOP', symbols: 'KO/PEP, V/MA…',  strat: 7 },
+  { name: 'NLP Sentiment',    regime: 'BULL', symbols: 'News Headlines',  strat: 8 },
+  { name: 'Insider Flow',     regime: 'BULL', symbols: 'SEC Form 4',      strat: 9 },
+  { name: 'Sector Rotation',  regime: 'CHOP', symbols: '11 SPDR ETFs',    strat: 10 },
+];
+
+async function loadEquitiesData() {
+  const [regime, universe, portfolio, eqOrders, pos] = await Promise.all([
+    fetchJSON('/api/equities/regime'),
+    fetchJSON('/api/equities/universe'),
+    fetchJSON('/api/equities/portfolio'),
+    fetchJSON('/api/equities/orders'),
+    fetchJSON('/api/positions'),
+  ]);
+
+  // Regime banner
+  if (regime) {
+    const badge = document.getElementById('regime-badge');
+    const r = regime.regime || 'UNKNOWN';
+    badge.textContent = r;
+    badge.className = `regime-badge ${r}`;
+    setEl('regime-spy', `$${fmt(regime.spy_price)}`);
+    setEl('regime-sma', `$${fmt(regime.spy_sma200)}`);
+    setEl('regime-vix', fmt(regime.vix_price));
+    setEl('regime-strats', (regime.enabled_strategies||[]).map(n=>`#${n}`).join(', '));
+  }
+
+  // Universe chips
+  if (universe) {
+    const g = document.getElementById('eq-gainers-chips');
+    const l = document.getElementById('eq-losers-chips');
+    g.innerHTML = (universe.gainers||[]).length
+      ? (universe.gainers||[]).map(s=>`<span class="chip chip-gainer">▲ ${s}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:.75rem">Sin gainers aún (09:00 AM EST)</span>';
+    l.innerHTML = (universe.losers||[]).length
+      ? (universe.losers||[]).map(s=>`<span class="chip chip-loser">▼ ${s}</span>`).join('')
+      : '<span style="color:var(--text-dim);font-size:.75rem">Sin losers aún</span>';
+    const allCount = (universe.all||[]).length;
+    setEl('eq-universe-count', allCount);
+    document.getElementById('eq-pos-count').textContent = allCount;
+    const upd = universe.last_updated ? new Date(universe.last_updated).toLocaleTimeString() : '—';
+    document.getElementById('eq-universe-updated').textContent = `Screener ejecutado: ${upd}`;
+  }
+
+  // Portfolio / Circuit Breaker
+  if (portfolio) {
+    setEl('eq-equity', fmtMoney(portfolio.equity));
+    const dd = portfolio.drawdown_pct || 0;
+    setEl('eq-drawdown', `-${fmt(dd)}%`, dd > 7 ? 'red' : dd > 4 ? 'yellow' : 'green');
+    const bar = document.getElementById('eq-drawdown-bar');
+    if (bar) {
+      const pct = Math.min(dd * 10, 100);
+      bar.style.width = pct + '%';
+      bar.style.background = dd > 7 ? 'var(--red)' : dd > 4 ? 'var(--yellow)' : 'var(--green)';
+    }
+    const alert = document.getElementById('circuit-alert');
+    if (portfolio.is_halted) {
+      alert.classList.add('visible');
+      document.getElementById('circuit-reason').textContent = portfolio.halt_reason || 'Circuit breaker activado.';
+    } else {
+      alert.classList.remove('visible');
+    }
+  }
+
+  // Órdenes equities (prefijo eq_)
+  const eqOrdCount = (eqOrders||[]).length;
+  setEl('eq-orders-count', eqOrdCount);
+  const ordBody = document.getElementById('eq-orders-body');
+  ordBody.innerHTML = (eqOrders||[]).slice(0,15).map(o => {
+    const strat = (o.client_id||'').replace('eq_','').split('_')[0] || '—';
+    return `<tr>
+      <td style="font-weight:600;color:var(--eq-accent)">${o.symbol}</td>
+      <td class="${o.side==='buy'?'badge-buy':'badge-sell'}">${o.side?.toUpperCase()}</td>
+      <td>${o.qty}</td>
+      <td class="${o.status==='filled'?'badge-filled':'badge-new'}">${o.status}</td>
+      <td style="color:var(--text-secondary)">${strat}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty-msg">Sin órdenes equities hoy</td></tr>';
+
+  // Posiciones equities (excluye crypto)
+  const eqPos = (pos||[]).filter(p =>
+    !['BTC','ETH','SOL','LINK','BCH'].some(c=>p.symbol?.includes(c))
+  );
+  const posBody = document.getElementById('eq-positions-body');
+  posBody.innerHTML = eqPos.length ? eqPos.map(p => `
+    <tr>
+      <td style="font-weight:600;color:var(--eq-accent)">${p.symbol}</td>
+      <td>${fmt(p.qty, 0)}</td>
+      <td class="${colorClass(p.unrealized_pl)}">${fmtMoney(p.unrealized_pl)}</td>
+      <td style="color:var(--text-secondary)">—</td>
+    </tr>`).join('') : '<tr><td colspan="4" class="empty-msg">Sin posiciones equities</td></tr>';
+
+  // Render strategy cards
+  const enabledStrats = regime?.enabled_strategies || [];
+  const grid = document.getElementById('eq-strat-grid');
+  grid.innerHTML = EQ_STRATEGIES.map(s => {
+    const isEnabled = enabledStrats.includes(s.strat);
+    const regiColor = s.regime === 'BULL' ? 'var(--green)' : s.regime === 'BEAR' ? 'var(--red)' : 'var(--yellow)';
+    return `
+    <div class="strat-card">
+      <div class="strat-top">
+        <div class="strat-name">#${s.strat} ${s.name}</div>
+        <div class="strat-status ${isEnabled ? 'active' : 'standby'}" title="${isEnabled?'Habilitada en régimen actual':'Stand-by'}"></div>
+      </div>
+      <div class="strat-regime" style="color:${regiColor}">${s.regime}</div>
+      <div class="strat-symbol">${s.symbols}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── LOGS RENDERER ──
+function renderLogs(containerId, logs) {
+  const box = document.getElementById(containerId);
+  if (!box || !logs?.length) return;
+  box.innerHTML = logs.slice(0, 80).map(e => {
+    const lvl = (e.level||'INFO').toUpperCase();
+    const time = (e.time||'').substring(11,19);
+    const src = e.source ? `<span style="color:var(--text-dim)">[${e.source}]</span> ` : '';
+    return `<div class="log-line ${lvl}">${time} ${src}${e.msg||''}</div>`;
+  }).join('');
+  box.scrollTop = 0;
+}
+
+// ── AUTO-REFRESH (cada 15s) ──
+let _currentTab = 'etf';
+document.querySelectorAll('.tab-btn').forEach(b => {
+  b.addEventListener('click', () => { _currentTab = b.dataset.tab; });
+});
+
+function autoRefresh() {
+  if (_currentTab === 'etf')    loadEtfData();
+  if (_currentTab === 'crypto') loadCryptoData();
+  if (_currentTab === 'eq')     loadEquitiesData();
+}
+setInterval(autoRefresh, 15000);
+
+// ── INITIAL LOAD ──
+loadEtfData();
 </script>
 </body>
 </html>
