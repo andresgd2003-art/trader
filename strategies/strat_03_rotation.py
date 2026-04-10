@@ -2,7 +2,7 @@
 strategies/strat_03_rotation.py — Momentum Rotation Semanal
 ============================================================
 LÓGICA:
-- Cada viernes a las 15:30 EST evalúa 4 ETFs: QQQ, SMH, XLK, SRVR
+- Cada viernes a las 15:30 EST evalúa 4 ETFs: XLY, XLF, XLV, XLE
 - Calcula el rendimiento (%) de cada uno en los últimos 30 días
 - Liquida la posición actual y compra 100% del ETF con mejor rendimiento
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class MomentumRotationStrategy(BaseStrategy):
 
-    UNIVERSE = ["QQQ", "SMH", "XLK", "SRVR"]
+    UNIVERSE = ["XLY", "XLF", "XLV", "XLE"]
     LOOKBACK_DAYS = 30
 
     def __init__(self, order_manager):

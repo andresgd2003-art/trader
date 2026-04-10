@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class DonchianBreakoutStrategy(BaseStrategy):
 
-    SYMBOL = "QQQ"
+    SYMBOL = "IWM"
     HIGH_PERIOD = 20   # días para el canal superior
     LOW_PERIOD  = 10   # días para el canal inferior
 

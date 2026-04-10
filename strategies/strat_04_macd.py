@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class MACDTrendStrategy(BaseStrategy):
 
-    SYMBOL     = "XLK"
+    SYMBOL     = "DIA"
     FAST_EMA   = 12
     SLOW_EMA   = 26
     SIGNAL_EMA = 9

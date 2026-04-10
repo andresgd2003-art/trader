@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class GoldenCrossStrategy(BaseStrategy):
 
-    SYMBOL = "SMH"
+    SYMBOL = "XLC"
     SMA_FAST = 50   # días
     SMA_SLOW = 200  # días
 
