@@ -96,6 +96,9 @@ class TradingEngine:
         # Registro de estrategias
         self.strategies = self._register_strategies()
 
+        # Referencia al EquitiesEngine (se inyecta desde main)
+        self.equities_engine = None
+
         # Stream WebSocket de Alpaca
         self.stream = StockDataStream(
             api_key=API_KEY,
@@ -126,13 +129,16 @@ class TradingEngine:
     async def _on_bar(self, bar):
         """
         Handler de barras (velas de mercado).
-        Se llama con CADA barra que llega del stream.
-        Distribuye el dato a todas las estrategias que monitorean ese símbolo.
+        Distribuye el dato a todas las estrategias ETF + equities.
         """
         tasks = []
         for strategy in self.strategies:
             if strategy.should_process(bar.symbol):
                 tasks.append(strategy.on_bar(bar))
+
+        # Despachar al Equities Engine si el símbolo le pertenece
+        if self.equities_engine and bar.symbol in self.equities_engine.get_eq_symbols():
+            tasks.append(self.equities_engine.dispatch_bar(bar))
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -150,12 +156,14 @@ class TradingEngine:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     def _subscribe(self):
-        """Suscribe el stream a todos los símbolos y tipos de datos necesarios."""
-        # Barras por minuto (1-minute bars)
-        self.stream.subscribe_bars(self._on_bar, *ALL_SYMBOLS)
-        # Cotizaciones en tiempo real
-        self.stream.subscribe_quotes(self._on_quote, *ALL_SYMBOLS)
+        """Suscribe el stream a todos los símbolos: ETF + Equities."""
+        eq_symbols = self.equities_engine.get_eq_symbols() if self.equities_engine else []
+        all_symbols = list(set(ALL_SYMBOLS + eq_symbols))
+        self.stream.subscribe_bars(self._on_bar, *all_symbols)
+        self.stream.subscribe_quotes(self._on_quote, *ALL_SYMBOLS)  # Quotes solo ETF
         logger.info(f"[Engine] Suscrito a: {ALL_SYMBOLS}")
+        if eq_symbols:
+            logger.info(f"[Engine] + Equities symbols: {len(eq_symbols)} adicionales")
 
     async def run(self):
         """Arranca el engine completo."""
@@ -203,6 +211,9 @@ if __name__ == "__main__":
 
     from main_equities import EquitiesEngine
     equities_engine = EquitiesEngine()
+
+    # Inyectar referencia al equities engine para compartir el stream IEX
+    engine.equities_engine = equities_engine
     
     async def run_both():
         await asyncio.gather(

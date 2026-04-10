@@ -3,21 +3,23 @@ main_equities.py — AlpacaNode Equities Trading Engine
 =======================================================
 Motor de trading para acciones individuales de alta volatilidad.
 
+NOTA ARQUITECTURAL IMPORTANTE:
+  Alpaca IEX (free tier) solo permite 1 conexión WebSocket simultánea.
+  El EquitiesEngine NO crea su propio StockDataStream.
+  En cambio, el TradingEngine principal (main.py) suscribe los símbolos
+  adicionales al stream existente y llama a equities_engine.dispatch_bar(bar).
+
 FLUJO DIARIO:
   09:00 AM EST → PreMarketScreener.run() → universo dinámico del día
   09:00 AM EST → RegimeManager.assess() → BULL | BEAR | CHOP
-  09:30 AM EST → StockDataStream suscrito al universo del día
-  16:30 PM EST → Cancelar órdenes pendientes, cerrar sesión
+  09:30 AM EST → main.py añade símbolos del día al stream compartido
+  16:30 PM EST → Cancelar órdenes pendientes
   18:00 PM EST → InsiderFlowStrategy.fetch_insider_filings() (Form 4)
-
-Corre como asyncio task dentro del mismo proceso que main.py.
 """
 import os
 import asyncio
 import logging
 from datetime import datetime, time as dtime
-from alpaca.data.live import StockDataStream
-from alpaca.data.enums import DataFeed
 
 from engine.screener import PreMarketScreener
 from engine.regime_manager import RegimeManager
@@ -71,6 +73,7 @@ class EquitiesEngine:
         # Universo dinámico del día
         self.daily_gainers: list = []
         self.daily_losers: list = []
+        self._eq_symbols: list = []  # Todos los símbolos a suscribir
 
         # Instanciar las 10 estrategias
         self.strategies = self._register_strategies()
@@ -80,10 +83,6 @@ class EquitiesEngine:
             order_manager=self.order_manager,
             strategies=self.strategies
         )
-
-        # Stream de datos (se reinicia cada sesión)
-        self.stream: StockDataStream = None
-        self._stream_thread = None
 
     def _register_strategies(self) -> list:
         strats = [
@@ -134,6 +133,10 @@ class EquitiesEngine:
                 s.on_market_open()
 
         return all_symbols
+
+    async def dispatch_bar(self, bar):
+        """Punto de entrada público: recibe barras del stream compartido de main.py."""
+        await self._on_bar(bar)
 
     async def _on_bar(self, bar):
         """Handler central de barras — distribuye a todas las estrategias activas."""
@@ -186,6 +189,16 @@ class EquitiesEngine:
                 self.order_manager.cancel_all_open_orders()
                 _EQ_ENGINE_STATUS["market_open"] = False
 
+    def get_eq_symbols(self) -> list:
+        """Retorna todos los símbolos que el equities engine necesita en el stream."""
+        return list(set(
+            self._eq_symbols
+            + self.strategies[1].symbols   # VCP High Beta
+            + self.strategies[4].symbols   # Gamma Squeeze candidates
+            + self.strategies[6].symbols   # Stat Arb pairs
+            + self.strategies[9].symbols   # Sector ETFs + holdings
+        ))
+
     async def start_engine(self):
         """Punto de entrada principal del motor de equities."""
         _EQ_ENGINE_STATUS["is_running"] = True
@@ -201,46 +214,20 @@ class EquitiesEngine:
             logger.info(f"[EquitiesEngine] Esperando hasta las 09:00 EST ({wait_secs:.0f}s)...")
             await asyncio.sleep(wait_secs)
 
-        # Rutina pre-mercado
+        # Rutina pre-mercado (screener + regime)
         symbols_today = await self._pre_market_routine()
+        self._eq_symbols = symbols_today
 
-        # Si no hay símbolos (fin de semana / feriado), dormir 1 hora y reintentar
         if not symbols_today:
-            logger.warning("[EquitiesEngine] Sin universo hoy. Durmiendo 1 hora...")
-            await asyncio.sleep(3600)
-            order_task.cancel()
-            return
-
-        # Crear stream de datos para los símbolos del día
-        all_eq_symbols = list(set(
-            symbols_today
-            + self.strategies[1].symbols   # VCP High Beta
-            + self.strategies[4].symbols   # Gamma Squeeze candidates
-            + self.strategies[6].symbols   # Stat Arb pairs
-            + self.strategies[9].symbols   # Sector ETFs + holdings
-        ))
-
-        self.stream = StockDataStream(
-            api_key=API_KEY,
-            secret_key=SECRET_KEY,
-            feed=DataFeed.IEX
-        )
-        self.stream.subscribe_bars(self._on_bar, *all_eq_symbols)
-
-        # Suscribir a noticias para NLP
-        try:
-            self.stream.subscribe_news(self._on_news, *["*"])
-        except Exception:
-            logger.warning("[EquitiesEngine] News subscription no disponible en este tier.")
+            logger.warning("[EquitiesEngine] Sin universo hoy. Solo estrategias estáticas activas.")
 
         _EQ_ENGINE_STATUS["market_open"] = True
-        logger.info(f"[EquitiesEngine] ✅ Stream activo para {len(all_eq_symbols)} símbolos.")
+        logger.info(
+            f"[EquitiesEngine] ✅ Listo. {len(self.get_eq_symbols())} símbolos activos. "
+            f"El stream es compartido con el ETF engine (evita límite IEX)."
+        )
 
-        # Lanzar tareas concurrentes
-        import threading
-        stream_thread = threading.Thread(target=self.stream.run, daemon=True, name="eq-stream")
-        stream_thread.start()
-
+        # Lanzar tareas concurrentes (sin stream propio)
         await asyncio.gather(
             self._portfolio_monitor(),
             self._insider_cron(),
