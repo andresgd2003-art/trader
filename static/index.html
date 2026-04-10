@@ -157,6 +157,38 @@
     .stat-value.red   { color: var(--red); }
     .stat-value.yellow{ color: var(--yellow); }
     .stat-sub { font-size: 0.72rem; color: var(--text-secondary); margin-top: 6px; }
+    .stat-sub { font-size: 0.72rem; color: var(--text-secondary); margin-top: 6px; }
+
+    /* ── SALUD DE CUENTA (HEALTH DASH) ── */
+    .health-dash {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;
+    }
+    .health-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 16px; position: relative;
+    }
+    .health-card::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 12px 0 0 12px; background: rgba(255,255,255,0.05);
+    }
+    .health-card.clock::before { background: var(--green); }
+    .health-card.bp::before { background: #3b82f6; }
+    .health-card.pdt::before { background: var(--yellow); }
+    .health-card.exp::before { background: linear-gradient(to bottom, var(--green), var(--red)); }
+
+    .h-title { font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; font-weight: 600; }
+    .h-value { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+    .h-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; font-weight: 500;}
+    
+    .progress-bg { height: 6px; background: var(--bg-card-alt); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--yellow); border-radius: 3px; transition: width 0.6s ease; }
+    .progress-fill.blue { background: #3b82f6; }
+    .progress-fill.green { background: var(--green); }
+    .progress-fill.red { background: var(--red); }
+    
+    .exposure-bar { display: flex; height: 18px; border-radius: 4px; overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border); }
+    .exp-long { background: var(--green-dim); color: var(--green); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; transition: width 0.6s ease; }
+    .exp-short { background: var(--red-dim); color: var(--red); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; transition: width 0.6s ease; }
+    .exp-cash { background: var(--bg-card-alt); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600; transition: width 0.6s ease; }
 
     /* ── TWO COLUMN LAYOUT ── */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
@@ -315,6 +347,45 @@
     <span id="clock" style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text-secondary)"></span>
   </div>
 </nav>
+
+<div class="main-content">
+
+  <!-- CUADRO DE MANDO INTELIGENTE (Salud de Cuenta) -->
+  <div class="health-dash">
+      <!-- Clock Widget -->
+      <div class="health-card clock">
+          <div class="h-title">⏰ Reloj de Wall Street</div>
+          <div id="market-status-badge" class="badge-new" style="font-size: 1.2rem; margin-bottom: 8px; font-weight: 700;">Validando...</div>
+          <div class="h-sub" id="market-time-sub">Consultando API de Alpaca</div>
+      </div>
+
+      <!-- Day Trade Widget -->
+      <div class="health-card pdt">
+          <div class="h-title">⚠️ Límite de Day Trades</div>
+          <div class="h-value"><span id="dt-count">0</span> / 3</div>
+          <div class="progress-bg"><div class="progress-fill" id="dt-bar" style="width:0%"></div></div>
+          <div class="h-sub" id="pdt-status">Operaciones Rápidas (P.D.T.)</div>
+      </div>
+
+      <!-- Buying Power Widget -->
+      <div class="health-card bp">
+          <div class="h-title">💵 Poder de Compra</div>
+          <div class="h-value" id="bp-value">$0.00</div>
+          <div class="progress-bg"><div class="progress-fill blue" id="bp-bar" style="width:0%"></div></div>
+          <div class="h-sub" id="bp-sub">Capital Disponible Sano</div>
+      </div>
+      
+      <!-- Long vs Short Widget -->
+      <div class="health-card exp">
+          <div class="h-title">⚖️ Exposición (Alza vs Baja)</div>
+          <div class="exposure-bar" style="margin-top: 10px;">
+              <div id="long-bar" class="exp-long" style="width:0%"></div>
+              <div id="cash-bar" class="exp-cash" style="width:100%">100% Cash</div>
+              <div id="short-bar" class="exp-short" style="width:0%"></div>
+          </div>
+          <div class="h-sub">Distribución del Patrimonio</div>
+      </div>
+  </div>
 
 <!-- ── TABS ── -->
 <div class="tab-bar">
@@ -649,13 +720,92 @@ setInterval(updateClock, 1000); updateClock();
 const fmt = (n, d=2) => parseFloat(n || 0).toFixed(d);
 const fmtMoney = n => `$${parseFloat(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 function colorClass(val) { return parseFloat(val) >= 0 ? 'green' : 'red'; }
-function setEl(id, html, cls='') {
-  const el = document.getElementById(id);
-  if (el) { el.innerHTML = html; if (cls) el.className = `stat-value ${cls}`; }
+function setEl(id, val, color) {
+  const e = document.getElementById(id);
+  if (!e) return;
+  e.textContent = val;
+  if(color !== undefined) {
+    e.className = 'stat-value ' + (color||'');
+  }
 }
 
 async function fetchJSON(url) {
-  try { const r = await fetch(url); return await r.json(); } catch { return null; }
+  try {
+    const r = await fetch(url);
+    if(!r.ok) return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+// ── GLOBAL HEALTH DATA ──
+async function updateGlobalHealth(acct) {
+  if (!acct) return;
+  // Day Trades
+  const trades = acct.daytrade_count || 0;
+  document.getElementById('dt-count').textContent = trades;
+  const dtBar = document.getElementById('dt-bar');
+  dtBar.style.width = Math.min((trades / 3) * 100, 100) + '%';
+  if (trades >= 3) { dtBar.classList.add('red'); dtBar.classList.remove('yellow'); }
+  else { dtBar.classList.remove('red'); dtBar.classList.add('yellow'); }
+  document.getElementById('pdt-status').textContent = acct.pattern_day_trader ? '⛔ ESTADO: PATTERN DAY TRADER' : '✅ Cuenta Segura (Ley PDT)';
+  
+  // Buying Power
+  document.getElementById('bp-value').textContent = fmtMoney(acct.buying_power);
+  const bpBar = document.getElementById('bp-bar');
+  const eq = acct.equity || 1;
+  const ratio = (acct.buying_power / (eq * 2)) * 100; // Asumiendo margen 2x max
+  bpBar.style.width = Math.min(Math.max(ratio, 0), 100) + '%';
+  document.getElementById('bp-sub').textContent = `Restante de tu fondo Total (${fmtMoney(eq)})`;
+
+  // Exposure
+  const lng = acct.long_market_value || 0;
+  const sht = Math.abs(acct.short_market_value || 0);
+  const totalPos = lng + sht;
+  const cash = acct.cash || 0;
+  const grandTotal = totalPos + cash || 1;
+  
+  const pLong = (lng / grandTotal) * 100;
+  const pShort = (sht / grandTotal) * 100;
+  const pCash = (cash / grandTotal) * 100;
+
+  const lb = document.getElementById('long-bar');
+  const sb = document.getElementById('short-bar');
+  const cb = document.getElementById('cash-bar');
+  
+  lb.style.width = pLong + '%'; lb.textContent = pLong > 10 ? `${Math.round(pLong)}% L` : '';
+  sb.style.width = pShort + '%'; sb.textContent = pShort > 10 ? `${Math.round(pShort)}% S` : '';
+  cb.style.width = pCash + '%'; cb.textContent = pCash > 10 ? `${Math.round(pCash)}% Cash` : '';
+
+  // Reloj
+  const clock = await fetchJSON('/api/clock');
+  const b = document.getElementById('market-status-badge');
+  const s = document.getElementById('market-time-sub');
+  if (clock) {
+    if (clock.is_open) {
+      b.textContent = 'MERCADO ABIERTO 🟢';
+      b.className = 'badge-filled';
+      b.style.fontSize = '1rem';
+      
+      const tc = new Date(clock.next_close);
+      const diffStr = formatTimeDiff(tc);
+      s.textContent = `Cierra en ${diffStr}`;
+    } else {
+      b.textContent = 'MERCADO CERRADO 🔴';
+      b.className = 'badge-sell';
+      b.style.fontSize = '1rem';
+      
+      const to = new Date(clock.next_open);
+      s.textContent = `La bolsa abre en ${formatTimeDiff(to)}`;
+    }
+  }
+}
+
+function formatTimeDiff(targetDate) {
+  const diff = targetDate - new Date();
+  if (diff <= 0) return 'poco tiempo';
+  const h = Math.floor(diff / (1000 * 60 * 60));
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  return `${h}h ${m}m`;
 }
 
 // ── CHART FACTORY ──
@@ -725,6 +875,8 @@ async function loadEtfData() {
     const pnlLabel = document.getElementById('etf-pnl-pct');
     if (pnlLabel) pnlLabel.textContent = `${acct.pnl_day_pct}% Hoy`;
   }
+
+  updateGlobalHealth(acct);
 
   // Posiciones
   const etfPos = (pos || []).filter(p => !['BTC','ETH','SOL','LINK','BCH'].some(c => p.symbol?.includes(c)));
@@ -858,6 +1010,9 @@ async function loadCryptoData() {
     updateChart('crypto-chart', '#f7931a', histData);
   }
 
+  // Update Gobal Health Elements
+  updateGlobalHealth(acct);
+
   // Render strategy cards
   const grid = document.getElementById('crypto-strat-grid');
   grid.innerHTML = CRYPTO_STRATEGIES.map(s => {
@@ -905,6 +1060,17 @@ async function loadEquitiesData() {
     fetchJSON('/api/positions'),
     fetchJSON('/api/strategy/stats')
   ]);
+  
+  if (portfolio && portfolio.equity) {
+    updateGlobalHealth({ 
+      equity: portfolio.equity, 
+      buying_power: portfolio.equity, // Falso para simplificar si no llama a cuenta base
+      cash: portfolio.equity,
+      daytrade_count: 0,
+      long_market_value: portfolio.equity,
+      short_market_value: 0
+    });
+  }
 
   // Regime banner
   if (regime) {
