@@ -4,6 +4,7 @@ import logging
 import threading
 from alpaca.data.live.crypto import CryptoDataStream
 from engine.order_manager_crypto import OrderManagerCrypto
+from engine.asset_arbiter import AssetArbiter
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,10 @@ class CryptoTradingEngine:
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
         self.secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
 
-        self.order_manager = OrderManagerCrypto()
+        # Árbitro centralizado: 1 posición por símbolo, 5 min de cooldown
+        self.arbiter = AssetArbiter(cooldown_seconds=300)
+        
+        self.order_manager = OrderManagerCrypto(arbiter=self.arbiter)
         
         # Ignorar requerimientos de Keys de historial (Cripto no lo requiere forzoso)
         self.stream = CryptoDataStream(self.api_key, self.secret_key)

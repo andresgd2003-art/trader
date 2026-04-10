@@ -65,7 +65,15 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
         if not self._has_position:
             # Entry logic
             if is_squeeze and current_close > up and current_volume > (vol_sma * 1.5):
-                logger.info(f"[{self.name}] 🚀 BB BREAKOUT & SQUEEZE en ETH! Vol:{current_volume:.2f} > SMA Vol. Comprando.")
+                # Consultar árbitro antes de comprar
+                granted = await self.order_manager.request_buy(
+                    symbol=self.SYMBOL, priority=4, strategy_name=self.name
+                )
+                if not granted:
+                    logger.debug(f"[{self.name}] Árbitro denegó compra en {self.SYMBOL}.")
+                    return
+
+                logger.info(f"[{self.name}] 🚀 BB BREAKOUT & SQUEEZE en ETH! Comprando.")
                 await self.order_manager.buy(
                     symbol=self.SYMBOL, 
                     notional_usd=self.NOTIONAL_RISK_USD, 
@@ -93,6 +101,8 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
             exact_qty=self._current_qty,
             strategy_name=self.name
         )
+        # Liberar el símbolo en el árbitro
+        self.order_manager.release_asset(self.SYMBOL, self.name)
         self._has_position = False
         self._current_qty = 0.0
         self._peak_price = 0.0

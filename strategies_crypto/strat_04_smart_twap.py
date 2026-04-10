@@ -91,14 +91,22 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
             amount_usd = 0 # Overbought, pause
 
         if amount_usd > 0:
-            qty = round(amount_usd / bar.close, 5) # Exact precision
+            qty = round(amount_usd / bar.close, 5)
             if qty > 0:
+                # Consultar árbitro (P6 = DCA programado, baja prioridad)
+                granted = await self.order_manager.request_buy(
+                    symbol=bar.symbol, priority=6, strategy_name=self.name
+                )
+                if not granted:
+                    logger.debug(f"[{self.name}] Árbitro denegó. Ventana TWAP omitida.")
+                    return
+
                 logger.info(f"[{self.name}] Ejecutando TWAP Táctico. RSI={rsi:.2f}. Compra USD ${amount_usd}")
-                await self.order_manager.submit_order(
+                await self.order_manager.buy(
                     symbol=bar.symbol,
-                    qty=qty,
-                    side="buy",
-                    type="market",
-                    strategy_id=f"cry_twap"
+                    notional_usd=amount_usd,
+                    current_price=bar.close,
+                    strategy_name=self.name
                 )
                 self._set_last_trade_hour(hour_str)
+                # TWAP es hold de largo plazo: no hay release explícito aquí.

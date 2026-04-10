@@ -5,6 +5,7 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from engine.notifier import TelegramNotifier
+from typing import Optional
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ class OrderManagerCrypto:
     """
     MIN_DELAY_SECONDS = 0.4
 
-    def __init__(self):
+    def __init__(self, arbiter=None):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
         self.secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
         self.paper = os.environ.get("PAPER_TRADING", "True").lower() == "true"
@@ -31,6 +32,9 @@ class OrderManagerCrypto:
         self._queue: asyncio.Queue = asyncio.Queue()
         self._running = False
         self.notifier = TelegramNotifier()
+        
+        # Árbitro centralizado de activos (inyectado desde main_crypto)
+        self.arbiter: Optional[object] = arbiter
 
         logger.info(f"[OrderManagerCrypto] Inicializado.")
 
@@ -52,6 +56,20 @@ class OrderManagerCrypto:
         exact_qty = notional_usd / current_price
         # Redondear hacia abajo para no exceder fondos (o según doc precision: 4 to 8)
         return round(exact_qty, precision)
+
+    async def request_buy(self, symbol: str, priority: int, strategy_name: str) -> bool:
+        """
+        Solicita permiso al árbitro antes de comprar.
+        Retorna True si está permitido ejecutar una orden de compra.
+        """
+        if self.arbiter:
+            return await self.arbiter.request_buy(symbol, priority, strategy_name)
+        return True  # Sin árbitro, siempre permitido (modo legacy)
+
+    def release_asset(self, symbol: str, strategy_name: str) -> None:
+        """Notifica al árbitro que la estrategia cerró su posición."""
+        if self.arbiter:
+            self.arbiter.release(symbol, strategy_name)
 
     async def buy(self, symbol: str, notional_usd: float, current_price: float, limit_price: float = None, strategy_name: str = "", precision: int = 4):
         qty = self._calculate_crypto_qty(notional_usd, current_price, precision)

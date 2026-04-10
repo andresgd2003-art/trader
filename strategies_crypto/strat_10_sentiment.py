@@ -90,25 +90,42 @@ class CryptoSentimentStrategy(BaseStrategy):
 
             if not self.in_position:
                 if fg_index <= 20 and rsi < 35:
+                    # Consultar árbitro (P7 = largo plazo, menor prioridad)
+                    granted = await self.order_manager.request_buy(
+                        symbol=bar.symbol, priority=7, strategy_name=self.name
+                    )
+                    if not granted:
+                        logger.debug(f"[{self.name}] Árbitro denegó compra BTC. Sentiment omitido.")
+                        return
+
                     logger.info(f"[{self.name}] Extreme Fear detectado + Oversold. Entrando fuerte.")
                     self.in_position = True
-                    self.current_qty = round(250.0 / bar.close, 5) # Representacion de un monto grande de cash
-                    await self.order_manager.submit_order(
-                        symbol=bar.symbol, qty=self.current_qty, side="buy", type="market", strategy_id=f"cry_sentbuy"
+                    self.current_qty = round(250.0 / bar.close, 5)
+                    await self.order_manager.buy(
+                        symbol=bar.symbol,
+                        notional_usd=250.0,
+                        current_price=bar.close,
+                        strategy_name=self.name
                     )
             else:
                 if self.current_qty > 0:
                     if fg_index >= 85:
                         logger.info(f"[{self.name}] F&G >= 85. Extreme Greed, liquidando todo.")
-                        await self.order_manager.submit_order(
-                            symbol=bar.symbol, qty=self.current_qty, side="sell", type="market", strategy_id=f"cry_sentsell"
+                        await self.order_manager.sell_exact(
+                            symbol=bar.symbol, exact_qty=self.current_qty, strategy_name=self.name
                         )
+                        # Liberar BTC en el árbitro
+                        self.order_manager.release_asset(bar.symbol, self.name)
                         self.in_position = False
                         self.current_qty = 0.0
                     elif fg_index >= 75:
                         logger.info(f"[{self.name}] F&G >= 75. Greed. Tomando 50% de ganancia.")
                         sell_qty = round(self.current_qty / 2, 5)
                         self.current_qty -= sell_qty
-                        await self.order_manager.submit_order(
-                            symbol=bar.symbol, qty=sell_qty, side="sell", type="market", strategy_id=f"cry_sentsell50"
+                        await self.order_manager.sell_exact(
+                            symbol=bar.symbol, exact_qty=sell_qty, strategy_name=self.name
                         )
+                        # Si ya vendimos todo, liberar
+                        if self.current_qty <= 0:
+                            self.order_manager.release_asset(bar.symbol, self.name)
+                            self.in_position = False

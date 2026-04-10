@@ -65,33 +65,36 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
             else:
                 # Si no estamos dentro, evaluamos entry
                 if funding_rate <= -0.0005:  # -0.05%
+                    # Consultar árbitro (P3 = urgencia media)
+                    granted = await self.order_manager.request_buy(
+                        symbol=bar.symbol, priority=3, strategy_name=self.name
+                    )
+                    if not granted:
+                        logger.debug(f"[{self.name}] Árbitro denegó compra ETH. Squeeze omitido.")
+                        return
+
                     logger.info(f"[{self.name}] ALERTA Squeeze: Funding Rate en {funding_rate*100:.3f}%. COMPRANDO.")
                     self.in_position = True
                     self.entry_price = bar.close
                     self.max_price = bar.close
-                    
-                    # Comprar monto fijo de 100 USD como ejemplo
                     qty = round(100.0 / bar.close, 5)
-                    await self.order_manager.submit_order(
+                    await self.order_manager.buy(
                         symbol=bar.symbol,
-                        qty=qty,
-                        side="buy",
-                        type="market",
-                        strategy_id=f"cry_funding"
+                        notional_usd=100.0,
+                        current_price=bar.close,
+                        strategy_name=self.name
                     )
 
     async def _close_position(self, symbol, current_price):
         if self.in_position:
-            # Obtener inventario actual desde Alpaca (simulado o via OrderManager sería lo ideal)
-            # Como ejemplo forzamos cierre de $100 representativos (En spot no es exacto, se recomienda order_manager._close_all_positions)
             qty = round(100.0 / current_price, 5)
-            await self.order_manager.submit_order(
+            await self.order_manager.sell_exact(
                 symbol=symbol,
-                qty=qty, # Lo ideal es capturar el balance real o almacenar la qty comprada.
-                side="sell",
-                type="market",
-                strategy_id=f"cry_fundclose"
+                exact_qty=qty,
+                strategy_name=self.name
             )
+            # Liberar el símbolo en el árbitro
+            self.order_manager.release_asset(symbol, self.name)
             self.in_position = False
             self.entry_price = 0.0
             self.max_price = 0.0

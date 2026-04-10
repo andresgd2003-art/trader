@@ -56,24 +56,31 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
                 # Regresión a la media
                 if ratio >= sma:
                     logger.info(f"[{self.name}] Ratio volvió a la media ({ratio:.5f}). Saliendo de ETH.")
-                    await self.order_manager.submit_order(
+                    await self.order_manager.sell_exact(
                         symbol="ETH/USD",
-                        qty=self.current_qty,
-                        side="sell",
-                        type="market",
-                        strategy_id=f"cry_pairsell"
+                        exact_qty=self.current_qty,
+                        strategy_name=self.name
                     )
+                    # Liberar ETH en el árbitro
+                    self.order_manager.release_asset("ETH/USD", self.name)
                     self.in_position = False
                     self.current_qty = 0.0
             else:
                 if ratio < lower_band:
+                    # Consultar árbitro (P5 = mean reversion 15m)
+                    granted = await self.order_manager.request_buy(
+                        symbol="ETH/USD", priority=5, strategy_name=self.name
+                    )
+                    if not granted:
+                        logger.debug(f"[{self.name}] Árbitro denegó compra ETH/USD. Divergencia omitida.")
+                        return
+
                     logger.info(f"[{self.name}] Divergencia detectada. Ratio ({ratio:.5f}) < Band ({lower_band:.5f}). Comprando ETH.")
                     self.in_position = True
                     self.current_qty = round(100.0 / self.last_eth_close, 5)
-                    await self.order_manager.submit_order(
+                    await self.order_manager.buy(
                         symbol="ETH/USD",
-                        qty=self.current_qty,
-                        side="buy",
-                        type="market",
-                        strategy_id=f"cry_pairbuy"
+                        notional_usd=100.0,
+                        current_price=self.last_eth_close,
+                        strategy_name=self.name
                     )

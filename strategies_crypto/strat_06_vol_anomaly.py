@@ -34,18 +34,18 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
             ts_price = self.max_price * 0.985 # 1.5%
             if bar.close <= ts_price:
                 logger.info(f"[{self.name}] Saliendo por TSL de 1.5%. Max: {self.max_price}")
-                await self.order_manager.submit_order(
+                await self.order_manager.sell_exact(
                     symbol=bar.symbol,
-                    qty=self.current_qty,
-                    side="sell",
-                    type="market",
-                    strategy_id=f"cry_volsell"
+                    exact_qty=self.current_qty,
+                    strategy_name=self.name
                 )
+                # Liberar el símbolo en el árbitro
+                self.order_manager.release_asset(bar.symbol, self.name)
                 self.in_position = False
                 self.entry_price = 0.0
                 self.max_price = 0.0
                 self.current_qty = 0.0
-                return # Salimos, no evaluamos compra
+                return
 
         if len(self._volumes) < self.SMA_VOL_PERIOD:
             return
@@ -61,17 +61,22 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
                 is_bullish = bar.close > bar.open
                 
                 if is_pump and is_bullish:
+                    # Consultar árbitro (P1 = máxima urgencia, pump de 1 minuto)
+                    granted = await self.order_manager.request_buy(
+                        symbol=bar.symbol, priority=1, strategy_name=self.name
+                    )
+                    if not granted:
+                        logger.debug(f"[{self.name}] Árbitro denegó compra LINK. Pump perdido.")
+                        return
+
                     logger.info(f"[{self.name}] ANOMALIA DETECTADA. Vol: {bar.volume} | SMA: {sma_vol}. Comprando!")
                     self.in_position = True
                     self.entry_price = bar.close
                     self.max_price = bar.close
-                    
-                    # Size 100 USD
                     self.current_qty = round(100.0 / bar.close, 5)
-                    await self.order_manager.submit_order(
+                    await self.order_manager.buy(
                         symbol=bar.symbol,
-                        qty=self.current_qty,
-                        side="buy",
-                        type="market",
-                        strategy_id=f"cry_volbuy"
+                        notional_usd=100.0,
+                        current_price=bar.close,
+                        strategy_name=self.name
                     )

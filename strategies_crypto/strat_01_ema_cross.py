@@ -44,7 +44,15 @@ class CryptoEMACrossStrategy(BaseStrategy):
 
         if self._prev_fast_above is not None and fast_above != self._prev_fast_above:
             if fast_above and not self._has_position:
-                # Comprar con matemáticas fraccionarias
+                # Consultar árbitro antes de comprar
+                granted = await self.order_manager.request_buy(
+                    symbol=self.SYMBOL, priority=4, strategy_name=self.name
+                )
+                if not granted:
+                    logger.debug(f"[{self.name}] Árbitro denegó compra en {self.SYMBOL}.")
+                    self._prev_fast_above = fast_above
+                    return
+
                 logger.info(f"[{self.name}] 🟢 EMA CROSSOVER en {bar.symbol}! Comprando ${self.NOTIONAL_RISK_USD}")
                 await self.order_manager.buy(
                     symbol=self.SYMBOL, 
@@ -68,6 +76,8 @@ class CryptoEMACrossStrategy(BaseStrategy):
                     exact_qty=self._current_qty,
                     strategy_name=self.name
                 )
+                # Liberar el símbolo en el árbitro
+                self.order_manager.release_asset(self.SYMBOL, self.name)
                 self._has_position = False
                 self._current_qty = 0.0
                 self._position[self.SYMBOL] = 0

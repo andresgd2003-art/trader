@@ -89,18 +89,30 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                 if self.in_position:
                     if e8 < e34:
                         logger.info(f"[{self.name}] EMA8 cruzó EMA34 hacia abajo. Fin de Ribbon. Vendiendo.")
-                        await self.order_manager.submit_order(
-                            symbol=bar.symbol, qty=self.current_qty, side="sell", type="market", strategy_id=f"cry_emaclose"
+                        await self.order_manager.sell_exact(
+                            symbol=bar.symbol, exact_qty=self.current_qty, strategy_name=self.name
                         )
+                        # Liberar BCH en el árbitro
+                        self.order_manager.release_asset(bar.symbol, self.name)
                         self.in_position = False
                         self.current_qty = 0.0
                 else:
                     if is_aligned and bar.close <= e21:  # Pullback a value zone (EMA21)
-                        logger.info(f"[{self.name}] Full Bullish Alignment + Pullback al EMA21. Comprando!")
-                        self.in_position = True
-                        self.current_qty = round(100.0 / bar.close, 5)
-                        await self.order_manager.submit_order(
-                            symbol=bar.symbol, qty=self.current_qty, side="buy", type="market", strategy_id=f"cry_emabuy"
+                        # Consultar árbitro (P5 = EMA ribbon 4H)
+                        granted = await self.order_manager.request_buy(
+                            symbol=bar.symbol, priority=5, strategy_name=self.name
                         )
+                        if not granted:
+                            logger.debug(f"[{self.name}] Árbitro denegó compra BCH. Ribbon omitido.")
+                        else:
+                            logger.info(f"[{self.name}] Full Bullish Alignment + Pullback al EMA21. Comprando!")
+                            self.in_position = True
+                            self.current_qty = round(100.0 / bar.close, 5)
+                            await self.order_manager.buy(
+                                symbol=bar.symbol,
+                                notional_usd=100.0,
+                                current_price=bar.close,
+                                strategy_name=self.name
+                            )
             else:
                 self._save_close(bar.close, 0)
