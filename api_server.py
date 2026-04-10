@@ -233,20 +233,46 @@ async def get_strategy_stats():
         )
         
         stats = {}
-        for o in orders:
-            if not o.client_order_id or not str(o.client_order_id).startswith("strat_"):
-                continue
-                
+        tracker = {}
+        
+        # Sort first to calculate PNL correctly
+        valid_orders = [o for o in orders if o.client_order_id and str(o.client_order_id).startswith("strat_")]
+        valid_orders.sort(key=lambda x: (x.filled_at if x.filled_at else x.created_at) if (x.filled_at or x.created_at) else datetime.min)
+        
+        for o in valid_orders:
             strat_name = str(o.client_order_id).split("_")[1]
             if strat_name not in stats:
-                stats[strat_name] = {"trades": 0, "filled": 0, "volume": 0.0, "symbol": o.symbol}
+                stats[strat_name] = {"trades": 0, "filled": 0, "volume": 0.0, "symbol": o.symbol, "realized_pnl": 0.0}
             
             stats[strat_name]["trades"] += 1
             if o.status.value == "filled":
                 stats[strat_name]["filled"] += 1
                 qty = float(o.filled_qty) if o.filled_qty else 0
                 price = float(o.filled_avg_price) if o.filled_avg_price else 0
-                stats[strat_name]["volume"] += qty * price
+                vol = qty * price
+                stats[strat_name]["volume"] += vol
+                
+                # Calcular Realized P&L
+                tracker_key = f"{strat_name}_{o.symbol}"
+                if tracker_key not in tracker:
+                    tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
+                
+                pos = tracker[tracker_key]["pos"]
+                avg = tracker[tracker_key]["avg"]
+                
+                if o.side.value == "buy":
+                    new_cost = (pos * avg) + vol
+                    pos += qty
+                    avg = new_cost / pos if pos > 0 else 0
+                    tracker[tracker_key] = {"pos": pos, "avg": avg}
+                else:
+                    realized = (price - avg) * qty
+                    stats[strat_name]["realized_pnl"] += realized
+                    pos -= qty
+                    if pos <= 0:
+                        pos = 0.0
+                        avg = 0.0
+                    tracker[tracker_key] = {"pos": pos, "avg": avg}
 
         return stats
     except Exception as e:

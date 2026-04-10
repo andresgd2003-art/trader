@@ -199,13 +199,8 @@ class EquitiesEngine:
             + self.strategies[9].symbols   # Sector ETFs + holdings
         ))
 
-    async def start_engine(self):
-        """Punto de entrada principal del motor de equities."""
-        _EQ_ENGINE_STATUS["is_running"] = True
-
-        # Inicio del order manager
-        order_task = asyncio.create_task(self.order_manager.start())
-
+    async def initialize(self):
+        """Inicializa los símbolos obtenidos del screener antes de arrancar los loops infinitos."""
         # Esperar la hora del pre-mercado (09:00 AM EST) o ejecutar ahora
         now = datetime.now()
         pre_market_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
@@ -220,12 +215,19 @@ class EquitiesEngine:
 
         if not symbols_today:
             logger.warning("[EquitiesEngine] Sin universo hoy. Solo estrategias estáticas activas.")
+            
+        logger.info(
+            f"[EquitiesEngine] ✅ Initialize completado. {len(self.get_eq_symbols())} símbolos listos."
+        )
+
+    async def start_engine(self):
+        """Punto de entrada principal del motor de equities."""
+        _EQ_ENGINE_STATUS["is_running"] = True
+
+        # Inicio del order manager
+        order_task = asyncio.create_task(self.order_manager.start())
 
         _EQ_ENGINE_STATUS["market_open"] = True
-        logger.info(
-            f"[EquitiesEngine] ✅ Listo. {len(self.get_eq_symbols())} símbolos activos. "
-            f"El stream es compartido con el ETF engine (evita límite IEX)."
-        )
 
         # Lanzar tareas concurrentes (sin stream propio)
         await asyncio.gather(
