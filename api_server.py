@@ -223,21 +223,25 @@ async def get_orders():
     try:
         client = get_trading_client()
         orders = client.get_orders(
-            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=30)
+            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=100)
         )
         return [
             {
-                "id":         str(o.id),
-                "symbol":     o.symbol,
-                "side":       o.side.value,
-                "type":       o.order_type.value if o.order_type else "market",
-                "qty":        float(o.qty) if o.qty else 0,
-                "filled_qty": float(o.filled_qty) if o.filled_qty else 0,
-                "status":     o.status.value,
+                "id":           str(o.id),
+                "symbol":       o.symbol,
+                "side":         o.side.value,
+                "type":         o.order_type.value if o.order_type else "market",
+                "qty":          float(o.qty) if o.qty else 0,
+                "filled_qty":   float(o.filled_qty) if o.filled_qty else 0,
+                "status":       o.status.value,
                 "limit_price":  float(o.limit_price) if o.limit_price else None,
+                "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else None,
                 "filled_price": float(o.filled_avg_price) if o.filled_avg_price else None,
+                "created_at":   o.submitted_at.isoformat() if o.submitted_at else None,
                 "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
-                "strategy":     str(o.client_order_id).split("_")[1] if (o.client_order_id and (str(o.client_order_id).startswith("strat_") or str(o.client_order_id).startswith("cry_"))) else "Manual",
+                # client_id completo para que el frontend pueda filtrar por prefijo (cry_, eq_, strat_)
+                "client_id":    str(o.client_order_id) if o.client_order_id else "",
+                "strategy":     str(o.client_order_id).split("_")[1] if (o.client_order_id and len(str(o.client_order_id).split("_")) > 1) else "Manual",
             }
             for o in orders
         ]
