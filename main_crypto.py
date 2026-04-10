@@ -4,7 +4,6 @@ import logging
 import threading
 from alpaca.data.live.crypto import CryptoDataStream
 from engine.order_manager_crypto import OrderManagerCrypto
-import talib
 
 logger = logging.getLogger(__name__)
 
