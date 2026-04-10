@@ -340,10 +340,10 @@ async def health():
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
     """Sirve el dashboard HTML interactivo."""
-    dashboard_path = Path("/app/static/index.html")
+    dashboard_path = Path(__file__).parent / "static/index.html"
     if dashboard_path.exists():
         return HTMLResponse(content=dashboard_path.read_text(encoding="utf-8"))
-    return HTMLResponse(content="<h1>Dashboard cargando...</h1><script>setTimeout(()=>location.reload(),3000)</script>")
+    return HTMLResponse(content=f"<h1>Dashboard cargando... ({dashboard_path} no encontrado)</h1><script>setTimeout(()=>location.reload(),3000)</script>")
 
 
 # ============================================================
