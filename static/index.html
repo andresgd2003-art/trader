@@ -273,6 +273,16 @@
     @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
     .fade-in { animation: fadeIn .35s ease; }
 
+    /* ── TIME FILTERS ── */
+    .time-filters { display: flex; gap: 4px; }
+    .time-btn {
+      padding: 3px 8px; font-size: 0.65rem; font-weight: 700; color: var(--text-dim);
+      background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; transition: all .2s;
+    }
+    .time-btn:hover { color: var(--text-primary); border-color: var(--border-bright); }
+    .time-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
     /* ── SECTION HEADER ── */
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
     .section-title { font-size: 0.9rem; font-weight: 700; letter-spacing: -.2px; }
@@ -351,6 +361,12 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">📊 Portfolio History (ETF)</span>
+          <div class="time-filters">
+            <button class="time-btn" onclick="updateChartPeriod('etf', '1D')">1D</button>
+            <button class="time-btn" onclick="updateChartPeriod('etf', '1W')">1W</button>
+            <button class="time-btn active" onclick="updateChartPeriod('etf', '1M')">1M</button>
+            <button class="time-btn" onclick="updateChartPeriod('etf', '1A')">1A</button>
+          </div>
         </div>
         <div class="card-body">
           <div class="chart-wrap"><canvas id="etf-chart"></canvas></div>
@@ -430,7 +446,15 @@
     <div class="two-col">
       <!-- Chart -->
       <div class="card">
-        <div class="card-header"><span class="card-title">₿ Portfolio History (Crypto)</span></div>
+        <div class="card-header">
+          <span class="card-title">₿ Portfolio History (Crypto)</span>
+          <div class="time-filters">
+            <button class="time-btn" onclick="updateChartPeriod('crypto', '1D')">1D</button>
+            <button class="time-btn" onclick="updateChartPeriod('crypto', '1W')">1W</button>
+            <button class="time-btn active" onclick="updateChartPeriod('crypto', '1M')">1M</button>
+            <button class="time-btn" onclick="updateChartPeriod('crypto', '1A')">1A</button>
+          </div>
+        </div>
         <div class="card-body">
           <div class="chart-wrap"><canvas id="crypto-chart"></canvas></div>
         </div>
@@ -635,9 +659,27 @@ function updateChart(id, color, data) {
   let ch = charts[id];
   if (!ch) ch = makeChart(id, color);
   if (!ch || !data?.length) return;
-  ch.data.labels = data.map(p => p.t || '');
-  ch.data.datasets[0].data = data.map(p => p.v);
+  ch.data.labels = data.map(p => p.date || '');
+  ch.data.datasets[0].data = data.map(p => p.equity);
   ch.update('none');
+}
+
+// ── TIME FILTER LOGIC ──
+let _currentPeriod = { 'etf': '1M', 'crypto': '1M' };
+async function updateChartPeriod(type, period) {
+  _currentPeriod[type] = period;
+  // Actualizar botones visualmente
+  const container = document.querySelector(`#panel-${type} .time-filters`);
+  if (container) {
+    container.querySelectorAll('.time-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent === period);
+    });
+  }
+  
+  const data = await fetchJSON(`/api/history?period=${period}`);
+  if (data) {
+    updateChart(`${type}-chart`, type === 'etf' ? '#4f8ef7' : '#f7931a', data);
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -652,11 +694,10 @@ async function loadEtfData() {
   ]);
 
   if (acct) {
-    const pnl = parseFloat(acct.equity || 0) - parseFloat(acct.last_equity || acct.equity || 0);
-    const pnlPct = acct.last_equity ? (pnl / parseFloat(acct.last_equity) * 100) : 0;
     setEl('etf-equity', fmtMoney(acct.equity));
-    setEl('etf-pnl', (pnl >= 0 ? '+' : '') + fmtMoney(pnl), colorClass(pnl));
-    document.getElementById('etf-pnl-pct') && (document.getElementById('etf-pnl-pct').textContent = `${fmt(pnlPct)}%`);
+    setEl('etf-pnl', (acct.pnl_day >= 0 ? '+' : '') + fmtMoney(acct.pnl_day), colorClass(acct.pnl_day));
+    const pnlLabel = document.getElementById('etf-pnl-pct');
+    if (pnlLabel) pnlLabel.textContent = `${acct.pnl_day_pct}% Hoy`;
   }
 
   // Posiciones
@@ -692,9 +733,9 @@ async function loadEtfData() {
   document.getElementById('etf-last-updated').textContent = `Actualizado: ${new Date().toLocaleTimeString()}`;
 
   // Chart
+  const hist = await fetchJSON(`/api/history?period=${_currentPeriod['etf']}`);
   if (hist?.length) {
-    const mapped = hist.map(p => ({ t: (p.timestamp||'').substring(0,10), v: parseFloat(p.equity||0) }));
-    updateChart('etf-chart', '#4f8ef7', mapped);
+    updateChart('etf-chart', '#4f8ef7', hist);
   }
 
   // Logs
@@ -763,9 +804,10 @@ async function loadCryptoData() {
       <td style="color:var(--text-dim)">${(o.created_at||'').substring(11,19)}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="empty-msg">Sin órdenes crypto hoy</td></tr>';
 
-  if (hist?.length) {
-    const mapped = hist.map(p => ({ t: (p.timestamp||'').substring(0,10), v: parseFloat(p.equity||0) }));
-    updateChart('crypto-chart', '#f7931a', mapped);
+  // Chart
+  const histData = await fetchJSON(`/api/history?period=${_currentPeriod['crypto']}`);
+  if (histData?.length) {
+    updateChart('crypto-chart', '#f7931a', histData);
   }
 
   // Render strategy cards

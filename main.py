@@ -21,6 +21,8 @@ if hasattr(time, 'tzset'):
 import asyncio
 import logging
 import threading
+import signal
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env (si existe localmente)
@@ -177,22 +179,44 @@ class TradingEngine:
 
         logger.info("[Engine] Conexión WebSocket Alpaca establecida. ¡Engine activo!")
 
+        # Configurar cierre limpio para señales del sistema (Docker stoppping)
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
+
         try:
             # stream.run() es bloqueante - inicia el loop de datos en tiempo real
-            # Se ejecuta en un thread separado para no bloquear asyncio
             import threading
             stream_thread = threading.Thread(target=self.stream.run, daemon=True)
             stream_thread.start()
-            # Mantener el loop de asyncio activo para las tasks de las estrategias
+            
+            # Mantener el loop de asyncio activo
             while stream_thread.is_alive():
                 await asyncio.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("[Engine] Apagado manual detectado.")
+        except Exception as e:
+            logger.error(f"[Engine] Error en loop principal: {e}")
         finally:
             await self.order_manager.stop()
             order_task.cancel()
             daily_reporter_task.cancel()
             logger.info("[Engine] Engine detenido correctamente.")
+
+    async def stop(self):
+        """Detiene el motor de forma limpia, cerrando el WebSocket."""
+        logger.info("[Engine] Recibida señal de apagado. Cerrando stream...")
+        try:
+            # Intentar cerrar el stream de Alpaca
+            if hasattr(self.stream, 'stop'):
+                 await self.stream.stop()
+            elif hasattr(self.stream, 'close'):
+                 await self.stream.close()
+            logger.info("[Engine] WebSocket cerrado con éxito.")
+        except Exception as e:
+            logger.error(f"[Engine] Error cerrando WebSocket: {e}")
+        
+        # Permitir que el proceso termine
+        loop = asyncio.get_running_loop()
+        loop.stop()
 
 
 # ============================================================
@@ -203,6 +227,10 @@ if __name__ == "__main__":
         logger.error("ERROR: ALPACA_API_KEY y ALPACA_SECRET_KEY son requeridas.")
         logger.error("Configúralas en las variables de entorno o en el archivo .env")
         exit(1)
+
+    # REGLA DE 20 SEGUNDOS: Delay para evitar Error 406 (conlimit) en redeploys rápidos
+    logger.info("[Main] Delay de seguridad (20s) activo para liberar sesiones previas en Alpaca...")
+    time.sleep(20)
 
     engine = TradingEngine()
     
@@ -223,4 +251,7 @@ if __name__ == "__main__":
             return_exceptions=True
         )
 
-    asyncio.run(run_both())
+    try:
+        asyncio.run(run_both())
+    except KeyboardInterrupt:
+        logger.info("[Main] Sistema detenido por el usuario.")
