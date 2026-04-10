@@ -71,25 +71,42 @@ async def get_account():
         
         equity = float(acc.equity)
         last_equity = float(acc.last_equity) if acc.last_equity else equity
-        
-        # P&L del día basado en el cierre de ayer
         pnl_day = equity - last_equity
         pnl_day_pct = (pnl_day / last_equity * 100) if last_equity > 0 else 0
-        
+
         return {
-            "equity":           equity,
-            "cash":             float(acc.cash),
-            "buying_power":     float(acc.buying_power),
-            "portfolio_value":  float(acc.portfolio_value),
-            "pnl_day":          pnl_day,
-            "pnl_day_pct":      round(pnl_day_pct, 2),
-            "total_pnl":        equity - last_equity, # Simplificado como cambio diario si no hay capital inicial
-            "status":           acc.status.value if acc.status else "active",
-            "currency":         acc.currency,
+            "equity": equity,
+            "cash": float(acc.cash),
+            "buying_power": float(acc.buying_power),
+            "portfolio_value": float(acc.portfolio_value),
+            "pnl_day": pnl_day,
+            "pnl_day_pct": round(pnl_day_pct, 2),
+            "total_pnl": equity - last_equity,
+            "status": acc.status.value if acc.status else "active",
+            "currency": acc.currency,
+            "daytrade_count": getattr(acc, 'daytrade_count', 0),
+            "pattern_day_trader": getattr(acc, 'pattern_day_trader', False),
+            "long_market_value": float(acc.long_market_value) if hasattr(acc, 'long_market_value') and acc.long_market_value else 0.0,
+            "short_market_value": float(acc.short_market_value) if hasattr(acc, 'short_market_value') and acc.short_market_value else 0.0,
         }
     except Exception as e:
         logger.error(f"[API] Error obteniendo cuenta: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/clock")
+async def get_clock():
+    """Retorna el estado del mercado del servidor de Alpaca"""
+    try:
+        client = get_trading_client()
+        clock = client.get_clock()
+        return {
+            "is_open": clock.is_open,
+            "next_open": clock.next_open.isoformat() if hasattr(clock, 'next_open') and clock.next_open else None,
+            "next_close": clock.next_close.isoformat() if hasattr(clock, 'next_close') and clock.next_close else None
+        }
+    except Exception as e:
+        logger.error(f"[API] Error obteniendo el reloj: {e}")
+        return {}
 
 
 @app.get("/api/positions")
