@@ -686,11 +686,10 @@ async function updateChartPeriod(type, period) {
 //  TAB ETF — carga de datos
 // ══════════════════════════════════════════════════════
 async function loadEtfData() {
-  const [acct, pos, orders, hist] = await Promise.all([
+  const [acct, pos, orders] = await Promise.all([
     fetchJSON('/api/account'),
     fetchJSON('/api/positions'),
-    fetchJSON('/api/orders'),
-    fetchJSON('/api/history')
+    fetchJSON('/api/orders')
   ]);
 
   if (acct) {
@@ -733,9 +732,9 @@ async function loadEtfData() {
   document.getElementById('etf-last-updated').textContent = `Actualizado: ${new Date().toLocaleTimeString()}`;
 
   // Chart
-  const hist = await fetchJSON(`/api/history?period=${_currentPeriod['etf']}`);
-  if (hist?.length) {
-    updateChart('etf-chart', '#4f8ef7', hist);
+  const histData = await fetchJSON(`/api/history?period=${_currentPeriod['etf']}`);
+  if (histData?.length) {
+    updateChart('etf-chart', '#4f8ef7', histData);
   }
 
   // Logs
@@ -760,11 +759,10 @@ const CRYPTO_STRATEGIES = [
 ];
 
 async function loadCryptoData() {
-  const [acct, pos, orders, hist] = await Promise.all([
+  const [acct, pos, orders] = await Promise.all([
     fetchJSON('/api/account'),
     fetchJSON('/api/positions'),
-    fetchJSON('/api/orders'),
-    fetchJSON('/api/history')
+    fetchJSON('/api/orders')
   ]);
 
   if (acct) {
