@@ -197,4 +197,15 @@ if __name__ == "__main__":
         exit(1)
 
     engine = TradingEngine()
-    asyncio.run(engine.run())
+    
+    from main_crypto import CryptoTradingEngine
+    crypto_engine = CryptoTradingEngine()
+    
+    async def run_both():
+        await asyncio.gather(
+            engine.run(),
+            crypto_engine.start_engine(),
+            return_exceptions=True
+        )
+
+    asyncio.run(run_both())

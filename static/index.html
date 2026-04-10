@@ -479,6 +479,11 @@
   </div>
 </nav>
 
+<div style="padding: 15px 24px 0 24px; max-width: 1600px; margin: 0 auto; display: flex; gap: 10px;">
+  <button id="btn-tab-stocks" onclick="switchTab('stocks')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(0, 212, 255, 0.1); color: var(--accent); font-weight: 600; cursor: pointer; transition: all 0.2s;">📈 Mercado Acciones (L-V)</button>
+  <button id="btn-tab-crypto" onclick="switchTab('crypto')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-weight: 600; cursor: pointer; transition: all 0.2s;">⚡ Mercado Cripto (24/7)</button>
+</div>
+
 <!-- ── MAIN GRID ── -->
 <div class="main-grid">
 
@@ -599,17 +604,48 @@
 // CONFIG
 // ═══════════════════════════════════════════════
 const STRATEGIES = [
-  { id: "GoldenCross",         name: "Golden Cross",       symbol: "SMH"  },
-  { id: "DonchianBreakout",    name: "Donchian Breakout",  symbol: "QQQ"  },
-  { id: "MomentumRotation",    name: "Momentum Rotation",  symbol: "Multi"},
-  { id: "MACDTrend",           name: "MACD Trend",         symbol: "XLK"  },
-  { id: "RSIDip",              name: "RSI Buy the Dip",    symbol: "TQQQ" },
-  { id: "BollingerReversion",  name: "Bollinger Reversion",symbol: "SRVR" },
-  { id: "RSI+VIXFilter",       name: "RSI + VIX Filter",   symbol: "SPY"  },
-  { id: "VWAPBounce",          name: "VWAP Bounce",        symbol: "SMH"  },
-  { id: "PairsTrading",        name: "Pairs Trading",      symbol: "QQQ, XLK"},
-  { id: "GridTrading",         name: "Grid Trading",       symbol: "SOXX" },
+  { id: "GoldenCross",         name: "Golden Cross",       symbol: "XLC",   group: "stocks" },
+  { id: "DonchianBreakout",    name: "Donchian Breakout",  symbol: "IWM",   group: "stocks" },
+  { id: "MomentumRotation",    name: "Momentum Rotation",  symbol: "Multi", group: "stocks" },
+  { id: "MACDTrend",           name: "MACD Trend",         symbol: "DIA",   group: "stocks" },
+  { id: "RSIDip",              name: "RSI Buy the Dip",    symbol: "TQQQ",  group: "stocks" },
+  { id: "BollingerReversion",  name: "Bollinger Reversion",symbol: "SRVR",  group: "stocks" },
+  { id: "RSI+VIXFilter",       name: "RSI + VIX Filter",   symbol: "SPY",   group: "stocks" },
+  { id: "VWAPBounce",          name: "VWAP Bounce",        symbol: "SMH",   group: "stocks" },
+  { id: "PairsTrading",        name: "Pairs Trading",      symbol: "QQQ, XLK", group: "stocks" },
+  { id: "GridTrading",         name: "Grid Trading",       symbol: "SOXX",  group: "stocks" },
+  
+  // CRYPTO STRATEGIES
+  { id: "CryptoEMACross",      name: "EMA Trend Crossover", symbol: "BTC/USD", group: "crypto" },
+  { id: "CryptoBBBreakout",    name: "Bollinger Volatility Breakout", symbol: "ETH/USD", group: "crypto" },
+  { id: "CryptoGridSpot",      name: "Dynamic Spot Grid",   symbol: "SOL/USD", group: "crypto" }
 ];
+
+let currentAppGroup = 'stocks'; // 'stocks' o 'crypto'
+
+function switchTab(group) {
+  currentAppGroup = group;
+  // Update UI toggles
+  if (group === 'crypto') {
+    document.getElementById('btn-tab-crypto').style.background = 'rgba(255, 215, 64, 0.1)';
+    document.getElementById('btn-tab-crypto').style.borderColor = 'var(--yellow)';
+    document.getElementById('btn-tab-crypto').style.color = 'var(--yellow)';
+    
+    document.getElementById('btn-tab-stocks').style.background = 'var(--bg-card)';
+    document.getElementById('btn-tab-stocks').style.borderColor = 'var(--border)';
+    document.getElementById('btn-tab-stocks').style.color = 'var(--text-secondary)';
+  } else {
+    document.getElementById('btn-tab-stocks').style.background = 'rgba(0, 212, 255, 0.1)';
+    document.getElementById('btn-tab-stocks').style.borderColor = 'var(--accent)';
+    document.getElementById('btn-tab-stocks').style.color = 'var(--accent)';
+    
+    document.getElementById('btn-tab-crypto').style.background = 'var(--bg-card)';
+    document.getElementById('btn-tab-crypto').style.borderColor = 'var(--border)';
+    document.getElementById('btn-tab-crypto').style.color = 'var(--text-secondary)';
+  }
+  refreshStrategies(); // Reload list
+  refreshOrdersAndPositions(); // Reload
+}
 
 let currentChartMode = 'global'; // 'global' or strategy.id
 let currentTimeframe = '1M'; // '1D', '1W', '1M', '1A'
@@ -790,7 +826,9 @@ async function refreshStrategies() {
   const stats = await fetch('/api/strategy/stats').then(r => r.json());
   const list = document.getElementById('strat-list');
   
-  list.innerHTML = STRATEGIES.map(s => {
+  const filteredStrats = STRATEGIES.filter(s => s.group === currentAppGroup);
+  document.getElementById('strat-count').textContent = filteredStrats.length;
+  list.innerHTML = filteredStrats.map(s => {
     const statIdMatch = Object.keys(stats).find(k => k === s.name.replace(/\s+/g, '').substring(0, 30));
     const myStats = statIdMatch ? stats[statIdMatch] : { trades: 0, filled: 0, volume: 0.0 };
 
@@ -810,17 +848,19 @@ async function refreshStrategies() {
 
 async function refreshPositions() {
   const positions = await fetch('/api/positions').then(r => r.json());
-  document.getElementById('pos-count').textContent = positions.length;
+  const isCrypto = currentAppGroup === 'crypto';
+  const filtered = positions.filter(p => isCrypto ? p.symbol.includes('/') : !p.symbol.includes('/'));
+  document.getElementById('pos-count').textContent = filtered.length;
   const wrap = document.getElementById('positions-table-wrap');
 
-  if (!positions.length) {
+  if (!filtered.length) {
     wrap.innerHTML = '<div class="empty-state">No hay posiciones abiertas</div>';
     return;
   }
   wrap.innerHTML = `
     <div style="overflow-x:auto"><table>
       <thead><tr><th>Símbolo</th><th>Lado</th><th>Cant.</th><th>Entrada</th><th>Actual</th><th>Mercado</th><th>P&L</th><th>%</th></tr></thead>
-      <tbody>${positions.map(p => `
+      <tbody>${filtered.map(p => `
         <tr><td style="color:#e8eaf6;font-weight:600">${p.symbol}</td>
         <td class="side-${p.side}">${p.side.toUpperCase()}</td><td>${p.qty}</td>
         <td>${fmt$(p.avg_entry)}</td><td>${fmt$(p.current_price)}</td><td>${fmt$(p.market_value)}</td>
@@ -833,10 +873,12 @@ async function refreshPositions() {
 
 async function refreshOrders() {
   const orders = await fetch('/api/orders').then(r => r.json());
-  document.getElementById('orders-count').textContent = orders.length;
+  const isCrypto = currentAppGroup === 'crypto';
+  const filtered = orders.filter(o => isCrypto ? o.symbol.includes('/') : !o.symbol.includes('/'));
+  document.getElementById('orders-count').textContent = filtered.length;
   const wrap = document.getElementById('orders-table-wrap');
 
-  if (!orders.length) {
+  if (!filtered.length) {
     wrap.innerHTML = '<div class="empty-state">No hay órdenes recientes</div>';
     return;
   }
@@ -844,7 +886,7 @@ async function refreshOrders() {
   wrap.innerHTML = `
     <div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table>
       <thead><tr><th>Símbolo</th><th>Lado</th><th>Cant.</th><th>Precio</th><th>Estrategia</th><th>Estado</th><th>Hora</th></tr></thead>
-      <tbody>${orders.map(o => `
+      <tbody>${filtered.map(o => `
         <tr><td style="color:#e8eaf6;font-weight:600">${o.symbol}</td>
         <td class="side-${o.side}">${o.side.toUpperCase()}</td><td>${o.filled_qty || o.qty}</td>
         <td>${o.filled_price ? fmt$(o.filled_price) : (o.limit_price ? fmt$(o.limit_price)+' L' : 'MKT')}</td>

@@ -125,8 +125,7 @@ async def get_orders():
                 "limit_price":  float(o.limit_price) if o.limit_price else None,
                 "filled_price": float(o.filled_avg_price) if o.filled_avg_price else None,
                 "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
-                "filled_at":    o.filled_at.isoformat() if o.filled_at else None,
-                "strategy":     str(o.client_order_id).split("_")[1] if (o.client_order_id and str(o.client_order_id).startswith("strat_")) else "Manual",
+                "strategy":     str(o.client_order_id).split("_")[1] if (o.client_order_id and (str(o.client_order_id).startswith("strat_") or str(o.client_order_id).startswith("cry_"))) else "Manual",
             }
             for o in orders
         ]
