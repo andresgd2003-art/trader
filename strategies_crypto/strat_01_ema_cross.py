@@ -2,7 +2,8 @@ import logging
 import numpy as np
 from collections import deque
 from engine.base_strategy import BaseStrategy
-import talib
+import pandas as pd
+from ta.trend import EMAIndicator
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +34,9 @@ class CryptoEMACrossStrategy(BaseStrategy):
         if len(self._closes) < self.EMA_SLOW * 2:
             return
 
-        closes = np.array(self._closes)
-        ema_fast = talib.EMA(closes, timeperiod=self.EMA_FAST)[-1]
-        ema_slow = talib.EMA(closes, timeperiod=self.EMA_SLOW)[-1]
+        closes = pd.Series(list(self._closes))
+        ema_fast = EMAIndicator(closes, window=self.EMA_FAST).ema_indicator().iloc[-1]
+        ema_slow = EMAIndicator(closes, window=self.EMA_SLOW).ema_indicator().iloc[-1]
 
         fast_above = ema_fast > ema_slow
 

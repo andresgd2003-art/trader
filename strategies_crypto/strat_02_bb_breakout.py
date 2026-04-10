@@ -2,7 +2,8 @@ import logging
 import numpy as np
 from collections import deque
 from engine.base_strategy import BaseStrategy
-import talib
+import pandas as pd
+from ta.volatility import BollingerBands
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +41,14 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
         if len(self._closes) < self.BB_PERIOD:
             return
 
-        closes = np.array(self._closes)
+        closes = pd.Series(list(self._closes))
         volumes = np.array(self._volumes)
 
-        upper, middle, lower = talib.BBANDS(closes, timeperiod=self.BB_PERIOD, nbdevup=self.BB_STD, nbdevdn=self.BB_STD)
+        bb = BollingerBands(closes, window=self.BB_PERIOD, window_dev=self.BB_STD)
         
-        up = upper[-1]
-        mid = middle[-1]
-        dn = lower[-1]
+        up = bb.bollinger_hband().iloc[-1]
+        mid = bb.bollinger_mavg().iloc[-1]
+        dn = bb.bollinger_lband().iloc[-1]
         
         bw = (up - dn) / mid if mid != 0 else 0
         self._bandwidths.append(bw)
