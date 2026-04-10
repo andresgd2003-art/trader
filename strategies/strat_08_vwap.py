@@ -31,12 +31,13 @@ class VWAPBounceStrategy(BaseStrategy):
     CLOSE_MIN   = 50
     QTY         = 20
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="VWAP Bounce",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         # Para VWAP acumulado del día
         self._cumulative_tp_vol = 0.0   # Σ (precio_típico × volumen)
         self._cumulative_vol    = 0.0   # Σ volumen
@@ -54,6 +55,8 @@ class VWAPBounceStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(8):
             return
 
         # Iniciar EOD close loop la primera vez que llegue una barra

@@ -44,18 +44,40 @@ _CURRENT_REGIME: dict = {
     "enabled_strategies": [],
 }
 
-# Mapa de estrategias habilitadas por régimen
-REGIME_STRATEGY_MAP = {
-    Regime.BULL:  [1, 2, 4, 5, 8],    # Momentum & Breakouts
-    Regime.BEAR:  [3, 6, 9],           # Mean Reversion & Gap Fades
-    Regime.CHOP:  [7, 10],             # Pairs & Sector Rotation
-    Regime.UNKNOWN: [1, 7, 10],        # Conservador si no hay datos
+# Mapa de estrategias habilitadas por régimen — Motor ETF
+REGIME_ETF_MAP = {
+    Regime.BULL:  [1, 2, 4, 5, 8],      # Golden Cross, Donchian, MACD, RSI Dip, VWAP
+    Regime.BEAR:  [6, 7, 10],            # Bollinger Reversion, RSI+VIX, Grid
+    Regime.CHOP:  [3, 7, 9, 10],         # Momentum Rotation, RSI+VIX, Pairs, Grid
+    Regime.UNKNOWN: [1, 7, 10],          # Conservador si no hay datos
 }
+
+# Mapa de estrategias — Motor Crypto (24/7, sin restricción de sesión)
+REGIME_CRYPTO_MAP = {
+    Regime.BULL:  [1, 2, 4, 5, 8, 10],  # Tendencia: EMA, BB, Smart TWAP, EMA Ribbon, Sentiment
+    Regime.BEAR:  [3, 6, 7, 10],         # Neutral-short: Grid, Vol Anomaly, Pair Divergence, Sentiment
+    Regime.CHOP:  [3, 7, 9, 10],         # Grid, Pair Divergence, VWAP, Sentiment
+    Regime.UNKNOWN: [3, 9, 10],          # Solo defensivos
+}
+
+# Mapa de estrategias — Motor Equities (más sensible al régimen)
+REGIME_EQUITIES_MAP = {
+    Regime.BULL:  [1, 2, 4, 5, 8, 9],   # Gapper, VCP, PEAD, Gamma, NLP, Insider
+    Regime.BEAR:  [3, 6, 7],             # Gap Fade, RSI Extreme, Stat Arb (van en corto o neutro)
+    Regime.CHOP:  [7, 10],               # Stat Arb, Sector Rotation
+    Regime.UNKNOWN: [7, 10],             # Solo los más seguros
+}
+
+# Compatibilidad hacia atrás — se mantiene el mapa original
+REGIME_STRATEGY_MAP = REGIME_ETF_MAP
 
 
 def get_current_regime() -> dict:
     """Retorna el régimen actual (accesible desde el dashboard)."""
     return _CURRENT_REGIME
+
+
+_LAST_HOURLY_ASSESS: dict = {"ts": None}  # Tracker para evaluación horaria
 
 
 class RegimeManager:
@@ -154,7 +176,29 @@ class RegimeManager:
             logger.error(f"[Regime] ❌ Error evaluando régimen: {e}")
             return Regime.UNKNOWN
 
-    def is_strategy_enabled(self, strat_number: int) -> bool:
-        """Verifica si una estrategia está habilitada en el régimen actual."""
-        enabled = REGIME_STRATEGY_MAP.get(self.current_regime, [])
+    def is_strategy_enabled(self, strat_number: int, engine: str = "etf") -> bool:
+        """Verifica si una estrategia está habilitada en el régimen actual.
+        
+        Args:
+            strat_number: Número de estrategia (1-10)
+            engine: Motor al que pertenece: 'etf', 'crypto', 'equities'
+        """
+        regime = self.current_regime
+        if engine == "crypto":
+            enabled = REGIME_CRYPTO_MAP.get(regime, [])
+        elif engine == "equities":
+            enabled = REGIME_EQUITIES_MAP.get(regime, [])
+        else:  # etf (default)
+            enabled = REGIME_ETF_MAP.get(regime, [])
         return strat_number in enabled
+
+    def assess_if_needed(self) -> Regime:
+        """Re-evalúa el régimen solo si ha pasado más de 1 hora desde la última evaluación."""
+        from datetime import datetime
+        now = datetime.now()
+        last = _LAST_HOURLY_ASSESS.get("ts")
+        if last is None or (now - last).total_seconds() > 3600:
+            regime = self.assess()
+            _LAST_HOURLY_ASSESS["ts"] = now
+            return regime
+        return self.current_regime

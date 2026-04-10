@@ -32,12 +32,13 @@ class PairsTradingStrategy(BaseStrategy):
     Z_EXIT     = 0.5      # Z-Score para salir (vuelta a la media)
     QTY        = 10
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Pairs Trading",
             symbols=[self.SYMBOL_A, self.SYMBOL_B],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         self._price_a  = None
         self._price_b  = None
         self._spreads  = deque(maxlen=self.LOOKBACK)
@@ -45,6 +46,8 @@ class PairsTradingStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(9):
             return
 
         if bar.symbol == self.SYMBOL_A:

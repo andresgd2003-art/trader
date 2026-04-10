@@ -24,18 +24,21 @@ class DonchianBreakoutStrategy(BaseStrategy):
     HIGH_PERIOD = 20   # días para el canal superior
     LOW_PERIOD  = 10   # días para el canal inferior
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Donchian Breakout",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+        self.regime_manager = regime_manager
         self._highs  = deque(maxlen=self.HIGH_PERIOD)
         self._lows   = deque(maxlen=self.HIGH_PERIOD)
         self._has_position = False
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(2):
             return
 
         self._highs.append(float(bar.high))
