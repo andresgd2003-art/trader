@@ -2,6 +2,8 @@
 .env
 *.pem
 *.key
+trader_vps
+trader_vps.pub
 
 # Datos generados en runtime
 data/
