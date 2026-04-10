@@ -9,8 +9,16 @@ ARQUITECTURA: "Central Dispatcher"
 - Un OrderManager centralizado maneja todas las órdenes con rate-limiting
 - Un API Server FastAPI expone datos al dashboard en tiempo real
 """
-import asyncio
 import os
+import time
+
+# Forzar Huso Horario al Mercado Bursátil Americano (America/New_York)
+# Esto previene desfases sin importar dónde corra físicamente el Servidor/VPS (Zero-Risk Live Money).
+os.environ['TZ'] = 'America/New_York'
+if hasattr(time, 'tzset'):
+    time.tzset()
+
+import asyncio
 import logging
 import threading
 from dotenv import load_dotenv
