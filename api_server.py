@@ -57,6 +57,89 @@ app.add_middleware(
 def get_trading_client() -> TradingClient:
     return TradingClient(api_key=API_KEY, secret_key=SECRET_KEY, paper=PAPER)
 
+# ============================================================
+# MOTOR HISTÓRICO ASÍNCRONO (LATENCIA CERO)
+# ============================================================
+_CHART_CACHE = {
+    "home": [],
+    "etf": [],
+    "crypto": [],
+    "eq": []
+}
+
+async def _build_charts_task():
+    """Background task para evitar latencia de cálculos. Compila The PNL Curve históricamente."""
+    global _CHART_CACHE
+    while True:
+        try:
+            client = get_trading_client()
+            # Descargamos historial robusto (1000 operaciones) para recrear gráficas estables
+            orders = client.get_orders(
+                filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
+            )
+            
+            valid = [o for o in orders if o.client_order_id and (
+                str(o.client_order_id).startswith("strat_") or 
+                str(o.client_order_id).startswith("cry_") or 
+                str(o.client_order_id).startswith("eq_")
+            )]
+            valid.sort(key=lambda x: (x.filled_at if x.filled_at else x.created_at) if (x.filled_at or x.created_at) else datetime.min)
+            
+            tracker = {} 
+            engines_pnl = {"home": 0.0, "etf": 0.0, "crypto": 0.0, "eq": 0.0}
+            new_cache = {"home": [], "etf": [], "crypto": [], "eq": []}
+            
+            for o in valid:
+                if o.status.value == "filled":
+                    qty = float(o.filled_qty) if o.filled_qty else 0
+                    price = float(o.filled_avg_price) if o.filled_avg_price else 0
+                    vol = qty * price
+                    
+                    parts = str(o.client_order_id).split("_")
+                    strat_name = parts[1] if len(parts) >= 2 else "unknown"
+                    tracker_key = f"{strat_name}_{o.symbol}"
+                    if tracker_key not in tracker:
+                        tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
+                    
+                    pos = tracker[tracker_key]["pos"]
+                    avg = tracker[tracker_key]["avg"]
+                    
+                    if o.side.value == "buy":
+                        new_cost = (pos * avg) + vol
+                        pos += qty
+                        avg = new_cost / pos if pos > 0 else 0
+                        tracker[tracker_key] = {"pos": pos, "avg": avg}
+                    else:
+                        realized = (price - avg) * qty
+                        pos -= qty
+                        if pos <= 0: pos = 0.0; avg = 0.0
+                        tracker[tracker_key] = {"pos": pos, "avg": avg}
+                        
+                        prefix = parts[0]
+                        engine_key = "etf"
+                        if prefix == "cry": engine_key = "crypto"
+                        elif prefix == "eq": engine_key = "eq"
+                        elif prefix == "strat": engine_key = "etf"
+                        
+                        engines_pnl[engine_key] += realized
+                        engines_pnl["home"] += realized
+                        
+                        date_str = o.filled_at.strftime("%Y-%m-%d %H:%M")
+                        
+                        # Solo inyectar en la gráfica si existió cambio económico real
+                        if realized != 0:
+                            new_cache[engine_key].append({"date": date_str, "equity": engines_pnl[engine_key], "engine": engine_key})
+                            new_cache["home"].append({"date": date_str, "equity": engines_pnl["home"], "engine": "home"})
+
+            _CHART_CACHE = new_cache
+        except Exception as e:
+            logger.error(f"[API] Error reconstruyendo Motor de Gráficas: {e}")
+            
+        await asyncio.sleep(60) # Recalcular cada 1 minuto de forma indetectable
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(_build_charts_task())
 
 # ============================================================
 # ENDPOINTS DE DATOS
@@ -164,48 +247,39 @@ async def get_orders():
 
 import requests
 
-from datetime import timedelta
+from datetime import timedelta, timezone
 @app.get("/api/history")
-async def get_history(period: str = "1M"):
-    """Retorna la historia del portafolio con mayor flexibilidad de periodos."""
+async def get_history(period: str = "1M", engine: str = "home"):
+    """Retorna la historia de PNL sectorizada asíncrona en lugar del Total de Alpaca."""
     try:
-        url = "https://paper-api.alpaca.markets/v2/account/portfolio/history" if PAPER else "https://api.alpaca.markets/v2/account/portfolio/history"
-        headers = {"APCA-API-KEY-ID": API_KEY, "APCA-API-SECRET-KEY": SECRET_KEY}
-        
-        # Mapa de resolución óptima para Alpaca
-        res_map = {
-            "1D": "5Min",
-            "1W": "1H",
-            "1M": "1D",
-            "3M": "1D",
-            "1A": "1W"
-        }
-        tf = res_map.get(period, "1D")
-        
-        params = {
-            "period": period,
-            "timeframe": tf,
-            "extended_hours": "true" if period == "1D" else "false"
-        }
-        
-        res = requests.get(url, headers=headers, params=params)
-        data = res.json()
-        
-        if "timestamp" not in data or not data["timestamp"]:
+        global _CHART_CACHE
+        if engine not in _CHART_CACHE:
             return []
             
-        result = []
-        for i, ts in enumerate(data["timestamp"]):
-            equity = data["equity"][i] if i < len(data["equity"]) else 0
-            if equity and equity > 0:
-                result.append({
-                    "date": datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M"),
-                    "equity": equity,
-                    "profit": data["profit_loss"][i] if "profit_loss" in data else 0
-                })
-        return result
+        history = _CHART_CACHE[engine]
+        if not history:
+            return []
+            
+        # Filtro de periodo
+        now = datetime.now(timezone.utc)
+        if period == "1D": threshold = now - timedelta(days=1)
+        elif period == "1W": threshold = now - timedelta(days=7)
+        elif period == "1A": threshold = now - timedelta(days=365)
+        else: threshold = now - timedelta(days=30)  # max logic applied in 1M
+        
+        filtered = []
+        for h in history:
+            # Recrea datetime
+            try:
+                dt = datetime.strptime(h["date"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+                if dt >= threshold:
+                    filtered.append(h)
+            except:
+                pass
+                
+        return filtered
     except Exception as e:
-        logger.error(f"[API] Error en historia: {e}")
+        logger.error(f"[API] Error obteniendo historia custom: {e}")
         return []
 
 @app.get("/api/symbol/history/{symbol}")
