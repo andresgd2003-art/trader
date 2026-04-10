@@ -414,7 +414,23 @@
     
     <div class="section-header" style="text-align: center; margin-bottom: 30px; margin-top: 20px;">
       <h1 style="font-size: 1.6rem; color: var(--text-primary); margin-bottom: 8px;">🌐 Resumen Maestro del Portafolio</h1>
-      <p style="color: var(--text-secondary); font-size: 0.9rem;">30 Estrategias operando simultáneamente en la nube de forma automatizada</p>
+      <p style="color: var(--text-secondary); font-size: 0.9rem;">Evolución histórica integrada de tus 30 Bots Algorítmicos</p>
+    </div>
+
+    <!-- Chart Consolidado -->
+    <div class="card" style="margin-bottom: 30px;">
+        <div class="card-header" style="justify-content: space-between;">
+          <span class="card-title">🚀 Rendimiento Total Consolidado (Cuenta Completa)</span>
+          <div class="time-filters">
+            <button class="time-btn" onclick="updateChartPeriod('home', '1D')">1D</button>
+            <button class="time-btn" onclick="updateChartPeriod('home', '1W')">1W</button>
+            <button class="time-btn active" onclick="updateChartPeriod('home', '1M')">1M</button>
+            <button class="time-btn" onclick="updateChartPeriod('home', '1A')">1A</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap" style="height: 320px;"><canvas id="home-chart"></canvas></div>
+        </div>
     </div>
 
     <!-- Motores -->
@@ -480,25 +496,10 @@
     </div>
 
     <div class="two-col">
-      <!-- Histórico Portfolio -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">📊 Portfolio History (ETF)</span>
-          <div class="time-filters">
-            <button class="time-btn" onclick="updateChartPeriod('etf', '1D')">1D</button>
-            <button class="time-btn" onclick="updateChartPeriod('etf', '1W')">1W</button>
-            <button class="time-btn active" onclick="updateChartPeriod('etf', '1M')">1M</button>
-            <button class="time-btn" onclick="updateChartPeriod('etf', '1A')">1A</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="chart-wrap"><canvas id="etf-chart"></canvas></div>
-        </div>
-      </div>
       <!-- Posiciones -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">📁 Posiciones Abiertas</span>
+          <span class="card-title">📁 Posiciones Abiertas (ETF)</span>
           <button class="refresh-btn" onclick="loadEtfData()">↻ Refresh</button>
         </div>
         <div class="card-body" style="padding:0">
@@ -510,28 +511,28 @@
           </table>
         </div>
       </div>
+
+      <!-- Órdenes recientes -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🔄 Órdenes Recientes (ETF)</span>
+          <span class="last-updated" id="etf-last-updated">–</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr>
+              <th>Símbolo</th><th>Lado</th><th>Qty</th><th>Tipo</th><th>Estado</th>
+            </tr></thead>
+            <tbody id="etf-orders-body"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
     
     <!-- Estrategias ETF -->
     <div class="section-header" style="margin-top:20px"><div class="section-title">🎯 Las 10 Estrategias ETF</div></div>
-    <div class="strat-grid" id="etf-strat-grid">
+    <div class="strat-grid" id="etf-strat-grid" style="margin-bottom:20px;">
       <!-- generado por JS -->
-    </div>
-
-    <!-- Órdenes recientes -->
-    <div class="card" style="margin-bottom:20px">
-      <div class="card-header">
-        <span class="card-title">🔄 Órdenes Recientes (ETF)</span>
-        <span class="last-updated" id="etf-last-updated">–</span>
-      </div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr>
-            <th>Símbolo</th><th>Lado</th><th>Qty</th><th>Tipo</th><th>Estado</th><th>Fill Price</th><th>Hora</th>
-          </tr></thead>
-          <tbody id="etf-orders-body"><tr><td colspan="7" class="empty-msg">Cargando...</td></tr></tbody>
-        </table>
-      </div>
     </div>
 
     <!-- Logs -->
@@ -573,21 +574,6 @@
     </div>
 
     <div class="two-col">
-      <!-- Chart -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">₿ Portfolio History (Crypto)</span>
-          <div class="time-filters">
-            <button class="time-btn" onclick="updateChartPeriod('crypto', '1D')">1D</button>
-            <button class="time-btn" onclick="updateChartPeriod('crypto', '1W')">1W</button>
-            <button class="time-btn active" onclick="updateChartPeriod('crypto', '1M')">1M</button>
-            <button class="time-btn" onclick="updateChartPeriod('crypto', '1A')">1A</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="chart-wrap"><canvas id="crypto-chart"></canvas></div>
-        </div>
-      </div>
       <!-- Posiciones -->
       <div class="card">
         <div class="card-header">
@@ -603,22 +589,23 @@
           </table>
         </div>
       </div>
+      
+      <!-- Ordenes Crypto -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔄 Órdenes Crypto Recientes</span></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Par</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Fill Price</th></tr></thead>
+            <tbody id="crypto-orders-body"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- Estrategias Crypto -->
-    <div class="section-header"><div class="section-title">🎯 Estrategias Crypto (AssetArbiter)</div></div>
+    <div class="section-header" style="margin-top:20px"><div class="section-title">🎯 Estrategias Crypto (AssetArbiter)</div></div>
     <div class="strat-grid" id="crypto-strat-grid">
       <!-- generado por JS -->
-    </div>
-
-    <div class="card" style="margin-top:20px">
-      <div class="card-header"><span class="card-title">🔄 Órdenes Crypto Recientes</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Par</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Fill Price</th><th>Hora</th></tr></thead>
-          <tbody id="crypto-orders-body"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
-        </table>
-      </div>
     </div>
 
   </div>
@@ -750,6 +737,7 @@ function switchTab(tab) {
   document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
   document.getElementById(`panel-${tab}`).classList.add('active');
 
+  if (tab === 'home')   loadHomeData();
   if (tab === 'etf')    loadEtfData();
   if (tab === 'crypto') loadCryptoData();
   if (tab === 'eq')     loadEquitiesData();
@@ -887,7 +875,7 @@ function updateChart(id, color, data) {
 }
 
 // ── TIME FILTER LOGIC ──
-let _currentPeriod = { 'etf': '1M', 'crypto': '1M' };
+let _currentPeriod = { 'home': '1M' };
 async function updateChartPeriod(type, period) {
   _currentPeriod[type] = period;
   // Actualizar botones visualmente
@@ -900,9 +888,10 @@ async function updateChartPeriod(type, period) {
   
   const data = await fetchJSON(`/api/history?period=${period}`);
   if (data) {
-    updateChart(`${type}-chart`, type === 'etf' ? '#4f8ef7' : '#f7931a', data);
+    updateChart(`home-chart`, '#4f8ef7', data);
   }
 }
+
 
 // ══════════════════════════════════════════════════════
 //  TAB ETF — carga de datos
@@ -956,11 +945,7 @@ async function loadEtfData() {
 
   document.getElementById('etf-last-updated').textContent = `Actualizado: ${new Date().toLocaleTimeString()}`;
 
-  // Chart
-  const histData = await fetchJSON(`/api/history?period=${_currentPeriod['etf']}`);
-  if (histData?.length) {
-    updateChart('etf-chart', '#4f8ef7', histData);
-  }
+  document.getElementById('etf-last-updated').textContent = `Actualizado: ${new Date().toLocaleTimeString()}`;
 
   // Logs
   const logs = await fetchJSON('/api/logs');
@@ -1049,12 +1034,6 @@ async function loadCryptoData() {
       <td>${o.filled_avg_price ? fmtMoney(o.filled_avg_price) : '—'}</td>
       <td style="color:var(--text-dim)">${(o.created_at||'').substring(11,19)}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="empty-msg">Sin órdenes crypto hoy</td></tr>';
-
-  // Chart
-  const histData = await fetchJSON(`/api/history?period=${_currentPeriod['crypto']}`);
-  if (histData?.length) {
-    updateChart('crypto-chart', '#f7931a', histData);
-  }
 
   // Update Gobal Health Elements
   updateGlobalHealth(acct);
@@ -1235,12 +1214,19 @@ function renderLogs(containerId, logs) {
 }
 
 // ── AUTO-REFRESH (cada 15s) ──
-let _currentTab = 'etf';
+let _currentTab = 'home';
 document.querySelectorAll('.tab-btn').forEach(b => {
   b.addEventListener('click', () => { _currentTab = b.dataset.tab; });
 });
 
+async function loadHomeData() {
+  updateChartPeriod('home', _currentPeriod['home'] || '1M');
+  const acct = await fetchJSON('/api/account');
+  if (acct) updateGlobalHealth(acct);
+}
+
 function autoRefresh() {
+  if (_currentTab === 'home')   loadHomeData();
   if (_currentTab === 'etf')    loadEtfData();
   if (_currentTab === 'crypto') loadCryptoData();
   if (_currentTab === 'eq')     loadEquitiesData();
@@ -1248,6 +1234,7 @@ function autoRefresh() {
 setInterval(autoRefresh, 15000);
 
 // ── INITIAL LOAD ──
+loadHomeData();
 loadEtfData();
 </script>
 </body>
