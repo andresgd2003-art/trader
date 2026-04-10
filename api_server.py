@@ -149,7 +149,7 @@ async def get_history(period: str = "1M"):
         timeframes = {"1D": "5Min", "1W": "15Min", "1M": "1D", "1A": "1D"}
         tf = timeframes.get(period, "1D")
         
-        res = requests.get(url, headers=headers, params={"period": period, "timeframe": tf})
+        res = requests.get(url, headers=headers, params={"period": period, "timeframe": tf, "extended_hours": "true"})
         data = res.json()
         
         if "timestamp" not in data or not data["timestamp"]:
