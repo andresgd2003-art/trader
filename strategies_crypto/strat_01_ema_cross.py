@@ -20,7 +20,7 @@ class CryptoEMACrossStrategy(BaseStrategy):
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
-                self.regime_manager = regime_manager
+        self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.EMA_SLOW * 2) 
         self._prev_fast_above = None    
         self._has_position = False
