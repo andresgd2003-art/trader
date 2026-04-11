@@ -20,6 +20,15 @@ class CryptoTradingEngine:
         self.arbiter = AssetArbiter(cooldown_seconds=300)
         
         self.order_manager = OrderManagerCrypto(arbiter=self.arbiter)
+
+        # RegimeManager compartido — filtra qué bots están activos según Bull/Bear/Chop
+        self.regime_manager = None
+        try:
+            from engine.regime_manager import RegimeManager
+            self.regime_manager = RegimeManager()
+            logger.info("[CryptoEngine] RegimeManager inyectado en bots crypto ✅")
+        except Exception as e:
+            logger.warning(f"[CryptoEngine] RegimeManager no disponible (sin filtro de régimen): {e}")
         
         # Ignorar requerimientos de Keys de historial (Cripto no lo requiere forzoso)
         self.stream = CryptoDataStream(self.api_key, self.secret_key)
@@ -37,17 +46,18 @@ class CryptoTradingEngine:
         from strategies_crypto.strat_09_vwap_touch import CryptoVWAPTouchStrategy
         from strategies_crypto.strat_10_sentiment import CryptoSentimentStrategy
 
+        rm = self.regime_manager  # alias corto
         return [
-            CryptoEMACrossStrategy(self.order_manager),
-            CryptoBBBreakoutStrategy(self.order_manager),
-            CryptoGridSpotStrategy(self.order_manager),
-            CryptoSmartTWAPStrategy(self.order_manager),
-            CryptoFundingSqueezeStrategy(self.order_manager),
-            CryptoVolAnomalyStrategy(self.order_manager),
-            CryptoPairDivergenceStrategy(self.order_manager),
-            CryptoEMARibbonStrategy(self.order_manager),
-            CryptoVWAPTouchStrategy(self.order_manager),
-            CryptoSentimentStrategy(self.order_manager)
+            CryptoEMACrossStrategy(self.order_manager,      regime_manager=rm),
+            CryptoBBBreakoutStrategy(self.order_manager,    regime_manager=rm),
+            CryptoGridSpotStrategy(self.order_manager,      regime_manager=rm),
+            CryptoSmartTWAPStrategy(self.order_manager,     regime_manager=rm),
+            CryptoFundingSqueezeStrategy(self.order_manager, regime_manager=rm),
+            CryptoVolAnomalyStrategy(self.order_manager,    regime_manager=rm),
+            CryptoPairDivergenceStrategy(self.order_manager, regime_manager=rm),
+            CryptoEMARibbonStrategy(self.order_manager,     regime_manager=rm),
+            CryptoVWAPTouchStrategy(self.order_manager,     regime_manager=rm),
+            CryptoSentimentStrategy(self.order_manager,     regime_manager=rm),
         ]
 
     async def _on_crypto_bar(self, bar):
