@@ -26,6 +26,9 @@ class CryptoVWAPTouchStrategy(BaseStrategy):
         self.current_qty = 0.0
 
     async def on_bar(self, bar):
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(9, engine='crypto'):
+            return
+
         dt = bar.timestamp
         # Reset VWAP a la medianoche UTC
         if dt.day != self.last_day:

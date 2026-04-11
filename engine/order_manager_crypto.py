@@ -7,6 +7,10 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 from engine.notifier import TelegramNotifier
 from typing import Optional
 import uuid
+try:
+    from engine.daily_mode import get_mode_label
+except ImportError:
+    def get_mode_label(): return "mA"
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +123,9 @@ class OrderManagerCrypto:
         side = OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL
         strategy = order.get("strategy", "Unknown")
 
-        safe_strat_name = strategy.replace(" ", "")[:30]
-        client_id = f"cry_{safe_strat_name}_{uuid.uuid4().hex[:8]}"
+        safe_strat_name = strategy.replace(" ", "")[:24]
+        mode_label = get_mode_label()  # → 'mA', 'mB' o 'mC'
+        client_id = f"cry_{safe_strat_name}_{mode_label}_{uuid.uuid4().hex[:8]}"
 
         try:
             if order["limit_price"]:

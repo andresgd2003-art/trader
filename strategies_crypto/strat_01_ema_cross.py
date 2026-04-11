@@ -14,12 +14,13 @@ class CryptoEMACrossStrategy(BaseStrategy):
     EMA_SLOW = 26
     NOTIONAL_RISK_USD = 1000.0  # Invertir 1000 usd por trade
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="EMA Trend Crossover",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+                self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.EMA_SLOW * 2) 
         self._prev_fast_above = None    
         self._has_position = False
@@ -27,6 +28,8 @@ class CryptoEMACrossStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(1, engine='crypto'):
             return
 
         self._closes.append(float(bar.close))

@@ -18,8 +18,9 @@ class CryptoSentimentStrategy(BaseStrategy):
     """
     RSI_PERIOD = 14
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__("Sentiment F&G", ["BTC/USD"], order_manager)
+                self.regime_manager = regime_manager
         self.db_path = os.environ.get("DB_PATH", "/app/data/trades.db")
         self._init_db()
         
@@ -71,6 +72,8 @@ class CryptoSentimentStrategy(BaseStrategy):
         return 50 # neutral en caso de error
 
     async def on_bar(self, bar):
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(10, engine='crypto'):
+            return
         dt = bar.timestamp
         # Detectar cierre de día (aprox medianoche o nueva barra dia)
         # Evaluamos F&G a las 00:05 UTC para dejar que el mercado abra nuevo dia

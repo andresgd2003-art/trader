@@ -33,6 +33,9 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
         return 0.0
 
     async def on_bar(self, bar):
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(5, engine='crypto'):
+            return
+
         # Update trailing params
         if self.in_position:
             if bar.high > self.max_price:

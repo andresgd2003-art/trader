@@ -24,6 +24,9 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
         self.last_minute = -1
 
     async def on_bar(self, bar):
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(7, engine='crypto'):
+            return
+
         # Timeframe control de 15m
         minute = bar.timestamp.minute
         is_15m_crossover = minute % 15 == 0 and minute != self.last_minute

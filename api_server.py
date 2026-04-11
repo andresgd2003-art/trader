@@ -141,6 +141,42 @@ async def _build_charts_task():
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(_build_charts_task())
+    asyncio.create_task(_weekly_scoring_task())
+    asyncio.create_task(_daily_mode_refresh_task())
+
+async def _weekly_scoring_task():
+    """Job semanal de scoring (Propuesta C). Corre cada domingo 18:00 UTC."""
+    while True:
+        try:
+            from engine.stock_scorer import get_scorer
+            scorer = get_scorer()
+            # Verificar si ya hay scores del día (evita doble cálculo en reinicios)
+            existing = scorer.get_top_scores(limit=1)
+            if existing:
+                from datetime import datetime, timezone
+                last_ts = datetime.fromisoformat(existing[0]["timestamp"])
+                age_hours = (datetime.now(timezone.utc) - last_ts).total_seconds() / 3600
+                if age_hours < 24:
+                    logger.info(f"[Scoring] Scores recientes ({age_hours:.1f}h). Saltando.")
+                    await asyncio.sleep(3600)  # revisar en 1h
+                    continue
+            logger.info("[Scoring] Iniciando cálculo semanal de scores (Propuesta C)...")
+            scores = await scorer.score_universe()
+            top5 = list(scores.items())[:5]
+            logger.info(f"[Scoring] Top 5: {top5}")
+        except Exception as e:
+            logger.error(f"[Scoring] Error en el job semanal: {e}")
+        await asyncio.sleep(6 * 3600)  # Correr cada 6 horas (ligero, usa caché de 24h)
+
+async def _daily_mode_refresh_task():
+    """Refresca el modo A/B/C al inicio y cada medianoche UTC."""
+    while True:
+        try:
+            from engine.daily_mode import DailyModeManager
+            DailyModeManager().refresh()
+        except Exception as e:
+            logger.debug(f"[DailyMode] Error en refresh: {e}")
+        await asyncio.sleep(3600)  # verificar cada hora (sin impacto)
 
 # R\u00e9gimen de mercado compartido entre el api_server y main.py
 _regime_manager_instance = None
@@ -154,6 +190,82 @@ def _get_or_create_regime_manager():
         except Exception:
             pass
     return _regime_manager_instance
+
+# ============================================================
+# HELPER: PARSER ROBUSTO DE client_order_id
+# ============================================================
+import re as _re
+
+# Mapa de prefijo → nombre del motor
+_ENGINE_MAP = {
+    "strat": "etf",
+    "cry":   "crypto",
+    "eq":    "equities",
+}
+
+# UUID8: exactamente 8 caracteres hexadecimales al final
+_UUID8_PATTERN = _re.compile(r'^[0-9a-f]{8}$')
+# Modo: mA, mB, mC
+_MODE_PATTERN  = _re.compile(r'^m[ABC]$')
+
+def parse_order_meta(client_order_id: str) -> dict:
+    """
+    Parsea un client_order_id robusto sin importar cuántos tokens tiene el nombre.
+
+    Formatos soportados:
+      - Legado:  {prefix}_{name}_{uuid8}           → ej: strat_GoldenCross_a3f8b2c1
+      - Nuevo:   {prefix}_{name}_{mode}_{uuid8}    → ej: strat_GoldenCross_mA_a3f8b2c1
+      - Crypto:  cry_{name}_{uuid8}
+      - Equities: eq_{name}_{uuid8}
+
+    Retorna:
+      {
+        "prefix":   "strat" | "cry" | "eq",
+        "engine":   "etf" | "crypto" | "equities",
+        "name":     nombre completo de la estrategia,
+        "mode":     "A" | "B" | "C" | "LEGACY",
+        "uuid":     los últimos 8 chars del id,
+      }
+    """
+    if not client_order_id:
+        return {"prefix": "unknown", "engine": "unknown", "name": "Manual", "mode": "LEGACY", "uuid": ""}
+
+    raw = str(client_order_id)
+    parts = raw.split("_")
+
+    if len(parts) < 2:
+        return {"prefix": "unknown", "engine": "unknown", "name": raw, "mode": "LEGACY", "uuid": ""}
+
+    prefix = parts[0]
+    engine = _ENGINE_MAP.get(prefix, "unknown")
+
+    # Detectar si el último token es un UUID8
+    last = parts[-1]
+    if _UUID8_PATTERN.match(last):
+        uuid_part = last
+        inner = parts[1:-1]  # todo entre prefix y uuid
+    else:
+        uuid_part = ""
+        inner = parts[1:]    # sin uuid
+
+    # Detectar si el penúltimo token (antes del UUID) es un modo mA/mB/mC
+    mode = "LEGACY"
+    if inner and _MODE_PATTERN.match(inner[-1]):
+        mode = inner[-1][1]  # "A", "B" o "C"
+        name_parts = inner[:-1]
+    else:
+        name_parts = inner
+
+    name = "_".join(name_parts) if name_parts else "unknown"
+
+    return {
+        "prefix":  prefix,
+        "engine":  engine,
+        "name":    name,
+        "mode":    mode,
+        "uuid":    uuid_part,
+    }
+
 
 # ============================================================
 # ENDPOINTS DE DATOS
@@ -193,6 +305,87 @@ async def get_market_regime():
     except Exception as e:
         logger.error(f"[API] Error en /api/market-regime: {e}")
         return {"regime": "UNKNOWN", "error": str(e)}
+
+
+@app.get("/api/daily-mode")
+async def get_daily_mode():
+    """
+    Retorna el modo activo (A/B/C), el schedule de los próximos 7 días,
+    y si hay un override manual activo.
+    
+    Modos:
+      A = market-environment-analysis (Régimen SPY/VIX)
+      B = market-news-analyst (Filtro de Noticias)
+      C = us-stock-analysis (Scoring Dinámico)
+    """
+    try:
+        from engine.daily_mode import get_mode_meta, DailyModeManager
+        meta = get_mode_meta()
+        if not meta:
+            # Primera vez: inicializar el manager
+            DailyModeManager()
+            meta = get_mode_meta()
+        return meta
+    except Exception as e:
+        logger.error(f"[API] Error en /api/daily-mode: {e}")
+        return {"mode": "A", "error": str(e)}
+
+
+@app.get("/api/news-filter")
+async def get_news_filter_status():
+    """
+    Retorna el estado del filtro de noticias (Propuesta B):
+    - Cache de noticias consultadas
+    - Nivel de riesgo por símbolo
+    - Edad de cada entrada en cache
+    Solo relevante cuando el Modo B está activo.
+    """
+    try:
+        from engine.daily_mode import get_active_mode
+        from engine.news_risk_filter import get_news_filter
+        active_mode = get_active_mode()
+        cache = get_news_filter().get_cache_status()
+        return {
+            "active": active_mode == "B",
+            "mode":   active_mode,
+            "cache":  cache,
+            "note":   "Solo activo en Modo B. En otros modos el filtro está desconectado."
+        }
+    except Exception as e:
+        logger.error(f"[API] Error en /api/news-filter: {e}")
+        return {"active": False, "cache": [], "error": str(e)}
+
+
+@app.get("/api/stock-scores")
+async def get_stock_scores(limit: int = 20, min_score: float = 0):
+    """
+    Retorna el ranking de acciones calculado por el StockScorer (Propuesta C).
+    
+    Params:
+      limit:    Top N acciones a retornar (default 20)
+      min_score: Filtrar solo acciones con score >= min_score
+    
+    Solo es dinámico cuando el Modo C está activo.
+    En modo A/B retorna los scores calculados previamente (si existen).
+    """
+    try:
+        from engine.daily_mode import get_active_mode
+        from engine.stock_scorer import get_scorer
+        active_mode = get_active_mode()
+        scorer = get_scorer()
+        all_scores = scorer.get_top_scores(limit=limit)
+        filtered = [s for s in all_scores if s["score"] >= min_score]
+        return {
+            "mode_active": active_mode,
+            "mode_c_active": active_mode == "C",
+            "count": len(filtered),
+            "scores": filtered,
+            "note": "Modo C activo: scorer actualiza cada 6h. Otros modos: usa último cálculo disponible."
+        }
+    except Exception as e:
+        logger.error(f"[API] Error en /api/stock-scores: {e}")
+        return {"mode_active": "?", "count": 0, "scores": [], "error": str(e)}
+
 
 @app.get("/api/account")
 async def get_account():
@@ -431,60 +624,87 @@ async def get_strategy_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reports")
-async def download_report(strategy: str = "all", period: str = "weekly"):
-    """Descarga el reporte de operaciones en CSV para una estrategia."""
+async def download_report(strategy: str = "all", period: str = "weekly", engine_filter: str = "all"):
+    """Descarga el reporte de operaciones en CSV.
+    
+    Params:
+      strategy:      nombre de estrategia | 'all'
+      period:        'weekly' (7d) | 'monthly' (30d) | 'historical' (todo) | 'all' (sin l\u00edmite)
+      engine_filter: 'all' | 'etf' | 'crypto' | 'equities'
+    """
     try:
+        from datetime import timezone, timedelta
         client = get_trading_client()
+        # Fase 5: l\u00edmite ampliado a 1000 para cubrir hist\u00f3rico completo
         orders = client.get_orders(
-            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=500)
+            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
         )
-        
+
+        # Umbrales de tiempo
+        now = datetime.now(timezone.utc)
+        if period == "weekly":      threshold = now - timedelta(days=7)
+        elif period == "monthly":   threshold = now - timedelta(days=30)
+        elif period == "historical": threshold = None   # sin l\u00edmite
+        else:                       threshold = None    # 'all' tambi\u00e9n sin l\u00edmite
+
+        # Filtrar por estado filled + periodo + motor + estrategia
         filtered = []
         for o in orders:
-            is_match = False
-            if strategy == "all":
-                is_match = True
-            elif o.client_order_id and str(o.client_order_id).startswith(f"strat_{strategy}"):
-                is_match = True
-                
-            if is_match and o.status.value == "filled":
-                filtered.append(o)
-                
+            if o.status.value != "filled":
+                continue
+            # Filtrar por motor
+            meta = parse_order_meta(o.client_order_id)
+            if engine_filter != "all" and meta["engine"] != engine_filter:
+                continue
+            # Filtrar por estrategia
+            if strategy != "all" and meta["name"].lower() != strategy.lower():
+                continue
+            # Filtrar por period
+            if threshold and o.filled_at and o.filled_at < threshold:
+                continue
+            filtered.append((o, meta))
+
+        # Ordenar cronol\u00f3gicamente para tracking de P\u0026L correcto
+        filtered.sort(key=lambda x: x[0].filled_at or datetime.min.replace(tzinfo=timezone.utc))
+
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Fecha (UTC)", "Estrategia", "Simbolo", "Lado", "Cantidad", "Precio ($)", "Volumen ($)", "P&L Realizado ($)", "ID Orden"])
-        
-        from datetime import timezone, timedelta
-        now = datetime.now(timezone.utc)
-        if period == "weekly": threshold = now - timedelta(days=7)
-        elif period == "monthly": threshold = now - timedelta(days=30)
-        else: threshold = now - timedelta(days=3650) # all
-        
-        # Diccionario para trackear la posicion y avg_entry por símbolo y estrategia
+        # Fase 4: Nuevas columnas Motor, Modo, Propuesta
+        writer.writerow([
+            "Fecha (UTC)", "Estrategia", "Motor", "Modo (A/B/C)", "Propuesta Activa",
+            "Simbolo", "Lado", "Cantidad", "Precio ($)", "Volumen ($)",
+            "P&L Realizado ($)", "ID Orden"
+        ])
+
+        # Mapa de modo a nombre de propuesta
+        PROPOSAL_NAMES = {
+            "A": "market-environment-analysis (R\u00e9gimen)",
+            "B": "market-news-analyst (Filtro Noticias)",
+            "C": "us-stock-analysis (Scoring Din\u00e1mico)",
+            "LEGACY": "Legado (sin modo registrado)",
+        }
+
         tracker = {}
-        
-        # Ordenar chronológicamente para el tracking de P&L
-        filtered.sort(key=lambda x: x.filled_at)
-        
-        for o in filtered:
-            if o.filled_at and o.filled_at < threshold:
-                continue
-                
-            strat_name = str(o.client_order_id).split("_")[1] if (o.client_order_id and str(o.client_order_id).startswith("strat_")) else "Manual"
-            qty = float(o.filled_qty) if o.filled_qty else 0
+        for o, meta in filtered:
+            qty   = float(o.filled_qty) if o.filled_qty else 0
             price = float(o.filled_avg_price) if o.filled_avg_price else 0
-            date = o.filled_at.strftime("%Y-%m-%d %H:%M:%S") if o.filled_at else ""
-            vol = round(qty * price, 2)
-            
-            # Calcular ganancia
+            date_str = o.filled_at.strftime("%Y-%m-%d %H:%M:%S") if o.filled_at else ""
+            vol   = round(qty * price, 2)
+
+            strat_name = meta["name"]
+            engine     = meta["engine"]
+            mode       = meta["mode"]        # "A", "B", "C" o "LEGACY"
+            proposal   = PROPOSAL_NAMES.get(mode, mode)
+
+            # Calcular P&L realizado
             tracker_key = f"{strat_name}_{o.symbol}"
             if tracker_key not in tracker:
                 tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
-            
+
             pos = tracker[tracker_key]["pos"]
             avg = tracker[tracker_key]["avg"]
             realized_pnl = 0.0
-            
+
             if o.side.value == "buy":
                 new_cost = (pos * avg) + vol
                 pos += qty
@@ -497,12 +717,17 @@ async def download_report(strategy: str = "all", period: str = "weekly"):
                     pos = 0.0
                     avg = 0.0
                 tracker[tracker_key] = {"pos": pos, "avg": avg}
-                
-            writer.writerow([date, strat_name, o.symbol, o.side.value.upper(), qty, price, vol, realized_pnl if o.side.value == "sell" else "-", str(o.id)])
-            
+
+            writer.writerow([
+                date_str, strat_name, engine, mode, proposal,
+                o.symbol, o.side.value.upper(), qty, price, vol,
+                realized_pnl if o.side.value == "sell" else "-",
+                str(o.id)
+            ])
+
         output.seek(0)
-        filename = f"reporte_{strategy}_{period}.csv"
-        
+        filename = f"reporte_{strategy}_{engine_filter}_{period}.csv"
+
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
