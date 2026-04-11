@@ -96,8 +96,9 @@ async def _build_charts_task():
                     price = float(o.filled_avg_price) if o.filled_avg_price else 0
                     vol = qty * price
                     
-                    parts = str(o.client_order_id).split("_")
-                    strat_name = parts[1] if len(parts) >= 2 else "unknown"
+                    # Fase 17+: usar parse_order_meta para engine correcto
+                    meta = parse_order_meta(o.client_order_id)
+                    strat_name = meta["name"]
                     tracker_key = f"{strat_name}_{o.symbol}"
                     if tracker_key not in tracker:
                         tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
@@ -116,11 +117,9 @@ async def _build_charts_task():
                         if pos <= 0: pos = 0.0; avg = 0.0
                         tracker[tracker_key] = {"pos": pos, "avg": avg}
                         
-                        prefix = parts[0]
-                        engine_key = "etf"
-                        if prefix == "cry": engine_key = "crypto"
-                        elif prefix == "eq": engine_key = "eq"
-                        elif prefix == "strat": engine_key = "etf"
+                        meta = parse_order_meta(o.client_order_id)
+                        engine_key = meta["engine"] if meta["engine"] in ("etf", "crypto", "equities") else "etf"
+                        if engine_key == "equities": engine_key = "eq"  # alias para el cache
                         
                         engines_pnl[engine_key] += realized
                         engines_pnl["home"] += realized
@@ -131,6 +130,59 @@ async def _build_charts_task():
                         if realized != 0:
                             new_cache[engine_key].append({"date": date_str, "equity": engines_pnl[engine_key], "engine": engine_key})
                             new_cache["home"].append({"date": date_str, "equity": engines_pnl["home"], "engine": "home"})
+
+            # ─── HOME: Portfolio history oficial de Alpaca ──────────────────────────────────
+            # Usa GetPortfolioHistoryRequest para obtener la curva de equity REAL
+            # (igual a la que muestra Alpaca en su web/app)
+            try:
+                ph = client.get_portfolio_history(
+                    GetPortfolioHistoryRequest(
+                        period="1M",        # 1 mes de datos
+                        timeframe="1D",     # vela diaria (ligero)
+                        extended_hours=False
+                    )
+                )
+                home_points = []
+                if ph and ph.timestamp and ph.equity:
+                    for ts, eq in zip(ph.timestamp, ph.equity):
+                        if eq and eq > 0:
+                            from datetime import timezone as _tz
+                            import datetime as _dt
+                            date_str = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
+                            home_points.append({"date": date_str, "equity": round(float(eq), 2), "engine": "home"})
+                if home_points:
+                    new_cache["home"] = home_points
+                    logger.info(f"[Charts] Home: {len(home_points)} puntos de portfolio history de Alpaca")
+            except Exception as ph_err:
+                logger.warning(f"[Charts] No se pudo obtener portfolio history de Alpaca: {ph_err}. Usando cálculo local.")
+                # Fallback: usar el home calculado localmente por órdenes
+                if new_cache["home"]:
+                    pass  # ya tiene datos del loop de órdenes, OK
+            # ────────────────────────────────────────────────────────────────────────────────
+
+            # Fallback: si alguna gráfica de motor (etf/crypto/eq) quedó vacía
+            # (no hay ventas todavía), inyectar las posiciones abiertas unrealized
+            try:
+                positions = client.get_all_positions()
+                for pos in positions:
+                    cid = str(getattr(pos, 'asset_id', '')) or 'pos'
+                    meta_engine = "etf"  # las posiciones no tienen prefix, default ETF
+                    unrealized = float(pos.unrealized_pl) if pos.unrealized_pl else 0.0
+                    if unrealized == 0:
+                        continue
+                    # Detectar motor por símbolo
+                    sym = pos.symbol
+                    if '/' in sym or sym in ('BTC', 'ETH', 'SOL', 'DOGE', 'AVAX', 'LTC'):
+                        meta_engine = "crypto"
+                    elif sym in ('NVDA','AMD','MARA','RIOT','TSLA','PLTR','SOFI','RIVN','LCID','GME','AMC'):
+                        meta_engine = "eq"
+
+                    if not new_cache[meta_engine]:  # solo si está vacío
+                        import datetime as _dt
+                        date_str = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
+                        new_cache[meta_engine].append({"date": date_str, "equity": round(unrealized, 2), "engine": meta_engine})
+            except Exception as pos_err:
+                logger.debug(f"[Charts] Error calculando fallback posiciones: {pos_err}")
 
             _CHART_CACHE = new_cache
         except Exception as e:
