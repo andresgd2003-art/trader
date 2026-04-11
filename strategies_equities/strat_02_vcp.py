@@ -15,6 +15,13 @@ from collections import deque
 import pandas as pd
 from ta.trend import EMAIndicator, SMAIndicator
 from engine.base_strategy import BaseStrategy
+try:
+    from engine.daily_mode import get_active_mode
+    from engine.stock_scorer import get_scorer
+    _SCORER_AVAILABLE = True
+except ImportError:
+    _SCORER_AVAILABLE = False
+    def get_active_mode(): return "A"
 
 logger = logging.getLogger(__name__)
 
@@ -34,19 +41,44 @@ class VCPStrategy(BaseStrategy):
     VCP_WEEKS = 3        # 15 días de datos para VCP
     VOL_DRY_PCT = 0.50   # Volumen seco <50% del promedio
     BREAKOUT_VOL = 1.50  # Breakout requiere >150% del vol promedio
+    SCORE_MIN_C = 55.0   # Umbral de score mínimo en Modo C (menos estricto que rotation)
 
     def __init__(self, order_manager, regime_manager=None):
+        # En Modo C se amplia el universo con scores > 55; fallback al estático
+        initial_universe = self._get_universe_for_mode()
         super().__init__(
             name="VCP Minervini",
-            symbols=HIGH_BETA_UNIVERSE,
+            symbols=initial_universe,
             order_manager=order_manager
         )
         self.regime_manager = regime_manager
-        self._closes: dict[str, deque] = {s: deque(maxlen=210) for s in HIGH_BETA_UNIVERSE}
-        self._highs: dict[str, deque] = {s: deque(maxlen=30) for s in HIGH_BETA_UNIVERSE}
-        self._lows: dict[str, deque] = {s: deque(maxlen=30) for s in HIGH_BETA_UNIVERSE}
-        self._volumes: dict[str, deque] = {s: deque(maxlen=30) for s in HIGH_BETA_UNIVERSE}
+        self._universe = initial_universe
+        self._closes: dict[str, deque] = {s: deque(maxlen=210) for s in self._universe}
+        self._highs: dict[str, deque] = {s: deque(maxlen=30) for s in self._universe}
+        self._lows: dict[str, deque] = {s: deque(maxlen=30) for s in self._universe}
+        self._volumes: dict[str, deque] = {s: deque(maxlen=30) for s in self._universe}
         self._traded_today: set = set()
+
+    @staticmethod
+    def _get_universe_for_mode() -> list:
+        """Retorna el universo de acciones según el modo activo.
+        Modo C: usa el top del scorer + HIGH_BETA_UNIVERSE como fallback.
+        Otros modos: usa HIGH_BETA_UNIVERSE estático.
+        """
+        if not _SCORER_AVAILABLE:
+            return list(HIGH_BETA_UNIVERSE)
+        try:
+            mode = get_active_mode()
+            if mode == "C":
+                scored = get_scorer().get_symbols_above(min_score=55.0)
+                if scored:
+                    # Combinar el universo scorado + HIGH_BETA por si se solapan
+                    combined = list(dict.fromkeys(scored + HIGH_BETA_UNIVERSE))  # preserva orden
+                    logger.info(f"[VCP] 🎯 Modo C: universo ampliado a {len(combined)} acciones")
+                    return combined
+        except Exception:
+            pass
+        return list(HIGH_BETA_UNIVERSE)
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
@@ -103,9 +135,18 @@ class VCPStrategy(BaseStrategy):
         resistance = max(recent_highs[:-1])  # Resistencia = max excluyendo la barra actual
 
         if c > resistance and v > vol_avg_full * self.BREAKOUT_VOL:
+            # En Modo C: anotar el score en el log para trazabilidad
+            score_note = ""
+            if _SCORER_AVAILABLE and get_active_mode() == "C":
+                try:
+                    top = {s["symbol"]: s["score"] for s in get_scorer().get_top_scores(50)}
+                    sc = top.get(sym, "n/a")
+                    score_note = f" | Score: {sc}/100"
+                except Exception:
+                    pass
             logger.info(
                 f"[{self.name}] 🏔️ VCP BREAKOUT {sym}! "
-                f"Close={c:.2f} > Resistance={resistance:.2f} | Vol={v:.0f} ({v/vol_avg_full:.1f}x)"
+                f"Close={c:.2f} > Resistance={resistance:.2f} | Vol={v:.0f} ({v/vol_avg_full:.1f}x){score_note}"
             )
             await self.order_manager.buy_bracket(
                 symbol=sym,
