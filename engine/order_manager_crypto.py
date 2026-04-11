@@ -128,6 +128,17 @@ class OrderManagerCrypto:
         client_id = f"cry_{safe_strat_name}_{mode_label}_{uuid.uuid4().hex[:8]}"
 
         try:
+            # FIX Redondeo Crypto: Si es VENTA, asegurarse de no pedir más de lo que hay
+            if side == OrderSide.SELL:
+                try:
+                    pos = self.client.get_open_position(symbol)
+                    av_qty = float(pos.qty_available)
+                    if qty > av_qty:
+                        logger.warning(f"[{strategy}] Ajustando VENTA de {qty} a balance disponible {av_qty} {symbol}")
+                        qty = av_qty
+                except Exception as pos_e:
+                    logger.debug(f"[{strategy}] No se pudo obtener la pos para ajustar: {pos_e}")
+
             if order["limit_price"]:
                 request = LimitOrderRequest(
                     symbol=symbol,
