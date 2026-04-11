@@ -13,8 +13,9 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
     """
     SMA_PERIOD = 50
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__("Pair Divergence", ["BTC/USD", "ETH/USD"], order_manager)
+        self.regime_manager = regime_manager
         self.last_btc_close = None
         self.last_eth_close = None
         self.ratios = deque(maxlen=self.SMA_PERIOD * 2)

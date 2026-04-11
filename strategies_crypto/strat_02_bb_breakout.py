@@ -21,7 +21,7 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
-                self.regime_manager = regime_manager
+        self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.SQUEEZE_PERIOD + 20)
         self._volumes = deque(maxlen=self.BB_PERIOD)
         self._bandwidths = deque(maxlen=self.SQUEEZE_PERIOD)

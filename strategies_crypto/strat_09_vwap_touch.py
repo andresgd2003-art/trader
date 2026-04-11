@@ -11,8 +11,9 @@ class CryptoVWAPTouchStrategy(BaseStrategy):
     Calcula el VWAP diario reseteado a las 00:00 UTC.
     Entra si el precio ha estado arriba del VWAP por 60 min y de repente retrocede a tocarlo.
     """
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__("VWAP Touch-and-Go", ["BTC/USD"], order_manager)
+        self.regime_manager = regime_manager
         
         self.vwap_sum_pv = 0.0
         self.vwap_sum_v = 0.0

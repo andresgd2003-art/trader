@@ -19,9 +19,10 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
     RSI_PERIOD = 14
     BASE_ALLOCATION = 50.0
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         # Registramos BTC/USD con un identificador único 
         super().__init__("Smart TWAP Accum", ["BTC/USD"], order_manager)
+        self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.RSI_PERIOD * 2)
         
         self.db_path = os.environ.get("DB_PATH", "/app/data/trades.db")

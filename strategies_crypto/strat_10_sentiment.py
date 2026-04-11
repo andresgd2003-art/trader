@@ -20,7 +20,7 @@ class CryptoSentimentStrategy(BaseStrategy):
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__("Sentiment F&G", ["BTC/USD"], order_manager)
-                self.regime_manager = regime_manager
+        self.regime_manager = regime_manager
         self.db_path = os.environ.get("DB_PATH", "/app/data/trades.db")
         self._init_db()
         

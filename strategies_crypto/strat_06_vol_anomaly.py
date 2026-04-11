@@ -14,8 +14,9 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
     """
     SMA_VOL_PERIOD = 20
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__("Volume Anomaly", ["LINK/USD"], order_manager)
+        self.regime_manager = regime_manager
         self._volumes = deque(maxlen=self.SMA_VOL_PERIOD * 2)
         
         self.in_position = False

@@ -16,7 +16,7 @@ class CryptoGridSpotStrategy(BaseStrategy):
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
-                self.regime_manager = regime_manager
+        self.regime_manager = regime_manager
         self._vwap_baseline = 0.0
         self._tranche_usd = self.TOTAL_ALLOCATION_USD / self.TRANCHES
         self._active_bids = {} # { order_id: price }
