@@ -21,6 +21,13 @@ from datetime import datetime
 import pandas as pd
 from ta.momentum import RSIIndicator
 from engine.base_strategy import BaseStrategy
+try:
+    from engine.daily_mode import get_active_mode
+    from engine.stock_scorer import get_scorer
+    _SCORER_AVAILABLE = True
+except ImportError:
+    _SCORER_AVAILABLE = False
+    def get_active_mode(): return "A"
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +115,27 @@ class SectorRotationStrategy(BaseStrategy):
 
         # Obtener candidatos de los top sectores
         candidates = []
+
+        # ─── Propuesta C (Modo C): pre-filtrar por StockScorer ───────────────
+        mode = get_active_mode() if _SCORER_AVAILABLE else "A"
+        scorer_whitelist = set()
+        if mode == "C" and _SCORER_AVAILABLE:
+            try:
+                scorer_whitelist = set(get_scorer().get_symbols_above(min_score=60.0))
+                logger.info(
+                    f"[{self.name}] 🎯 Modo C activo: {len(scorer_whitelist)} acciones con score≥60/100"
+                )
+            except Exception as e:
+                logger.warning(f"[{self.name}] StockScorer no disponible, modo fallback: {e}")
+        # ─────────────────────────────────────────────────────────────────────
+
         for sector in top_sectors:
             holdings = SECTOR_HOLDINGS.get(sector, [])
             for stock in holdings:
+                # En Modo C: solo stocks con score ≥ 60 pasan al ranking RSI
+                if scorer_whitelist and stock not in scorer_whitelist:
+                    logger.debug(f"[{self.name}] 📊 {stock} ignorado (score bajo en Modo C)")
+                    continue
                 closes = list(self._closes.get(stock, []))
                 if len(closes) >= self.RSI_PERIOD + 1:
                     rsi = RSIIndicator(pd.Series(closes), window=self.RSI_PERIOD).rsi().iloc[-1]

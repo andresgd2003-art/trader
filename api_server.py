@@ -556,54 +556,80 @@ async def get_symbol_history(symbol: str, period: str = "1D"):
             for b in bars[symbol]
         ]
     except Exception as e:
-        logger.error(f"[API] Error historia símbolo {symbol}: {e}")
+        logger.error(f"[API] Error historia símbolo: {e}")
         return []
 
 
 @app.get("/api/strategy/stats")
 async def get_strategy_stats():
-    """Retorna estadísticas agrupadas por estrategia"""
+    """Retorna estadísticas agrupadas por estrategia.
+    
+    Mejoras Fase 17:
+    - Usa parse_order_meta() para obtener el nombre correcto (fix bug parts[1])
+    - Añade campo 'engine' (etf/crypto/equities) por estrategia
+    - Añade 'mode_breakdown' {A: N, B: N, C: N, LEGACY: N} por estrategia
+    """
     try:
         client = get_trading_client()
         orders = client.get_orders(
-            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=500)
+            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
         )
-        
+
         stats = {}
         tracker = {}
-        
-        # Sort first to calculate PNL correctly
-        valid_orders = [o for o in orders if o.client_order_id and (
-            str(o.client_order_id).startswith("strat_") or 
-            str(o.client_order_id).startswith("cry_") or 
-            str(o.client_order_id).startswith("eq_")
-        )]
-        valid_orders.sort(key=lambda x: (x.filled_at if x.filled_at else x.created_at) if (x.filled_at or x.created_at) else datetime.min)
-        
+
+        # Filtrar órdenes de nuestros bots y ordenar cronológicamente
+        valid_orders = [
+            o for o in orders
+            if o.client_order_id and any(
+                str(o.client_order_id).startswith(p)
+                for p in ("strat_", "cry_", "eq_")
+            )
+        ]
+        valid_orders.sort(
+            key=lambda x: (x.filled_at or x.created_at or datetime.min.replace(tzinfo=__import__('datetime').timezone.utc))
+        )
+
         for o in valid_orders:
-            # Obtiene el nombre real sin importar si es strat_, cry_, o eq_
-            parts = str(o.client_order_id).split("_")
-            strat_name = parts[1] if len(parts) >= 2 else "unknown"
-            
+            # Fase 17: usar parser robusto en vez de parts[1]
+            meta = parse_order_meta(o.client_order_id)
+            strat_name = meta["name"]
+            engine     = meta["engine"]
+            mode       = meta["mode"]   # "A", "B", "C" o "LEGACY"
+
             if strat_name not in stats:
-                stats[strat_name] = {"trades": 0, "filled": 0, "volume": 0.0, "symbol": o.symbol, "realized_pnl": 0.0}
-            
+                stats[strat_name] = {
+                    "trades": 0,
+                    "filled": 0,
+                    "volume": 0.0,
+                    "symbol": o.symbol,
+                    "realized_pnl": 0.0,
+                    "engine": engine,
+                    # Desglose por modo: cuántas órdenes se ejecutaron en cada propuesta
+                    "mode_breakdown": {"A": 0, "B": 0, "C": 0, "LEGACY": 0},
+                }
+
             stats[strat_name]["trades"] += 1
+
+            # Contabilizar en qué modo se ejecutó esta orden
+            mode_key = mode if mode in ("A", "B", "C") else "LEGACY"
+            stats[strat_name]["mode_breakdown"][mode_key] += 1
+
             if o.status.value == "filled":
                 stats[strat_name]["filled"] += 1
-                qty = float(o.filled_qty) if o.filled_qty else 0
+                qty   = float(o.filled_qty) if o.filled_qty else 0
                 price = float(o.filled_avg_price) if o.filled_avg_price else 0
-                vol = qty * price
+                vol   = qty * price
                 stats[strat_name]["volume"] += vol
-                
+
                 # Calcular Realized P&L
                 tracker_key = f"{strat_name}_{o.symbol}"
                 if tracker_key not in tracker:
                     tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
-                
+
                 pos = tracker[tracker_key]["pos"]
                 avg = tracker[tracker_key]["avg"]
-                
+
                 if o.side.value == "buy":
                     new_cost = (pos * avg) + vol
                     pos += qty
@@ -617,6 +643,11 @@ async def get_strategy_stats():
                         pos = 0.0
                         avg = 0.0
                     tracker[tracker_key] = {"pos": pos, "avg": avg}
+
+        # Redondear P&L
+        for s in stats.values():
+            s["realized_pnl"] = round(s["realized_pnl"], 4)
+            s["volume"] = round(s["volume"], 2)
 
         return stats
     except Exception as e:
