@@ -20,6 +20,10 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 from engine.notifier import TelegramNotifier
 import uuid
 from alpaca.trading.enums import OrderSide, TimeInForce
+try:
+    from engine.daily_mode import get_mode_label
+except ImportError:
+    def get_mode_label(): return "mA"  # fallback si daily_mode no está disponible
 
 logger = logging.getLogger(__name__)
 
@@ -148,10 +152,37 @@ class OrderManager:
                 pass
         # ==========================================
 
-        # Crear un ID único para rastrear qué estrategia emitió la orden
-        # Max longitud 48 caracteres. Quitamos espacios del nombre.
-        safe_strat_name = strategy.replace(" ", "")[:30]
-        client_id = f"strat_{safe_strat_name}_{uuid.uuid4().hex[:8]}"
+        # ==========================================
+        # 📰 PROPUESTA B — NEWS RISK FILTER (Modo B)
+        # ==========================================
+        if order["side"] == "buy":
+            try:
+                from engine.daily_mode import get_active_mode
+                from engine.news_risk_filter import get_news_filter, RiskLevel
+                if get_active_mode() == "B":
+                    risk = await get_news_filter().get_risk(symbol)
+                    if risk == RiskLevel.HIGH:
+                        logger.warning(f"📰 [NEWS FILTER] BLOQUEADO {symbol} — riesgo fundamental HIGH ({strategy})")
+                        self.notifier.send_message(
+                            f"📰 <b>[Filtro Noticias B]</b>\n"
+                            f"Compra bloqueada en <b>{symbol}</b> ({strategy}).\n"
+                            f"Riesgo fundamental detectado: HIGH."
+                        )
+                        return
+                    elif risk == RiskLevel.MEDIUM:
+                        original_qty = qty
+                        qty = max(1, int(qty * 0.5))
+                        logger.info(f"📰 [NEWS FILTER] {symbol} riesgo MEDIUM — qty reducida: {original_qty} → {qty}")
+                        order = {**order, "qty": qty}  # actualizar orden
+            except Exception as e:
+                logger.debug(f"[NewsFilter] Error en hook (no bloqueante): {e}")
+        # ==========================================
+
+        # Crear un ID único: {prefix}_{name}_{mode}_{uuid8}
+        # El modo (mA/mB/mC) permite rastrear qué propuesta estaba activa al ejecutar
+        safe_strat_name = strategy.replace(" ", "")[:24]
+        mode_label = get_mode_label()  # → 'mA', 'mB' o 'mC'
+        client_id = f"strat_{safe_strat_name}_{mode_label}_{uuid.uuid4().hex[:8]}"
 
         try:
             if order["limit_price"]:

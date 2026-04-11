@@ -10,12 +10,13 @@ class CryptoGridSpotStrategy(BaseStrategy):
     INTERVAL_PCT = 0.015  # 1.5%
     TOTAL_ALLOCATION_USD = 1000.0
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Dynamic Spot Grid",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+                self.regime_manager = regime_manager
         self._vwap_baseline = 0.0
         self._tranche_usd = self.TOTAL_ALLOCATION_USD / self.TRANCHES
         self._active_bids = {} # { order_id: price }
@@ -26,6 +27,8 @@ class CryptoGridSpotStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(3, engine='crypto'):
             return
 
         # Simple VWAP tracking since boot

@@ -15,12 +15,13 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
     SQUEEZE_PERIOD = 50
     NOTIONAL_RISK_USD = 1000.0
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Bollinger Volatility Breakout",
             symbols=[self.SYMBOL],
             order_manager=order_manager
         )
+                self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.SQUEEZE_PERIOD + 20)
         self._volumes = deque(maxlen=self.BB_PERIOD)
         self._bandwidths = deque(maxlen=self.SQUEEZE_PERIOD)
@@ -30,6 +31,8 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(2, engine='crypto'):
             return
 
         current_close = float(bar.close)
