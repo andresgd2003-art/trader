@@ -747,7 +747,7 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
                 continue
             filtered.append((o, meta))
 
-        # Ordenar cronol\u00f3gicamente para tracking de P\u0026L correcto
+        # Ordenar cronológicamente para tracking de P&L correcto
         filtered.sort(key=lambda x: x[0].filled_at or datetime.min.replace(tzinfo=timezone.utc))
 
         output = io.StringIO()
@@ -755,15 +755,15 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
         # Fase 4: Nuevas columnas Motor, Modo, Propuesta
         writer.writerow([
             "Fecha (UTC)", "Estrategia", "Motor", "Modo (A/B/C)", "Propuesta Activa",
-            "Simbolo", "Lado", "Cantidad", "Precio ($)", "Volumen ($)",
+            "Clase de Activo", "Simbolo", "Lado", "Cantidad", "Precio ($)", "Volumen ($)",
             "P&L Realizado ($)", "ID Orden"
         ])
 
         # Mapa de modo a nombre de propuesta
         PROPOSAL_NAMES = {
-            "A": "market-environment-analysis (R\u00e9gimen)",
+            "A": "market-environment-analysis (Régimen)",
             "B": "market-news-analyst (Filtro Noticias)",
-            "C": "us-stock-analysis (Scoring Din\u00e1mico)",
+            "C": "us-stock-analysis (Scoring Dinámico)",
             "LEGACY": "Legado (sin modo registrado)",
         }
 
@@ -773,6 +773,9 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
             price = float(o.filled_avg_price) if o.filled_avg_price else 0
             date_str = o.filled_at.strftime("%Y-%m-%d %H:%M:%S") if o.filled_at else ""
             vol   = round(qty * price, 2)
+            
+            # Extraer Asset Class de Alpaca
+            asset_class = o.asset_class.value if hasattr(o, "asset_class") and o.asset_class else "unknown"
 
             strat_name = meta["name"]
             engine     = meta["engine"]
@@ -803,7 +806,7 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
 
             writer.writerow([
                 date_str, strat_name, engine, mode, proposal,
-                o.symbol, o.side.value.upper(), qty, price, vol,
+                asset_class, o.symbol, o.side.value.upper(), qty, price, vol,
                 realized_pnl if o.side.value == "sell" else "-",
                 str(o.id)
             ])
