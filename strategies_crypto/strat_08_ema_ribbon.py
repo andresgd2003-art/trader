@@ -15,8 +15,9 @@ class CryptoEMARibbonStrategy(BaseStrategy):
     Timeframe: 4H
     Usa base de datos SQLite para persitir el estado del trend sobre horas/días y no perder confirmaciones.
     """
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__("EMA Ribbon Pullback", ["BCH/USD"], order_manager)
+        self.regime_manager = regime_manager
         # Necesitamos al menos 55 periodos para el EMA mas largo
         self._closes = deque(maxlen=60)
         self.last_4h_block = -1

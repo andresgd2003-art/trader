@@ -12,8 +12,9 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
     Si la tasa es < -0.05%, los shorts están atrapados y pagan a los longs (squeeze probable).
     """
 
-    def __init__(self, order_manager):
+    def __init__(self, order_manager, regime_manager=None):
         super().__init__("Funding Squeeze", ["ETH/USD"], order_manager)
+        self.regime_manager = regime_manager
         self.entry_price = 0.0
         self.max_price = 0.0
         self.in_position = False
