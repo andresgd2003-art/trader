@@ -151,6 +151,10 @@ class EquitiesEngine:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def dispatch_news(self, news):
+        """Punto de entrada público: recibe noticias del stream de Alpaca."""
+        await self._on_news(news)
+
     async def _on_news(self, news):
         """Handler de noticias — alimenta la estrategia NLP."""
         nlp_strat: NLPSentimentStrategy = self.strategies[7]
