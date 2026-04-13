@@ -66,14 +66,14 @@ class MACDTrendStrategy(BaseStrategy):
             if macd_above and not self._prev_macd_above_signal and current_macd < 0:
                 if not self._has_position:
                     logger.info(f"[{self.name}] 🟢 MACD cruzó arriba (zona negativa). COMPRANDO {self.SYMBOL}")
-                    await self.order_manager.buy(self.SYMBOL, qty=15, strategy_name=self.name)
+                    await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
                     self._has_position = True
-                    self._position[self.SYMBOL] = 15
+                    self._position[self.SYMBOL] = 1
 
             elif not macd_above and self._prev_macd_above_signal and current_macd > 0:
                 if self._has_position:
                     logger.info(f"[{self.name}] 🔴 MACD cruzó abajo (zona positiva). VENDIENDO {self.SYMBOL}")
-                    await self.order_manager.sell(self.SYMBOL, qty=15, strategy_name=self.name)
+                    await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
                     self._has_position = False
                     self._position[self.SYMBOL] = 0
 

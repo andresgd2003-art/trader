@@ -99,10 +99,10 @@ class MomentumRotationStrategy(BaseStrategy):
         # Liquidar posición actual si es diferente al ganador
         if self._current_holding and self._current_holding != best_symbol:
             logger.info(f"[{self.name}] Liquidando {self._current_holding}...")
-            await self.order_manager.sell(self._current_holding, qty=50, strategy_name=self.name)
+            await self.order_manager.sell(self._current_holding, strategy_name=self.name)
 
         # Comprar el ganador
         if best_symbol != self._current_holding:
-            await self.order_manager.buy(best_symbol, qty=50, strategy_name=self.name)
+            await self.order_manager.buy(best_symbol, strategy_name=self.name)
             self._current_holding = best_symbol
-            self._position = {best_symbol: 50}
+            self._position = {best_symbol: 1}

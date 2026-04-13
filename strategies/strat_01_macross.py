@@ -64,14 +64,14 @@ class GoldenCrossStrategy(BaseStrategy):
             if fast_above and not self._has_position:
                 # GOLDEN CROSS → Comprar
                 logger.info(f"[{self.name}] 🟢 GOLDEN CROSS detectado en {bar.symbol}! Enviando orden de COMPRA.")
-                await self.order_manager.buy(self.SYMBOL, qty=10, strategy_name=self.name)
+                await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
                 self._has_position = True
-                self._position[self.SYMBOL] = 10
+                self._position[self.SYMBOL] = 1
 
             elif not fast_above and self._has_position:
                 # DEATH CROSS → Vender
                 logger.info(f"[{self.name}] 🔴 DEATH CROSS detectado en {bar.symbol}! Enviando orden de VENTA.")
-                await self.order_manager.sell(self.SYMBOL, qty=10, strategy_name=self.name)
+                await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
                 self._has_position = False
                 self._position[self.SYMBOL] = 0
 
