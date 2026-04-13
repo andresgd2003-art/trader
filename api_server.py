@@ -348,10 +348,10 @@ async def get_market_regime():
                 "equities": REGIME_EQUITIES_MAP.get(regime, []),
             },
             "description": {
-                "BULL": "\u2601\ufe0f Mercado alcista \u2014 Estrategias de momentum activas",
-                "BEAR": "\ud83d\udfe5 Mercado bajista \u2014 Solo estrategias defensivas activas",
-                "CHOP": "\ud83d\udd04 Mercado lateral \u2014 Grids y arbitraje activos",
-                "UNKNOWN": "\u2753 Sin clasificar \u2014 Modo conservador",
+                "BULL": "☁️ Mercado alcista — Estrategias de momentum activas",
+                "BEAR": "🟥 Mercado bajista — Solo estrategias defensivas activas",
+                "CHOP": "🔄 Mercado lateral — Grids y arbitraje activos",
+                "UNKNOWN": "❓ Sin clasificar — Modo conservador",
             }.get(regime_str, "Sin datos")
         }
     except Exception as e:
@@ -550,6 +550,35 @@ from datetime import timedelta, timezone
 async def get_history(period: str = "1M", engine: str = "home"):
     """Retorna la historia de PNL sectorizada asíncrona en lugar del Total de Alpaca."""
     try:
+        # Petición nativa dinámica para la gráfica global ('home')
+        if engine == "home":
+            client = get_trading_client()
+            tf_map = {
+                "1D": ("1D", "5Min"),
+                "1W": ("1W", "15Min"),
+                "1M": ("1M", "1D"),
+                "1A": ("1A", "1D")
+            }
+            ap_period, ap_tf = tf_map.get(period, ("1M", "1D"))
+            
+            ph = client.get_portfolio_history(
+                GetPortfolioHistoryRequest(
+                    period=ap_period,
+                    timeframe=ap_tf,
+                    extended_hours=False
+                )
+            )
+            
+            home_points = []
+            if ph and ph.timestamp and ph.equity:
+                import datetime as _dt
+                for ts, eq in zip(ph.timestamp, ph.equity):
+                    if eq and eq > 0:
+                        date_str = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
+                        home_points.append({"date": date_str, "equity": round(float(eq), 2), "engine": "home"})
+            return home_points
+
+        # Cache interno sectorizado para ETF, Crypto, Eq
         global _CHART_CACHE
         if engine not in _CHART_CACHE:
             return []
