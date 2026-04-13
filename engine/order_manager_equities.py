@@ -82,11 +82,12 @@ class OrderManagerEquities:
     def _calculate_notional(self) -> float:
         """
         Calcula el notional para acciones (fraccionario).
-        Utiliza el settled_cash para evitar GFV. Nunca supera MAX_POSITION_USD.
+        Utiliza el 5% del settled_cash (o cash en Paper) para evitar GFV. Nunca supera MAX_POSITION_USD.
         """
         try:
             account = self.client.get_account()
-            settled_cash = float(getattr(account, 'settled_cash', 0.0))
+            # Fallback para Paper Trading - Settled Cash solo existe en Live
+            settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
             target_amount = settled_cash * 0.05
             return min(target_amount, self.MAX_POSITION_USD)
         except Exception as e:
@@ -95,7 +96,7 @@ class OrderManagerEquities:
 
     def _client_id(self, strategy: str) -> str:
         safe = strategy.replace(" ", "")[:18]
-        mode_label = get_mode_label()  # → 'mA', 'mB' o 'mC'
+        mode_label = get_mode_label()
         return f"eq_{safe}_{mode_label}_{uuid.uuid4().hex[:8]}"
 
     async def buy_bracket(
@@ -107,11 +108,6 @@ class OrderManagerEquities:
         strategy_name: str = "",
         notional_usd: float = 100.0
     ):
-        """
-        Compra con bracket order (stop loss fijo + take profit).
-        stop_loss_pct: porcentaje de pérdida máxima (ej: 0.03 = 3%)
-        take_profit_pct: porcentaje de ganancia objetivo (ej: 0.06 = 6%)
-        """
         notional = self._calculate_notional()
         if notional <= 0:
             logger.warning(f"[{strategy_name}] Notional calculado <= 0 para {symbol}. Omitido.")
@@ -130,38 +126,16 @@ class OrderManagerEquities:
         await self._queue.put(order)
         logger.info(
             f"[{strategy_name}] BRACKET BUY encolado: {symbol} "
-            f"notional=${notional:.2f} @ ~${price:.2f} | SL:{stop_loss_pct*100:.1f}% TP:{take_profit_pct*100:.1f}%"
+            f"notional=${notional:.2f} @ ~${price:.2f}"
         )
 
-    async def sell_short(
-        self,
-        symbol: str,
-        price: float,
-        stop_loss_pct: float = 0.03,
-        take_profit_pct: float = 0.06,
-        strategy_name: str = "",
-        notional_usd: float = 100.0
-    ):
-        """
-        Short sell con bracket (stop buy + take profit para short).
-        Solo en paper trading.
-        """
-        raise ValueError("Shorting disabled on Cash Account")
+    async def sell_short(self, *args, **kwargs):
+        """Bloqueo radical de ventas en corto para cuenta Cash."""
+        logger.warning("WARNING: Short selling disabled (Refused by Firewall)")
+        return
 
-        order = {
-            "type": "bracket_short",
-            "symbol": symbol,
-            "qty": qty,
-            "price": price,
-            "stop_loss_pct": stop_loss_pct,
-            "take_profit_pct": take_profit_pct,
-            "strategy": strategy_name,
-        }
-        await self._queue.put(order)
-        logger.info(f"[{strategy_name}] SHORT SELL encolado: {qty}x {symbol} @ ${price:.2f}")
-
-    async def close_position(self, symbol: str, qty: int, strategy_name: str = ""):
-        """Cierra una posición larga o corta."""
+    async def close_position(self, symbol: str, qty: Optional[float] = None, strategy_name: str = ""):
+        """Cierra una posición larga."""
         order = {
             "type": "market_sell",
             "symbol": symbol,
@@ -169,7 +143,7 @@ class OrderManagerEquities:
             "strategy": strategy_name,
         }
         await self._queue.put(order)
-        logger.info(f"[{strategy_name}] CIERRE encolado: {qty}x {symbol}")
+        logger.info(f"[{strategy_name}] CIERRE encolado: {symbol}")
 
     async def _process_queue(self):
         while self._running:
@@ -181,7 +155,7 @@ class OrderManagerEquities:
             except asyncio.TimeoutError:
                 continue
             except Exception as e:
-                logger.error(f"[OrderManagerEquities] Error: {e}")
+                logger.error(f"[OrderManagerEquities] Error en worker: {e}")
 
     async def _execute_order(self, order: dict):
         global _EQ_STATUS
@@ -190,51 +164,43 @@ class OrderManagerEquities:
         client_id = self._client_id(strategy)
 
         # ==========================================
-        # 🛡️ COMPLIANCE SHIELD: Prevención de Baneos
+        # 🛡️ FIREWALL DE CORTOS (SHORT FIREWALL)
         # ==========================================
-        if order["type"] in ["bracket_buy", "bracket_short"]:
+        if order["type"] in ["bracket_short", "market_sell"]:
             try:
-                acc = self.client.get_account()
-                dt_count = getattr(acc, 'daytrade_count', 0)
-                is_pdt = getattr(acc, 'pattern_day_trader', False)
-                equity = float(getattr(acc, 'equity', '0.0'))
-                
-                # La Ley Restringe SOLO si Equity < $25,000
-                if equity < 25000.0 and (is_pdt or dt_count >= 3):
-                    logger.error(f"🛑 [COMPLIANCE SHIELD] ORDEN BLOQUEADA para {symbol}. Riesgo de Baneo P.D.T. (Day Trades: {dt_count}/3, Eq: ${equity:,.2f})")
-                    self.notifier.send_message(
-                        f"🛑 <b>[ESCUDO ANTI-BAN]</b>\nSe bloqueó de emergencia la entrada a <b>{symbol}</b> ({strategy}).\n"
-                        f"Límite legal de Day Trades alcanzado. Esto previno que el broker congelara tu cuenta."
-                    )
-                    return # Abortamos la compra para salvar la cuenta
-            except Exception as compliance_err:
-                logger.warning(f"No se pudo validar el Compliance Shield: {compliance_err}")
-        # ==========================================
+                self.client.get_open_position(symbol)
+            except Exception:
+                logger.warning(f"🛡️ [FIREWALL] Short selling disabled: No existe posición larga para {symbol}. Orden de VENTA rechazada localmente.")
+                return 
 
         # ==========================================
-        # 📰 PROPUESTA B — NEWS RISK FILTER EQUITIES (Modo B)
-        # Umbral más estricto: bloqueamos desde MEDIUM (acciones son sensibles)
+        # 🛡️ COMPLIANCE SHIELD: Prevención P.D.T.
         # ==========================================
-        if order["type"] in ["bracket_buy"]:
+        if order["type"] == "bracket_buy":
+            try:
+                acc = self.client.get_account()
+                dt_count = int(getattr(acc, 'daytrade_count', 0))
+                equity = float(getattr(acc, 'equity', '0.0'))
+                
+                if equity < 25000.0 and dt_count >= 3:
+                    logger.error(f"🛑 [COMPLIANCE SHIELD] Bloqueo P.D.T. para {symbol} (Day Trades: {dt_count}/3)")
+                    return 
+            except Exception as compliance_err:
+                logger.debug(f"Compliance check failed: {compliance_err}")
+
+        # ==========================================
+        # 📰 NEWS RISK FILTER (Modo B)
+        # ==========================================
+        if order["type"] == "bracket_buy":
             try:
                 from engine.daily_mode import get_active_mode
                 from engine.news_risk_filter import get_news_filter, RiskLevel
                 if get_active_mode() == "B":
                     risk = await get_news_filter().get_risk(symbol)
                     if risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
-                        logger.warning(
-                            f"📰 [NEWS FILTER EQ] BLOQUEADO {symbol} — riesgo {risk.value} "
-                            f"({strategy}) | En Equities bloqueamos desde MEDIUM"
-                        )
-                        self.notifier.send_message(
-                            f"📰 <b>[Filtro Noticias B — Equities]</b>\n"
-                            f"Compra bloqueada en <b>{symbol}</b> ({strategy}).\n"
-                            f"Riesgo noticias: <b>{risk.value}</b>. Nos quedamos fuera."
-                        )
+                        logger.warning(f"📰 [NEWS FILTER] Bloqueado {symbol} por riesgo {risk.value}")
                         return
-            except Exception as e:
-                logger.debug(f"[NewsFilter EQ] Error en hook (no bloqueante): {e}")
-        # ==========================================
+            except Exception: pass
 
         try:
             if order["type"] == "bracket_buy":
@@ -252,35 +218,27 @@ class OrderManagerEquities:
                     client_order_id=client_id
                 )
                 result = self.client.submit_order(req)
-                logger.info(
-                    f"[{strategy}] ✅ BRACKET BUY {symbol}: "
-                    f"Entry~${order['price']:.2f} | SL=${stop_price} | TP=${tp_price} | ID:{result.id}"
-                )
-
-            elif order["type"] == "bracket_short":
-                raise ValueError("Shorting disabled on Cash Account")
+                logger.info(f"[{strategy}] ✅ BRACKET BUY {symbol} | Monto: ${order['notional']:.2f} | ID:{result.id}")
 
             elif order["type"] == "market_sell":
+                # Si llegamos aquí, el Firewall ya validó que tenemos posición
+                pos = self.client.get_open_position(symbol)
                 req = MarketOrderRequest(
                     symbol=symbol,
-                    qty=order["qty"],
+                    qty=pos.qty, # Vendemos todo lo que tenemos
                     side=OrderSide.SELL,
                     time_in_force=TimeInForce.DAY,
                     client_order_id=client_id
                 )
-                result = self.client.submit_order(req)
-                logger.info(f"[{strategy}] ✅ MARKET SELL {symbol} x{order['qty']}")
+                self.client.submit_order(req)
+                logger.info(f"[{strategy}] ✅ MARKET SELL (CIERRE) {symbol} x{pos.qty}")
 
-            _EQ_STATUS["orders_today"] = _EQ_STATUS.get("orders_today", 0) + 1
-            _EQ_STATUS["last_order"] = {
-                "symbol": symbol, "type": order["type"], "strategy": strategy
-            }
+            _EQ_STATUS["orders_today"] += 1
+            _EQ_STATUS["last_order"] = {"symbol": symbol, "type": order["type"], "strategy": strategy}
 
         except Exception as e:
-            logger.error(f"[{strategy}] ❌ Error ejecutando orden {symbol}: {e}")
-            self.notifier.send_message(
-                f"⚠️ <b>[ERROR EQUITIES {strategy}]</b>\nFallo en {symbol}: {e}"
-            )
+            logger.error(f"[{strategy}] ❌ Error en ejecución para {symbol}: {e}")
+            self.notifier.send_message(f"⚠️ <b>[ERROR EQUITIES]</b>\nFallo en {symbol}: {e}")
 
     def cancel_all_open_orders(self):
         """Cancela todas las órdenes abiertas del día (al cierre del mercado)."""

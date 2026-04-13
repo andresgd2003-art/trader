@@ -24,9 +24,11 @@ import threading
 import signal
 from datetime import datetime
 from dotenv import load_dotenv
+import os
 
-# Cargar variables de entorno desde .env (si existe localmente)
-load_dotenv()
+# Cargar variables de entorno desde .env de forma ABSOLUTA
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(env_path)
 
 # Configurar el logger ANTES de importar nada más
 from engine.logger import setup_logger
@@ -61,17 +63,15 @@ from strategies import (
     RSIDipStrategy,
     BollingerReversionStrategy,
     VIXFilteredReversionStrategy,
-    VWAPBounceStrategy,
-    PairsTradingStrategy,
     GridTradingStrategy,
 )
 
 # ============================================================
 # CONFIGURACIÓN GLOBAL
 # ============================================================
-API_KEY    = os.environ.get("ALPACA_API_KEY", "")
-SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY", "")
-PAPER      = os.environ.get("PAPER_TRADING", "True").lower() == "true"
+API_KEY    = os.environ.get("APCA_API_KEY_ID") or os.environ.get("ALPACA_API_KEY", "")
+SECRET_KEY = os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SECRET_KEY", "")
+PAPER      = True if API_KEY and API_KEY.startswith("PK") else False
 
 # Todos los símbolos que necesitamos recibir en el WebSocket
 ALL_SYMBOLS = ["QQQ", "SMH", "XLK", "SRVR", "SPY", "SOXX", "TQQQ"]
@@ -130,11 +130,9 @@ class TradingEngine:
             RSIDipStrategy(order_manager=self.order_manager, regime_manager=rm),
             BollingerReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
             VIXFilteredReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
-            VWAPBounceStrategy(order_manager=self.order_manager, regime_manager=rm),
-            PairsTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
             GridTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
         ]
-        logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas con RegimeManager.")
+        logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas (CASH compatible).")
         return strategies
 
     async def _on_bar(self, bar):

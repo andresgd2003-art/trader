@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 class CryptoTradingEngine:
     def __init__(self):
-        self.api_key = os.environ.get("ALPACA_API_KEY", "")
-        self.secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
+        self.api_key = os.environ.get("APCA_API_KEY_ID") or os.environ.get("ALPACA_API_KEY", "")
+        self.secret_key = os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SECRET_KEY", "")
 
         # Árbitro centralizado: 1 posición por símbolo, 5 min de cooldown
         self.arbiter = AssetArbiter(cooldown_seconds=300)

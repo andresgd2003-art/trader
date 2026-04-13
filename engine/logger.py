@@ -18,7 +18,7 @@ class JSONFormatter(logging.Formatter):
     """
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
-            "time": datetime.utcnow().strftime("%H:%M:%S"),
+            "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             "level": record.levelname,
             "source": record.name.split(".")[-1],   # Solo el nombre del módulo
             "msg": record.getMessage(),
@@ -57,7 +57,7 @@ def setup_logger(log_path: str = "/app/data/engine.log") -> logging.Logger:
     console_handler = logging.StreamHandler()
     console_formatter = logging.Formatter(
         "[%(asctime)s] %(levelname)s [%(name)s]: %(message)s",
-        datefmt="%H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S"
     )
     console_handler.setFormatter(console_formatter)
     console_handler.setLevel(logging.INFO)
