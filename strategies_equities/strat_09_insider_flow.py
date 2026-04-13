@@ -84,7 +84,7 @@ class InsiderFlowStrategy(BaseStrategy):
         """Al inicio del día siguiente, compra los candidatos de insider."""
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER):
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine='equities'):
             return
 
         sym = bar.symbol

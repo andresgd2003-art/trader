@@ -120,7 +120,7 @@ class NLPSentimentStrategy(BaseStrategy):
         """
         if not self.is_active:
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER):
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine='equities'):
             return
         if symbol in self._traded_today:
             return
