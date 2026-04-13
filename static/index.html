@@ -886,12 +886,30 @@ async function updateGlobalHealth(acct) {
   if (!acct) return;
   // Day Trades
   const trades = acct.daytrade_count || 0;
-  document.getElementById('dt-count').textContent = trades;
+  const eq = acct.equity || 0;
+  
   const dtBar = document.getElementById('dt-bar');
-  dtBar.style.width = Math.min((trades / 3) * 100, 100) + '%';
-  if (trades >= 3) { dtBar.classList.add('red'); dtBar.classList.remove('yellow'); }
-  else { dtBar.classList.remove('red'); dtBar.classList.add('yellow'); }
-  document.getElementById('pdt-status').textContent = acct.pattern_day_trader ? '⛔ ESTADO: PATTERN DAY TRADER' : '✅ Cuenta Segura (Ley PDT)';
+  if (eq >= 25000) {
+    // Si la cuenta tiene >= $25k, es inmune a las restricciones de day trading
+    document.getElementById('dt-count').innerHTML = `${trades} <span style="font-size: 0.6em; opacity: 0.7;">/ &infin; (Ilimitados)</span>`;
+    dtBar.style.width = '100%';
+    dtBar.className = 'progress-fill green';
+    document.getElementById('pdt-status').innerHTML = '🏆 CUENTA PDT ILIMITADA (> $25K)';
+    document.getElementById('pdt-status').style.color = '#00bfa5';
+  } else {
+    document.getElementById('dt-count').innerHTML = `${trades} <span style="font-size: 0.6em; opacity: 0.7;">/ 3</span>`;
+    dtBar.style.width = Math.min((trades / 3) * 100, 100) + '%';
+    if (trades >= 3) { dtBar.className = 'progress-fill red'; }
+    else { dtBar.className = 'progress-fill yellow'; }
+    
+    if (acct.pattern_day_trader) {
+      document.getElementById('pdt-status').innerHTML = '⛔ ESTADO: PATTERN DAY TRADER (Al límite)';
+      document.getElementById('pdt-status').style.color = '#ff5252';
+    } else {
+      document.getElementById('pdt-status').innerHTML = '✅ Cuenta Segura (Ley PDT)';
+      document.getElementById('pdt-status').style.color = 'var(--text-dim)';
+    }
+  }
   
   // Buying Power
   document.getElementById('bp-value').textContent = fmtMoney(acct.buying_power);
