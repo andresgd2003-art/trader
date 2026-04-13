@@ -73,6 +73,8 @@ class StockScorer:
         try:
             DB_PATH.parent.mkdir(parents=True, exist_ok=True)
             with sqlite3.connect(DB_PATH) as conn:
+                conn.execute('PRAGMA journal_mode=WAL;')
+                conn.execute('PRAGMA synchronous=NORMAL;')
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS scores (
                         symbol      TEXT NOT NULL,
@@ -213,6 +215,8 @@ class StockScorer:
         """Guarda el score en SQLite."""
         try:
             with sqlite3.connect(DB_PATH) as conn:
+                conn.execute('PRAGMA journal_mode=WAL;')
+                conn.execute('PRAGMA synchronous=NORMAL;')
                 ts = datetime.now(timezone.utc).isoformat()
                 conn.execute("""
                     INSERT OR REPLACE INTO scores
@@ -235,6 +239,8 @@ class StockScorer:
         """Retorna los top N símbolos por score desde la DB."""
         try:
             with sqlite3.connect(DB_PATH) as conn:
+                conn.execute('PRAGMA journal_mode=WAL;')
+                conn.execute('PRAGMA synchronous=NORMAL;')
                 cursor = conn.execute("""
                     SELECT symbol, score, momentum, rsi_score, vol_score, trend_score, earnings_pen, timestamp
                     FROM scores

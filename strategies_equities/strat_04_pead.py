@@ -82,7 +82,7 @@ class PEADStrategy(BaseStrategy):
                 if close < sma50 or days_held >= self.HOLD_DAYS:
                     reason = "SMA50 break" if close < sma50 else "14 días cumplidos"
                     logger.info(f"[{self.name}] EXIT {sym}: {reason}")
-                    await self.order_manager.close_position(sym, pos["qty"], self.name)
+                    await self.order_manager.close_position(sym, None, self.name)
                     del self._positions[sym]
             return
 
@@ -109,12 +109,11 @@ class PEADStrategy(BaseStrategy):
                 take_profit_pct=0.25,
                 strategy_name=self.name
             )
-            from datetime import datetime
-            qty = self.order_manager._calculate_qty(100.0, close)
+            notional = self.order_manager._calculate_notional()
             self._positions[sym] = {
                 "entry_date": datetime.now(),
                 "entry_price": close,
-                "qty": qty,
+                "notional": notional,
             }
             self._earnings_candidates.discard(sym)
 

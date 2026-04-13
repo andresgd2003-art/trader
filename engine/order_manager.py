@@ -123,7 +123,11 @@ class OrderManager:
                 # No hay órdenes pendientes, continuar el loop
                 continue
             except Exception as e:
-                logger.error(f"[OrderManager] Error procesando orden: {e}")
+                if "Too Many Requests" in str(e) or "429" in str(e):
+                    logger.warning("[OrderManager] HTTP 429 (Rate Limit). Pausando worker por 61 segundos.")
+                    await asyncio.sleep(61)
+                else:
+                    logger.error(f"[OrderManager] Error procesando orden: {e}")
 
     async def _execute_order(self, order: dict):
         """Envía la orden real a la API de Alpaca."""

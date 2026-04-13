@@ -58,6 +58,11 @@ app.add_middleware(
 def get_trading_client() -> TradingClient:
     return TradingClient(api_key=API_KEY, secret_key=SECRET_KEY, paper=PAPER)
 
+GLOBAL_CACHE = {
+    "account": {},
+    "positions": []
+}
+
 # ============================================================
 # MOTOR HISTÓRICO ASÍNCRONO (LATENCIA CERO)
 # ============================================================
@@ -190,8 +195,50 @@ async def _build_charts_task():
             
         await asyncio.sleep(60) # Recalcular cada 1 minuto de forma indetectable
 
+async def _update_global_cache_task():
+    """Background task to fetch account and positions, minimizing API calls."""
+    while True:
+        try:
+            client = get_trading_client()
+            
+            # Account update
+            acc = client.get_account()
+            equity = float(acc.equity)
+            last_equity = float(acc.last_equity) if acc.last_equity else equity
+            GLOBAL_CACHE["account"] = {
+                "equity": equity,
+                "cash": float(acc.cash),
+                "buying_power": float(acc.buying_power),
+                "portfolio_value": float(acc.portfolio_value),
+                "pnl_day": equity - last_equity,
+                "pnl_day_pct": round((equity - last_equity) / last_equity * 100, 2) if last_equity > 0 else 0,
+                "total_pnl": equity - last_equity,
+                "status": acc.status.value if acc.status else "active",
+                "currency": acc.currency,
+            }
+            
+            # Positions update
+            positions = client.get_all_positions()
+            GLOBAL_CACHE["positions"] = [
+                {
+                    "symbol": p.symbol,
+                    "qty": float(p.qty),
+                    "side": p.side.value,
+                    "avg_entry": float(p.avg_entry_price),
+                    "current_price": float(p.current_price) if hasattr(p, 'current_price') and p.current_price else 0,
+                    "unrealized_pl": float(p.unrealized_pl) if p.unrealized_pl else 0,
+                    "unrealized_plpc": float(p.unrealized_plpc) * 100 if p.unrealized_plpc else 0,
+                }
+                for p in positions
+            ]
+        except Exception as e:
+            logger.error(f"[API] Error updating GLOBAL_CACHE: {e}")
+        
+        await asyncio.sleep(5)  # Fetch every 5 seconds instead of per client request
+
 @app.on_event("startup")
 async def startup_event():
+    asyncio.create_task(_update_global_cache_task())
     asyncio.create_task(_build_charts_task())
     asyncio.create_task(_weekly_scoring_task())
     asyncio.create_task(_daily_mode_refresh_task())
@@ -441,34 +488,9 @@ async def get_stock_scores(limit: int = 20, min_score: float = 0):
 
 @app.get("/api/account")
 async def get_account():
-    """Retorna balance, equity, P&L y buying power de la cuenta dinámicamente."""
-    try:
-        client = get_trading_client()
-        acc = client.get_account()
-        
-        equity = float(acc.equity)
-        last_equity = float(acc.last_equity) if acc.last_equity else equity
-        pnl_day = equity - last_equity
-        pnl_day_pct = (pnl_day / last_equity * 100) if last_equity > 0 else 0
+    """Retorna balance, equity, P&L y buying power de la cuenta desde GLOBAL_CACHE para evitar polling rate limit."""
+    return GLOBAL_CACHE.get("account", {})
 
-        return {
-            "equity": equity,
-            "cash": float(acc.cash),
-            "buying_power": float(acc.buying_power),
-            "portfolio_value": float(acc.portfolio_value),
-            "pnl_day": pnl_day,
-            "pnl_day_pct": round(pnl_day_pct, 2),
-            "total_pnl": equity - last_equity,
-            "status": acc.status.value if acc.status else "active",
-            "currency": acc.currency,
-            "daytrade_count": getattr(acc, 'daytrade_count', 0),
-            "pattern_day_trader": getattr(acc, 'pattern_day_trader', False),
-            "long_market_value": float(acc.long_market_value) if hasattr(acc, 'long_market_value') and acc.long_market_value else 0.0,
-            "short_market_value": float(acc.short_market_value) if hasattr(acc, 'short_market_value') and acc.short_market_value else 0.0,
-        }
-    except Exception as e:
-        logger.error(f"[API] Error obteniendo cuenta: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/clock")
 async def get_clock():
@@ -488,26 +510,9 @@ async def get_clock():
 
 @app.get("/api/positions")
 async def get_positions():
-    """Retorna todas las posiciones abiertas."""
-    try:
-        client = get_trading_client()
-        positions = client.get_all_positions()
-        return [
-            {
-                "symbol":        p.symbol,
-                "qty":           float(p.qty),
-                "side":          p.side.value,
-                "avg_entry":     float(p.avg_entry_price),
-                "current_price": float(p.current_price) if p.current_price else 0,
-                "market_value":  float(p.market_value) if p.market_value else 0,
-                "unrealized_pl": float(p.unrealized_pl) if p.unrealized_pl else 0,
-                "unrealized_plpc": float(p.unrealized_plpc) * 100 if p.unrealized_plpc else 0,
-            }
-            for p in positions
-        ]
-    except Exception as e:
-        logger.error(f"[API] Error obteniendo posiciones: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Retorna todas las posiciones abiertas desde GLOBAL_CACHE."""
+    return GLOBAL_CACHE.get("positions", [])
+
 
 
 @app.get("/api/orders")

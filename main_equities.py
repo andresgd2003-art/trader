@@ -26,13 +26,9 @@ from engine.regime_manager import RegimeManager
 from engine.order_manager_equities import OrderManagerEquities
 from engine.portfolio_manager import PortfolioManager
 from strategies_equities import (
-    GapperMomentumStrategy,
     VCPStrategy,
-    GapFadeStrategy,
     PEADStrategy,
     GammaSqueezeStrategy,
-    RSIExtremeStrategy,
-    StatArbStrategy,
     NLPSentimentStrategy,
     InsiderFlowStrategy,
     SectorRotationStrategy,
@@ -86,13 +82,9 @@ class EquitiesEngine:
 
     def _register_strategies(self) -> list:
         strats = [
-            GapperMomentumStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             VCPStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            GapFadeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             PEADStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            RSIExtremeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            StatArbStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             NLPSentimentStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             InsiderFlowStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
@@ -112,16 +104,10 @@ class EquitiesEngine:
         all_symbols = self.screener.get_all_symbols()
 
         # 2. Actualizar símbolos en estrategias dinámicas
-        strat_gapper = self.strategies[0]
-        strat_fade   = self.strategies[2]
-        strat_rsi    = self.strategies[5]
+        strat_vcp = self.strategies[0] # VCP es la primera ahora
 
-        if hasattr(strat_gapper, 'update_symbols'):
-            strat_gapper.update_symbols(gainers)
-        if hasattr(strat_fade, 'update_symbols'):
-            strat_fade.update_symbols(gainers)
-        if hasattr(strat_rsi, 'update_symbols'):
-            strat_rsi.update_symbols(losers)
+        if hasattr(strat_vcp, 'update_symbols'):
+            strat_vcp.update_symbols(gainers)
 
         # 3. Evaluar régimen de mercado
         regime = self.regime_manager.assess()
@@ -157,11 +143,12 @@ class EquitiesEngine:
 
     async def _on_news(self, news):
         """Handler de noticias — alimenta la estrategia NLP."""
-        nlp_strat: NLPSentimentStrategy = self.strategies[7]
+        # Ahora NLPSentimentStrategy es la index 3
+        nlp_strat: NLPSentimentStrategy = self.strategies[3]
         if hasattr(news, 'symbols') and news.symbols:
             for sym in news.symbols:
                 headline = getattr(news, 'headline', '') or getattr(news, 'summary', '')
-                nlp_strat.on_news(sym, headline)
+                await asyncio.to_thread(nlp_strat.on_news, sym, headline)
 
     async def _portfolio_monitor(self):
         """Chequea el portfolio cada 5 minutos."""
@@ -171,7 +158,8 @@ class EquitiesEngine:
 
     async def _insider_cron(self):
         """Cron job a las 18:00 EST para buscar Form 4 de EDGAR."""
-        insider_strat: InsiderFlowStrategy = self.strategies[8]
+        # InsiderFlowStrategy es index 4
+        insider_strat: InsiderFlowStrategy = self.strategies[4]
         while True:
             now = datetime.now()
             # Esperar hasta las 18:00 EST
@@ -197,10 +185,9 @@ class EquitiesEngine:
         """Retorna todos los símbolos que el equities engine necesita en el stream."""
         return list(set(
             self._eq_symbols
-            + self.strategies[1].symbols   # VCP High Beta
-            + self.strategies[4].symbols   # Gamma Squeeze candidates
-            + self.strategies[6].symbols   # Stat Arb pairs
-            + self.strategies[9].symbols   # Sector ETFs + holdings
+            + self.strategies[0].symbols   # VCP
+            + self.strategies[2].symbols   # Gamma Squeeze candidates
+            + self.strategies[5].symbols   # Sector ETFs + holdings
         ))
 
     async def initialize(self):
