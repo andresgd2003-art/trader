@@ -166,15 +166,28 @@ class TradingEngine:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def _on_news(self, news):
+        """
+        Handler de noticias en vivo desde Alpaca.
+        Se remite directamente al motor de Equities para NLP.
+        """
+        if self.equities_engine:
+            await self.equities_engine.dispatch_news(news)
+
     def _subscribe(self):
         """Suscribe el stream a todos los símbolos: ETF + Equities."""
         eq_symbols = self.equities_engine.get_eq_symbols() if self.equities_engine else []
         all_symbols = list(set(ALL_SYMBOLS + eq_symbols))
         self.stream.subscribe_bars(self._on_bar, *all_symbols)
         self.stream.subscribe_quotes(self._on_quote, *ALL_SYMBOLS)  # Quotes solo ETF
+        
+        # Suscribir a noticias del universo filtrado de acciones
+        if eq_symbols:
+            self.stream.subscribe_news(self._on_news, *eq_symbols)
+            
         logger.info(f"[Engine] Suscrito a: {ALL_SYMBOLS}")
         if eq_symbols:
-            logger.info(f"[Engine] + Equities symbols: {len(eq_symbols)} adicionales")
+            logger.info(f"[Engine] + Equities symbols: {len(eq_symbols)} adicionales y +News Stream Activo")
 
     async def run(self):
         """Arranca el engine completo."""
