@@ -22,7 +22,6 @@ class VIXFilteredReversionStrategy(BaseStrategy):
     RSI_PERIOD  = 14
     RSI_BUY     = 30
     RSI_SELL    = 70
-    QTY         = 8
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -56,13 +55,13 @@ class VIXFilteredReversionStrategy(BaseStrategy):
 
         if current_rsi < self.RSI_BUY and not self._has_position:
             logger.info(f"[{self.name}] 🟢 RSI={current_rsi:.1f} < {self.RSI_BUY} → COMPRANDO {self.SYMBOL}")
-            await self.order_manager.buy(self.SYMBOL, qty=self.QTY, strategy_name=self.name)
+            await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
-            self._position[self.SYMBOL] = self.QTY
+            self._position[self.SYMBOL] = 1
 
         elif current_rsi > self.RSI_SELL and self._has_position:
             logger.info(f"[{self.name}] 🔴 RSI={current_rsi:.1f} > {self.RSI_SELL} → VENDIENDO {self.SYMBOL}")
-            await self.order_manager.sell(self.SYMBOL, qty=self.QTY, strategy_name=self.name)
+            await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
             self._has_position = False
             self._position[self.SYMBOL] = 0
 

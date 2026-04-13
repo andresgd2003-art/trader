@@ -29,9 +29,8 @@ logger = logging.getLogger(__name__)
 class GridTradingStrategy(BaseStrategy):
 
     SYMBOL      = "SOXX"
-    GRID_STEP   = 0.01    # 1% entre cada nivel
-    GRID_LEVELS = 5       # Niveles de grid arriba y abajo del baseline
-    QTY_PER_LEVEL = 3     # Acciones por nivel del grid
+    GRID_STEP   = 0.03    # 3% entre cada nivel (Protección T+1 Cash Account)
+    GRID_LEVELS = 5       # Niveles de grid
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -40,9 +39,8 @@ class GridTradingStrategy(BaseStrategy):
             order_manager=order_manager
         )
         self.regime_manager = regime_manager
-        self._baseline    = None    # Precio inicial de referencia
+        self._baseline    = None
         self._grid_active = False
-        self._grid_orders = {}      # {precio: side}
         self._client = TradingClient(
             api_key=os.environ.get("ALPACA_API_KEY", ""),
             secret_key=os.environ.get("ALPACA_SECRET_KEY", ""),
@@ -57,7 +55,6 @@ class GridTradingStrategy(BaseStrategy):
 
         current_price = float(bar.close)
 
-        # La primera vez que recibimos una barra, establecemos el baseline
         if self._baseline is None:
             self._baseline = current_price
             logger.info(f"[{self.name}] Baseline establecido: ${self._baseline:.2f}")
@@ -71,15 +68,20 @@ class GridTradingStrategy(BaseStrategy):
         )
 
     async def _place_grid(self):
-        """
-        Coloca órdenes BUY límite por debajo del baseline.
-        Las órdenes SELL se añaden dinámicamente cuando se ejecuta una BUY.
-        (Las cuentas Paper Trading no permiten short selling directo)
-        """
         if not self._baseline:
             return
 
-        logger.info(f"[{self.name}] Colocando {self.GRID_LEVELS} niveles de compra...")
+        logger.info(f"[{self.name}] Colocando {self.GRID_LEVELS} niveles de compra (Paso 3%)...")
+
+        try:
+            # Obtener cash para sizing dinámico (mismo 4% que OrderManager)
+            acc = self._client.get_account()
+            cash_ref = float(getattr(acc, 'settled_cash', acc.cash))
+            notional_per_level = round(cash_ref * 0.04, 2)
+            
+            if notional_per_level < 1.0: notional_per_level = 10.0 # Mínimo seguridad
+        except:
+            notional_per_level = 10.0
 
         for i in range(1, self.GRID_LEVELS + 1):
             buy_price = round(self._baseline * (1 - self.GRID_STEP * i), 2)
@@ -87,17 +89,17 @@ class GridTradingStrategy(BaseStrategy):
             try:
                 buy_req = LimitOrderRequest(
                     symbol=self.SYMBOL,
-                    qty=self.QTY_PER_LEVEL,
+                    notional=notional_per_level,
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.GTC,
                     limit_price=buy_price
                 )
                 self._client.submit_order(buy_req)
-                logger.info(f"[{self.name}] Grid BUY colocada @ ${buy_price:.2f} (nivel -{i}%)")
+                logger.info(f"[{self.name}] Grid BUY colocada @ ${buy_price:.2f} (Monto: ${notional_per_level})")
                 await asyncio.sleep(0.5)
 
             except Exception as e:
                 logger.error(f"[{self.name}] Error en nivel {i}: {e}")
 
         self._grid_active = True
-        logger.info(f"[{self.name}] ✅ Grid activo. Base=${self._baseline:.2f} | {self.GRID_LEVELS} BUYs pendientes")
+        logger.info(f"[{self.name}] ✅ Grid activo al 3%. Base=${self._baseline:.2f}")

@@ -106,34 +106,43 @@ class AssetArbiter:
         lock = self._get_lock(symbol)
         
         async with lock:
-            # 1. Verificar cooldown post-cierre
-            last_close = self._last_close_time.get(symbol, 0)
-            elapsed = time.time() - last_close
-            if elapsed < self.cooldown_seconds and last_close > 0:
-                remaining = int(self.cooldown_seconds - elapsed)
-                logger.debug(
-                    f"[Arbiter] {strategy} → {symbol}: COOLDOWN "
-                    f"({remaining}s restantes). Denegado."
+            try:
+                # 1. Verificar cooldown post-cierre
+                last_close = self._last_close_time.get(symbol, 0)
+                elapsed = time.time() - last_close
+                if elapsed < self.cooldown_seconds and last_close > 0:
+                    remaining = int(self.cooldown_seconds - elapsed)
+                    logger.debug(
+                        f"[Arbiter] {strategy} → {symbol}: COOLDOWN "
+                        f"({remaining}s restantes). Denegado."
+                    )
+                    return False
+                
+                # 2. Verificar si ya hay posición activa
+                current_owner = self._owners.get(symbol)
+                if current_owner is not None:
+                    current_priority = self._owner_priority.get(symbol, 99)
+                    logger.debug(
+                        f"[Arbiter] {strategy} (P{priority}) → {symbol}: "
+                        f"OCUPADO por '{current_owner}' (P{current_priority}). Denegado."
+                    )
+                    return False
+                
+                # 3. Símbolo libre → conceder permiso
+                self._owners[symbol] = strategy
+                self._owner_priority[symbol] = priority
+                logger.info(
+                    f"[Arbiter] ✅ {strategy} (P{priority}) adquirió {symbol}."
                 )
-                return False
-            
-            # 2. Verificar si ya hay posición activa
-            current_owner = self._owners.get(symbol)
-            if current_owner is not None:
-                current_priority = self._owner_priority.get(symbol, 99)
-                logger.debug(
-                    f"[Arbiter] {strategy} (P{priority}) → {symbol}: "
-                    f"OCUPADO por '{current_owner}' (P{current_priority}). Denegado."
-                )
-                return False
-            
-            # 3. Símbolo libre → conceder permiso
-            self._owners[symbol] = strategy
-            self._owner_priority[symbol] = priority
-            logger.info(
-                f"[Arbiter] ✅ {strategy} (P{priority}) adquirió {symbol}."
-            )
-            return True
+                return True
+                
+            except Exception as e:
+                logger.error(f"[Arbiter] Error crítico en request_buy para {symbol}: {e}")
+                raise e
+            finally:
+                # El lock de asyncio se libera automáticamente por el context manager 'async with'.
+                # Este bloque garantiza que cualquier extensión futura tenga limpieza garantizada.
+                pass
 
     def release(self, symbol: str, strategy: str) -> None:
         """

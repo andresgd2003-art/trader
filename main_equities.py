@@ -28,16 +28,14 @@ from engine.portfolio_manager import PortfolioManager
 from strategies_equities import (
     VCPStrategy,
     PEADStrategy,
-    GammaSqueezeStrategy,
-    NLPSentimentStrategy,
     InsiderFlowStrategy,
     SectorRotationStrategy,
 )
 
 logger = logging.getLogger("EquitiesEngine")
 
-API_KEY    = os.environ.get("ALPACA_API_KEY", "")
-SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY", "")
+API_KEY    = os.environ.get("APCA_API_KEY_ID") or os.environ.get("ALPACA_API_KEY", "")
+SECRET_KEY = os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SECRET_KEY", "")
 
 # Estado global para el dashboard
 _EQ_ENGINE_STATUS: dict = {
@@ -84,8 +82,6 @@ class EquitiesEngine:
         strats = [
             VCPStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             PEADStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            NLPSentimentStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             InsiderFlowStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
             SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
         ]
@@ -142,13 +138,8 @@ class EquitiesEngine:
         await self._on_news(news)
 
     async def _on_news(self, news):
-        """Handler de noticias — alimenta la estrategia NLP."""
-        # Ahora NLPSentimentStrategy es la index 3
-        nlp_strat: NLPSentimentStrategy = self.strategies[3]
-        if hasattr(news, 'symbols') and news.symbols:
-            for sym in news.symbols:
-                headline = getattr(news, 'headline', '') or getattr(news, 'summary', '')
-                await asyncio.to_thread(nlp_strat.on_news, sym, headline)
+        """Handler de noticias (NLP Deshabilitado por ahora)."""
+        pass
 
     async def _portfolio_monitor(self):
         """Chequea el portfolio cada 5 minutos."""
@@ -158,8 +149,8 @@ class EquitiesEngine:
 
     async def _insider_cron(self):
         """Cron job a las 18:00 EST para buscar Form 4 de EDGAR."""
-        # InsiderFlowStrategy es index 4
-        insider_strat: InsiderFlowStrategy = self.strategies[4]
+        # InsiderFlowStrategy es ahora index 2
+        insider_strat: InsiderFlowStrategy = self.strategies[2]
         while True:
             now = datetime.now()
             # Esperar hasta las 18:00 EST
@@ -186,8 +177,7 @@ class EquitiesEngine:
         return list(set(
             self._eq_symbols
             + self.strategies[0].symbols   # VCP
-            + self.strategies[2].symbols   # Gamma Squeeze candidates
-            + self.strategies[5].symbols   # Sector ETFs + holdings
+            + (self.strategies[3].symbols if len(self.strategies) > 3 else []) # Sector ETFs
         ))
 
     async def initialize(self):
@@ -212,18 +202,24 @@ class EquitiesEngine:
         )
 
     async def start_engine(self):
-        """Punto de entrada principal del motor de equities."""
+        """Punto de entrada principal con resiliencia global."""
         _EQ_ENGINE_STATUS["is_running"] = True
+        _EQ_ENGINE_STATUS["market_open"] = True
 
         # Inicio del order manager
         order_task = asyncio.create_task(self.order_manager.start())
 
-        _EQ_ENGINE_STATUS["market_open"] = True
-
-        # Lanzar tareas concurrentes (sin stream propio)
-        await asyncio.gather(
-            self._portfolio_monitor(),
-            self._insider_cron(),
-            self._market_close_routine(),
-            return_exceptions=True
-        )
+        try:
+            # Lanzar tareas concurrentes
+            await asyncio.gather(
+                self._portfolio_monitor(),
+                self._insider_cron(),
+                self._market_close_routine(),
+                return_exceptions=False # Queremos que el try/except maneje errores graves
+            )
+        except Exception as e:
+            logger.critical(f"[EquitiesEngine] FALLO GLOBAL DEL MOTOR: {e}")
+            from engine.notifier import TelegramNotifier
+            TelegramNotifier().send_message(f"🚨 <b>[EQUITIES CRITICAL]</b>\nFallo global del motor de acciones: {e}")
+        finally:
+            _EQ_ENGINE_STATUS["is_running"] = False

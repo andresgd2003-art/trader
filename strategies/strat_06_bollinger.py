@@ -16,7 +16,6 @@ class BollingerReversionStrategy(BaseStrategy):
     SYMBOL  = "SRVR"
     PERIOD  = 20
     STD_DEV = 2.0
-    QTY     = 10
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -57,12 +56,12 @@ class BollingerReversionStrategy(BaseStrategy):
 
         if curr_price <= curr_lower and not self._has_position:
             logger.info(f"[{self.name}] 🟢 Precio tocó banda INFERIOR. COMPRANDO {self.SYMBOL}")
-            await self.order_manager.buy(self.SYMBOL, qty=self.QTY, strategy_name=self.name)
+            await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
-            self._position[self.SYMBOL] = self.QTY
+            self._position[self.SYMBOL] = 1
 
         elif self._has_position and curr_price >= curr_middle:
             logger.info(f"[{self.name}] 🔴 Precio llegó a la media. VENDIENDO {self.SYMBOL}")
-            await self.order_manager.sell(self.SYMBOL, qty=self.QTY, strategy_name=self.name)
+            await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
             self._has_position = False
             self._position[self.SYMBOL] = 0

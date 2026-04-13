@@ -109,7 +109,7 @@ class StockScorer:
                     None, self._score_symbol, symbol
                 )
                 scores[symbol] = score
-                self._persist_score(symbol, score, breakdown)
+                await self._persist_score(symbol, score, breakdown)
                 logger.info(f"[StockScorer] {symbol}: {score:.1f}/100 | {breakdown}")
                 await asyncio.sleep(0.3)  # Rate limit gentil
             except Exception as e:
@@ -211,29 +211,41 @@ class StockScorer:
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
 
-    def _persist_score(self, symbol: str, score: float, breakdown: dict) -> None:
-        """Guarda el score en SQLite."""
-        try:
-            with sqlite3.connect(DB_PATH) as conn:
-                conn.execute('PRAGMA journal_mode=WAL;')
-                conn.execute('PRAGMA synchronous=NORMAL;')
-                ts = datetime.now(timezone.utc).isoformat()
-                conn.execute("""
-                    INSERT OR REPLACE INTO scores
-                    (symbol, score, momentum, rsi_score, vol_score, trend_score, earnings_pen, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    symbol, round(score, 2),
-                    breakdown.get("momentum", 0),
-                    breakdown.get("rsi", 0),
-                    breakdown.get("volume", 0),
-                    breakdown.get("trend", 0),
-                    breakdown.get("earnings_pen", 0),
-                    ts,
-                ))
-                conn.commit()
-        except Exception as e:
-            logger.warning(f"[StockScorer] Error persistiendo {symbol}: {e}")
+    async def _persist_score(self, symbol: str, score: float, breakdown: dict) -> None:
+        """Guarda el score en SQLite con reintentos asíncronos."""
+        import asyncio
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.execute('PRAGMA journal_mode=WAL;')
+                    conn.execute('PRAGMA synchronous=NORMAL;')
+                    ts = datetime.now(timezone.utc).isoformat()
+                    conn.execute("""
+                        INSERT OR REPLACE INTO scores
+                        (symbol, score, momentum, rsi_score, vol_score, trend_score, earnings_pen, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        symbol, round(score, 2),
+                        breakdown.get("momentum", 0),
+                        breakdown.get("rsi", 0),
+                        breakdown.get("volume", 0),
+                        breakdown.get("trend", 0),
+                        breakdown.get("earnings_pen", 0),
+                        ts,
+                    ))
+                    conn.commit()
+                return # Éxito
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e).lower() and attempt < max_retries - 1:
+                    logger.warning(f"[StockScorer] DB bloqueada para {symbol}. Reintento {attempt+1}/{max_retries}...")
+                    await asyncio.sleep(0.5)
+                else:
+                    logger.error(f"[StockScorer] Error persistiendo {symbol}: {e}")
+                    break
+            except Exception as e:
+                logger.error(f"[StockScorer] Error inesperado persistiendo {symbol}: {e}")
+                break
 
     def get_top_scores(self, limit: int = 20) -> list:
         """Retorna los top N símbolos por score desde la DB."""

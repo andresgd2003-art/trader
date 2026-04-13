@@ -18,6 +18,7 @@ import logging
 import csv
 import io
 import asyncio
+import requests
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +26,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+# Cargar variables de entorno con RUTA ABSOLUTA (Requisito PROMPT 18)
+import os
+from dotenv import load_dotenv
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(env_path)
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import GetOrdersRequest, GetPortfolioHistoryRequest
@@ -33,15 +41,25 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
+# CONFIGURACIÓN DE LOGGING (Timestamps PROMPT 18)
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [api_server] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger("api_server")
 
-# ============================================================
-# CONFIGURACIÓN
-# ============================================================
-API_KEY    = os.environ.get("ALPACA_API_KEY", "")
-SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY", "")
-PAPER      = os.environ.get("PAPER_TRADING", "True").lower() == "true"
-LOG_PATH   = os.environ.get("LOG_PATH", "/app/data/engine.log")
+# CONFIGURACIÓN (Auth Inquebrantable PROMPT 15)
+API_KEY = os.getenv('APCA_API_KEY_ID')
+SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
+
+if not API_KEY or not SECRET_KEY:
+    logger.critical("[API] ❌ ERROR CRÍTICO: Las llaves de Alpaca son NULAS. Revisa el archivo .env")
+else:
+    logger.info(f"[API] Keys cargadas correctamente. Prefijo: {API_KEY[:4]}***")
+
+LOG_PATH = os.environ.get("LOG_PATH", "/app/data/engine.log")
 
 # ============================================================
 # APP FASTAPI
@@ -56,11 +74,23 @@ app.add_middleware(
 )
 
 def get_trading_client() -> TradingClient:
-    return TradingClient(api_key=API_KEY, secret_key=SECRET_KEY, paper=PAPER)
+    """
+    Obtiene el cliente de trading detectando automáticamente Paper/Live.
+    Requisito PROMPT 18: PK->True, AK->False.
+    """
+    ak = os.getenv('APCA_API_KEY_ID') or os.getenv('ALPACA_API_KEY')
+    sk = os.getenv('APCA_API_SECRET_KEY') or os.getenv('ALPACA_SECRET_KEY')
+    
+    # Detección automática de Paper/Live
+    is_paper = True if ak and ak.startswith('PK') else False
+    
+    return TradingClient(api_key=ak, secret_key=sk, paper=is_paper)
 
-GLOBAL_CACHE = {
-    "account": {},
-    "positions": []
+STATE_CACHE = {
+    "account": None,
+    "positions": {"crypto": [], "etf": [], "eq": []},
+    "orders": {"crypto": [], "etf": [], "eq": []},
+    "clock": None
 }
 
 # ============================================================
@@ -136,33 +166,38 @@ async def _build_charts_task():
                             new_cache[engine_key].append({"date": date_str, "equity": engines_pnl[engine_key], "engine": engine_key})
                             new_cache["home"].append({"date": date_str, "equity": engines_pnl["home"], "engine": "home"})
 
-            # ─── HOME: Portfolio history oficial de Alpaca ──────────────────────────────────
-            # Usa GetPortfolioHistoryRequest para obtener la curva de equity REAL
-            # (igual a la que muestra Alpaca en su web/app)
+            # ─── HOME: Portfolio history vía REST directo ─────────────────────────────────
+            # Usamos la API REST directamente porque get_portfolio_history() no existe
+            # en todas las versiones del SDK alpaca-py
             try:
-                ph = client.get_portfolio_history(
-                    GetPortfolioHistoryRequest(
-                        period="1M",        # 1 mes de datos
-                        timeframe="1D",     # vela diaria (ligero)
-                        extended_hours=False
-                    )
+                import requests as _requests
+                import datetime as _dt
+                _ak = os.getenv('APCA_API_KEY_ID') or os.getenv('ALPACA_API_KEY')
+                _sk = os.getenv('APCA_API_SECRET_KEY') or os.getenv('ALPACA_SECRET_KEY')
+                _is_paper = True if _ak and _ak.startswith('PK') else False
+                _base = 'https://paper-api.alpaca.markets' if _is_paper else 'https://api.alpaca.markets'
+                _headers = {'APCA-API-KEY-ID': _ak, 'APCA-API-SECRET-KEY': _sk}
+                _res = _requests.get(
+                    f'{_base}/v2/account/portfolio/history',
+                    headers=_headers,
+                    params={'period': '1M', 'timeframe': '1D', 'extended_hours': 'false'},
+                    timeout=10
                 )
-                home_points = []
-                if ph and ph.timestamp and ph.equity:
-                    for ts, eq in zip(ph.timestamp, ph.equity):
-                        if eq and eq > 0:
-                            from datetime import timezone as _tz
-                            import datetime as _dt
-                            date_str = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
-                            home_points.append({"date": date_str, "equity": round(float(eq), 2), "engine": "home"})
-                if home_points:
-                    new_cache["home"] = home_points
-                    logger.info(f"[Charts] Home: {len(home_points)} puntos de portfolio history de Alpaca")
+                if _res.status_code == 200:
+                    _data = _res.json()
+                    home_points = []
+                    if _data.get('timestamp') and _data.get('equity'):
+                        for ts, eq in zip(_data['timestamp'], _data['equity']):
+                            if eq and eq > 0:
+                                date_str = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime('%Y-%m-%d %H:%M')
+                                home_points.append({'date': date_str, 'equity': round(float(eq), 2), 'engine': 'home'})
+                    if home_points:
+                        new_cache['home'] = home_points
+                        logger.info(f'[Charts] Home: {len(home_points)} puntos de portfolio history de Alpaca')
+                else:
+                    logger.warning(f'[Charts] Portfolio history REST error {_res.status_code}: {_res.text[:100]}')
             except Exception as ph_err:
-                logger.warning(f"[Charts] No se pudo obtener portfolio history de Alpaca: {ph_err}. Usando cálculo local.")
-                # Fallback: usar el home calculado localmente por órdenes
-                if new_cache["home"]:
-                    pass  # ya tiene datos del loop de órdenes, OK
+                logger.warning(f'[Charts] No se pudo obtener portfolio history: {ph_err}. Usando calculo local.')
             # ────────────────────────────────────────────────────────────────────────────────
 
             # Fallback: si alguna gráfica de motor (etf/crypto/eq) quedó vacía
@@ -195,32 +230,99 @@ async def _build_charts_task():
             
         await asyncio.sleep(60) # Recalcular cada 1 minuto de forma indetectable
 
-async def _update_global_cache_task():
+async def update_history_cache_task():
+    """Background task to fetch portfolio history, minimizando llamadas API."""
+    import requests
+    while True:
+        try:
+            ak = os.getenv('APCA_API_KEY_ID') or os.getenv('ALPACA_API_KEY')
+            sk = os.getenv('APCA_API_SECRET_KEY') or os.getenv('ALPACA_SECRET_KEY')
+            if not ak or not sk:
+                await asyncio.sleep(60)
+                continue
+                
+            is_p = True if ak and ak.startswith('PK') else False
+            base_url = "https://paper-api.alpaca.markets" if is_p else "https://api.alpaca.markets"
+            url = f"{base_url}/v2/account/portfolio/history"
+            
+            headers = {"APCA-API-KEY-ID": ak, "APCA-API-SECRET-KEY": sk}
+            history_cache = {}
+            tf_map = {
+                "1D": ("1D", "5Min"),
+                "1W": ("1W", "15Min"),
+                "1M": ("1M", "1D"),
+                "1A": ("1A", "1D")
+            }
+            
+            for p in ["1D", "1W", "1M", "1A"]:
+                params = {"period": tf_map[p][0], "timeframe": tf_map[p][1], "extended_hours": "false"}
+                res = requests.get(url, headers=headers, params=params, timeout=10)
+                if res.status_code == 200:
+                    history_data = res.json()
+                    hist_objs = []
+                    if "timestamp" in history_data and "equity" in history_data:
+                        import datetime as _dt
+                        for ts, eq in zip(history_data['timestamp'], history_data['equity']):
+                            if eq is not None:
+                                date_str = _dt.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
+                                hist_objs.append({"date": date_str, "equity": round(float(eq), 2)})
+                    history_cache[p] = hist_objs
+            
+            STATE_CACHE["history"] = history_cache
+            
+        except Exception as e:
+            logger.error(f"[API] Error actualizando history cache: {e}")
+            
+        await asyncio.sleep(60)  # Fetch cada 60 seg, sin laggear al frontend
+
+async def update_cache_task():
     """Background task to fetch account and positions, minimizing API calls."""
     while True:
         try:
             client = get_trading_client()
             
             # Account update
-            acc = client.get_account()
-            equity = float(acc.equity)
-            last_equity = float(acc.last_equity) if acc.last_equity else equity
-            GLOBAL_CACHE["account"] = {
-                "equity": equity,
-                "cash": float(acc.cash),
-                "buying_power": float(acc.buying_power),
-                "portfolio_value": float(acc.portfolio_value),
-                "pnl_day": equity - last_equity,
-                "pnl_day_pct": round((equity - last_equity) / last_equity * 100, 2) if last_equity > 0 else 0,
-                "total_pnl": equity - last_equity,
-                "status": acc.status.value if acc.status else "active",
-                "currency": acc.currency,
-            }
+            try:
+                acc = client.get_account()
+                equity = float(acc.equity)
+                last_equity = float(acc.last_equity) if acc.last_equity else equity
+                
+                STATE_CACHE["account"] = {
+                    "equity": equity,
+                    "cash": float(acc.cash),
+                    "buying_power": float(acc.buying_power),
+                    "portfolio_value": float(acc.portfolio_value),
+                    "settled_cash": float(getattr(acc, 'settled_cash', 0.0)),
+                    "pnl_day": equity - last_equity,
+                    "pnl_day_pct": round((equity - last_equity) / last_equity * 100, 2) if last_equity > 0 else 0,
+                    "status": acc.status.value if acc.status else "active",
+                    "currency": acc.currency,
+                }
+            except Exception as acc_err:
+                logger.error(f"[API] Error actualizando caché de CUENTA: {acc_err}")
+
+            # Clock update
+            try:
+                clock = client.get_clock()
+                STATE_CACHE["clock"] = {
+                    "is_open": clock.is_open,
+                    "next_open": clock.next_open.isoformat(),
+                    "next_close": clock.next_close.isoformat(),
+                    "timestamp": clock.timestamp.isoformat()
+                }
+            except Exception as clock_err:
+                logger.error(f"[API] Error actualizando caché de RELOJ: {clock_err}")
             
-            # Positions update
-            positions = client.get_all_positions()
-            GLOBAL_CACHE["positions"] = [
-                {
+            # Positions update & Categorization
+            raw_positions = client.get_all_positions()
+            categorized_pos = {"crypto": [], "etf": [], "eq": []}
+            
+            # Whitelist de Equities (Acciones conocidas)
+            equity_symbols = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "COIN", "MARA"]
+            
+            for p in raw_positions:
+                # Conversión explícita a diccionario (Blindaje de Serialización)
+                pos_data = {
                     "symbol": p.symbol,
                     "qty": float(p.qty),
                     "side": p.side.value,
@@ -228,17 +330,67 @@ async def _update_global_cache_task():
                     "current_price": float(p.current_price) if hasattr(p, 'current_price') and p.current_price else 0,
                     "unrealized_pl": float(p.unrealized_pl) if p.unrealized_pl else 0,
                     "unrealized_plpc": float(p.unrealized_plpc) * 100 if p.unrealized_plpc else 0,
+                    "asset_class": p.asset_class.value
                 }
-                for p in positions
-            ]
+                
+                # Clasificación (Requisito PROMPT 16)
+                is_crypto = p.asset_class.value == 'crypto' or '/USD' in p.symbol
+                
+                if is_crypto:
+                    categorized_pos["crypto"].append(pos_data)
+                elif p.symbol in equity_symbols:
+                    categorized_pos["eq"].append(pos_data)
+                else:
+                    categorized_pos["etf"].append(pos_data)
+            
+            STATE_CACHE["positions"] = categorized_pos
+            
+            # Orders update & Categorization
+            try:
+                from alpaca.trading.requests import GetOrdersRequest
+                from alpaca.trading.enums import QueryOrderStatus
+                raw_orders = client.get_orders(filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=50))
+                categorized_ords = {"crypto": [], "etf": [], "eq": []}
+                
+                for o in raw_orders:
+                    ord_data = {
+                        "id":           str(o.id),
+                        "symbol":       o.symbol,
+                        "side":         o.side.value,
+                        "type":         o.order_type.value if o.order_type else "market",
+                        "qty":          float(o.qty) if o.qty else 0,
+                        "filled_qty":   float(o.filled_qty) if o.filled_qty else 0,
+                        "status":       o.status.value,
+                        "limit_price":  float(o.limit_price) if o.limit_price else None,
+                        "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else None,
+                        "created_at":   o.submitted_at.isoformat() if o.submitted_at else None,
+                        "client_id":    str(o.client_order_id) if o.client_order_id else "",
+                    }
+                    
+                    is_crypto = o.asset_class.value == 'crypto' or '/USD' in o.symbol
+                    is_eq_client = "eq_" in ord_data["client_id"]
+                    
+                    if is_crypto:
+                        categorized_ords["crypto"].append(ord_data)
+                    elif is_eq_client or o.symbol in equity_symbols:
+                        categorized_ords["eq"].append(ord_data)
+                    else:
+                        categorized_ords["etf"].append(ord_data)
+                
+                STATE_CACHE["orders"] = categorized_ords
+            except Exception as ord_err:
+                logger.error(f"[API] Error actualizando caché de ÓRDENES: {ord_err}")
+
+            logger.debug("[API] STATE_CACHE actualizada (Categorización Absoluta V2).")
         except Exception as e:
-            logger.error(f"[API] Error updating GLOBAL_CACHE: {e}")
+            logger.error(f"[API] Error updating STATE_CACHE: {e}")
         
-        await asyncio.sleep(5)  # Fetch every 5 seconds instead of per client request
+        await asyncio.sleep(5)  # Fetch cada 5 segundos
 
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(_update_global_cache_task())
+    asyncio.create_task(update_cache_task())
+    asyncio.create_task(update_history_cache_task())
     asyncio.create_task(_build_charts_task())
     asyncio.create_task(_weekly_scoring_task())
     asyncio.create_task(_daily_mode_refresh_task())
@@ -488,134 +640,45 @@ async def get_stock_scores(limit: int = 20, min_score: float = 0):
 
 @app.get("/api/account")
 async def get_account():
-    """Retorna balance, equity, P&L y buying power de la cuenta desde GLOBAL_CACHE para evitar polling rate limit."""
-    return GLOBAL_CACHE.get("account", {})
+    """Retorna balance y equity desde STATE_CACHE (Latencia Cero - PROMPT 18)."""
+    data = STATE_CACHE.get("account")
+    return data if data else {}
 
 
 @app.get("/api/clock")
 async def get_clock():
-    """Retorna el estado del mercado del servidor de Alpaca"""
-    try:
-        client = get_trading_client()
-        clock = client.get_clock()
-        return {
-            "is_open": clock.is_open,
-            "next_open": clock.next_open.isoformat() if hasattr(clock, 'next_open') and clock.next_open else None,
-            "next_close": clock.next_close.isoformat() if hasattr(clock, 'next_close') and clock.next_close else None
-        }
-    except Exception as e:
-        logger.error(f"[API] Error obteniendo el reloj: {e}")
-        return {}
+    """Retorna el estado del mercado desde STATE_CACHE (Latencia Cero)."""
+    data = STATE_CACHE.get("clock")
+    if not data:
+        return {"is_open": False, "status": "cache_warming"}
+    return data
 
 
 @app.get("/api/positions")
 async def get_positions():
-    """Retorna todas las posiciones abiertas desde GLOBAL_CACHE."""
-    return GLOBAL_CACHE.get("positions", [])
+    """Retorna posiciones desde STATE_CACHE (Latencia Cero - PROMPT 18)."""
+    data = STATE_CACHE.get("positions")
+    return data if data else {"crypto": [], "etf": [], "eq": []}
 
 
 
 @app.get("/api/orders")
 async def get_orders():
-    """Retorna las últimas 30 órdenes (todas las que incluye filled/cancelled)."""
-    try:
-        client = get_trading_client()
-        orders = client.get_orders(
-            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=100)
-        )
-        return [
-            {
-                "id":           str(o.id),
-                "symbol":       o.symbol,
-                "side":         o.side.value,
-                "type":         o.order_type.value if o.order_type else "market",
-                "qty":          float(o.qty) if o.qty else 0,
-                "filled_qty":   float(o.filled_qty) if o.filled_qty else 0,
-                "status":       o.status.value,
-                "limit_price":  float(o.limit_price) if o.limit_price else None,
-                "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else None,
-                "filled_price": float(o.filled_avg_price) if o.filled_avg_price else None,
-                "created_at":   o.submitted_at.isoformat() if o.submitted_at else None,
-                "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
-                # client_id completo para que el frontend pueda filtrar por prefijo (cry_, eq_, strat_)
-                "client_id":    str(o.client_order_id) if o.client_order_id else "",
-                "strategy":     str(o.client_order_id).split("_")[1] if (o.client_order_id and len(str(o.client_order_id).split("_")) > 1) else "Manual",
-            }
-            for o in orders
-        ]
-    except Exception as e:
-        logger.error(f"[API] Error obteniendo órdenes: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Retorna órdenes desde STATE_CACHE (Latencia Cero - PROMPT 18)."""
+    data = STATE_CACHE.get("orders")
+    return data if data else {"crypto": [], "etf": [], "eq": []}
 
 
 import requests
 
-from datetime import timedelta, timezone
 @app.get("/api/history")
 async def get_history(period: str = "1M", engine: str = "home"):
-    """Retorna la historia de PNL sectorizada asíncrona en lugar del Total de Alpaca."""
-    try:
-        # Petición nativa dinámica para la gráfica global ('home')
-        if engine == "home":
-            client = get_trading_client()
-            tf_map = {
-                "1D": ("1D", "5Min"),
-                "1W": ("1W", "15Min"),
-                "1M": ("1M", "1D"),
-                "1A": ("1A", "1D")
-            }
-            ap_period, ap_tf = tf_map.get(period, ("1M", "1D"))
-            
-            try:
-                # Usar el método REST RAW porque TradingClient nativo en esta versión de alpaca-py no tiene el método.
-                response = client.get("/account/portfolio/history", {
-                    "period": ap_period,
-                    "timeframe": ap_tf,
-                    "extended_hours": "false"
-                })
-                
-                home_points = []
-                if response and "timestamp" in response and "equity" in response:
-                    import datetime as _dt
-                    for ts, eq in zip(response["timestamp"], response["equity"]):
-                        if eq is not None and eq > 0:
-                            date_str = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
-                            home_points.append({"date": date_str, "equity": round(float(eq), 2), "engine": "home"})
-            except Exception as alpaca_err:
-                logger.error(f"[Charts] No se pudo obtener portfolio history de Alpaca: {alpaca_err}")
-                home_points = []
-            return home_points
-
-        # Cache interno sectorizado para ETF, Crypto, Eq
-        global _CHART_CACHE
-        if engine not in _CHART_CACHE:
-            return []
-            
-        history = _CHART_CACHE[engine]
-        if not history:
-            return []
-            
-        # Filtro de periodo
-        now = datetime.now(timezone.utc)
-        if period == "1D": threshold = now - timedelta(days=1)
-        elif period == "1W": threshold = now - timedelta(days=7)
-        elif period == "1A": threshold = now - timedelta(days=365)
-        else: threshold = now - timedelta(days=30)  # max logic applied in 1M
-        
-        filtered = []
-        for h in history:
-            # Recrea datetime
-            try:
-                dt = datetime.strptime(h["date"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-                if dt >= threshold:
-                    filtered.append(h)
-            except:
-                pass
-                
-        return filtered
-    except Exception as e:
-        logger.error(f"[API] Error obteniendo historia custom: {e}")
-        return []
+    """
+    Retorna la historia de patrimonio desde STATE_CACHE (Latencia Cero - PROMPT 18).
+    Evita bloqueos síncronos al cambiar de pestañas en el dashboard.
+    """
+    history_cache = STATE_CACHE.get("history", {})
+    return history_cache.get(period, [])
 
 @app.get("/api/symbol/history/{symbol}")
 async def get_symbol_history(symbol: str, period: str = "1D"):
@@ -947,7 +1010,9 @@ async def get_logs(limit: int = 100):
 @app.get("/api/health")
 async def health():
     """Health check."""
-    return {"status": "ok", "engine": "AlpacaNode v2.0", "paper": PAPER}
+    ak = os.getenv('APCA_API_KEY_ID') or os.getenv('ALPACA_API_KEY')
+    is_paper = True if ak and ak.startswith('PK') else False
+    return {"status": "ok", "engine": "AlpacaNode v2.0", "paper": is_paper}
 
 
 # ============================================================

@@ -1,255 +1,148 @@
 """
 engine/order_manager.py
 =======================
-Gestor centralizado de órdenes con rate-limiting.
+Gestor centralizado de órdenes con Sizing Dinámico para Cuenta CASH.
 
-PROBLEMA QUE RESUELVE:
-Alpaca permite máximo 200 requests/minuto.
-Si 10 estrategias mandan órdenes al mismo tiempo → error 429 "Too Many Requests".
-
-SOLUCIÓN:
-Todas las órdenes pasan por aquí y se procesan con un delay mínimo
-usando una cola asyncio (sin bloquear otras operaciones).
+CAMBIOS CLAVE (PROMPT 2):
+1. Eliminado parámetro 'qty'.
+2. Cálculo automático de notional (4% del settled_cash).
+3. Uso estricto de órdenes 'notional' para permitir fracciones en ETFs.
 """
 import asyncio
 import logging
 import os
+import uuid
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from engine.notifier import TelegramNotifier
-import uuid
-from alpaca.trading.enums import OrderSide, TimeInForce
+
 try:
     from engine.daily_mode import get_mode_label
 except ImportError:
-    def get_mode_label(): return "mA"  # fallback si daily_mode no está disponible
+    def get_mode_label(): return "mA"
 
 logger = logging.getLogger(__name__)
 
-
 class OrderManager:
     """
-    Cola centralizada de órdenes con rate-limiting automático.
-
-    Uso desde una estrategia:
-        await self.order_manager.buy("QQQ", qty=10)
-        await self.order_manager.sell("QQQ", qty=10)
+    Cola de órdenes con Sizing Dinámico (4% Settled Cash).
     """
-
-    # Alpaca Paper Trading: máximo ~200 req/min → 1 orden cada 0.3s es seguro
-    MIN_DELAY_SECONDS = 0.3
+    MIN_DELAY_SECONDS = 0.4
 
     def __init__(self):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
         self.secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
         self.paper = os.environ.get("PAPER_TRADING", "True").lower() == "true"
 
-        # Cliente REST de Alpaca
         self.client = TradingClient(
             api_key=self.api_key,
             secret_key=self.secret_key,
             paper=self.paper
         )
 
-        # Cola de órdenes pendientes
         self._queue: asyncio.Queue = asyncio.Queue()
         self._running = False
-        
-        # Subsistema de alertas
         self.notifier = TelegramNotifier()
 
-        logger.info(f"[OrderManager] Inicializado. Paper={self.paper}")
+        logger.info(f"[OrderManager] Dinámico Inicializado. Modo: {'Paper' if self.paper else 'Live'}")
 
     async def start(self):
-        """Arranca el worker que procesa la cola de órdenes."""
         self._running = True
-        logger.info("[OrderManager] Worker de órdenes iniciado.")
+        logger.info("[OrderManager] Worker de Sizing Dinámico iniciado.")
         await self._process_queue()
 
     async def stop(self):
-        """Detiene el procesamiento de órdenes."""
         self._running = False
-        logger.info("[OrderManager] Worker detenido.")
 
-    async def buy(self, symbol: str, qty: float, limit_price: float = None, strategy_name: str = ""):
+    async def buy(self, symbol: str, strategy_name: str = ""):
         """
-        Encola una orden de COMPRA.
-
-        Args:
-            symbol: Símbolo del activo (ej: "QQQ")
-            qty: Cantidad de acciones
-            limit_price: Si se especifica, orden límite. Si no, orden de mercado.
-            strategy_name: Nombre de la estrategia (para logs)
+        Encola una orden de COMPRA. El monto se calcula en la ejecución.
         """
-        order = {
-            "side": "buy",
-            "symbol": symbol,
-            "qty": qty,
-            "limit_price": limit_price,
-            "strategy": strategy_name
-        }
+        order = {"side": "buy", "symbol": symbol, "strategy": strategy_name}
         await self._queue.put(order)
-        logger.info(f"[OrderManager] COMPRA encolada: {qty}x {symbol} (de {strategy_name})")
+        logger.info(f"[OrderManager] COMPRA encolada para {symbol} ({strategy_name})")
 
-    async def sell(self, symbol: str, qty: float, limit_price: float = None, strategy_name: str = ""):
+    async def sell(self, symbol: str, strategy_name: str = ""):
         """
-        Encola una orden de VENTA.
+        Encola una orden de VENTA para liquidar la posición completa.
         """
-        order = {
-            "side": "sell",
-            "symbol": symbol,
-            "qty": qty,
-            "limit_price": limit_price,
-            "strategy": strategy_name
-        }
+        order = {"side": "sell", "symbol": symbol, "strategy": strategy_name}
         await self._queue.put(order)
-        logger.info(f"[OrderManager] VENTA encolada: {qty}x {symbol} (de {strategy_name})")
+        logger.info(f"[OrderManager] VENTA encolada para {symbol} ({strategy_name})")
 
     async def _process_queue(self):
-        """
-        Worker interno: procesa órdenes de la cola una a una con delay.
-        Corre en un loop infinito hasta que se llame stop().
-        """
         while self._running:
             try:
-                # Espera máximo 1 segundo por una nueva orden
                 order = await asyncio.wait_for(self._queue.get(), timeout=1.0)
                 await self._execute_order(order)
-                # Rate limiting: esperar antes de la siguiente orden
                 await asyncio.sleep(self.MIN_DELAY_SECONDS)
                 self._queue.task_done()
             except asyncio.TimeoutError:
-                # No hay órdenes pendientes, continuar el loop
                 continue
             except Exception as e:
-                if "Too Many Requests" in str(e) or "429" in str(e):
-                    logger.warning("[OrderManager] HTTP 429 (Rate Limit). Pausando worker por 61 segundos.")
-                    await asyncio.sleep(61)
-                else:
-                    logger.error(f"[OrderManager] Error procesando orden: {e}")
+                logger.error(f"[OrderManager] Error en cola: {e}")
 
     async def _execute_order(self, order: dict):
-        """Envía la orden real a la API de Alpaca."""
         symbol = order["symbol"]
-        qty = order["qty"]
-        side = OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL
         strategy = order.get("strategy", "Unknown")
-
-        # ==========================================
-        # 🛡️ COMPLIANCE SHIELD: Prevención de Baneos
-        # ==========================================
-        if order["side"] == "buy":
-            try:
-                acc = self.client.get_account()
-                dt_count = getattr(acc, 'daytrade_count', 0)
-                is_pdt = getattr(acc, 'pattern_day_trader', False)
-                equity = float(getattr(acc, 'equity', '0.0'))
-                
-                # La Ley Restringe SOLO si Equity < $25,000
-                if equity < 25000.0 and (is_pdt or dt_count >= 3):
-                    logger.error(f"🛑 [COMPLIANCE SHIELD] ORDEN BLOQUEADA para {symbol}. Riesgo de Baneo P.D.T. (Day Trades: {dt_count}/3, Eq: ${equity:,.2f})")
-                    self.notifier.send_message(
-                        f"🛑 <b>[ESCUDO ANTI-BAN]</b>\nSe bloqueó la compra de <b>{symbol}</b> ({strategy}).\n"
-                        f"Límite legal de Day Trades agotado."
-                    )
-                    return # Abortamos
-            except Exception as e:
-                pass
-        # ==========================================
-
-        # ==========================================
-        # 📰 PROPUESTA B — NEWS RISK FILTER (Modo B)
-        # ==========================================
-        if order["side"] == "buy":
-            try:
-                from engine.daily_mode import get_active_mode
-                from engine.news_risk_filter import get_news_filter, RiskLevel
-                if get_active_mode() == "B":
-                    risk = await get_news_filter().get_risk(symbol)
-                    if risk == RiskLevel.HIGH:
-                        logger.warning(f"📰 [NEWS FILTER] BLOQUEADO {symbol} — riesgo fundamental HIGH ({strategy})")
-                        self.notifier.send_message(
-                            f"📰 <b>[Filtro Noticias B]</b>\n"
-                            f"Compra bloqueada en <b>{symbol}</b> ({strategy}).\n"
-                            f"Riesgo fundamental detectado: HIGH."
-                        )
-                        return
-                    elif risk == RiskLevel.MEDIUM:
-                        original_qty = qty
-                        qty = max(1, int(qty * 0.5))
-                        logger.info(f"📰 [NEWS FILTER] {symbol} riesgo MEDIUM — qty reducida: {original_qty} → {qty}")
-                        order = {**order, "qty": qty}  # actualizar orden
-            except Exception as e:
-                logger.debug(f"[NewsFilter] Error en hook (no bloqueante): {e}")
-        # ==========================================
-
-        # Crear un ID único: {prefix}_{name}_{mode}_{uuid8}
-        # El modo (mA/mB/mC) permite rastrear qué propuesta estaba activa al ejecutar
-        safe_strat_name = strategy.replace(" ", "")[:24]
-        mode_label = get_mode_label()  # → 'mA', 'mB' o 'mC'
-        client_id = f"strat_{safe_strat_name}_{mode_label}_{uuid.uuid4().hex[:8]}"
+        side = OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL
 
         try:
-            if order["limit_price"]:
-                # Orden límite
-                request = LimitOrderRequest(
-                    symbol=symbol,
-                    qty=qty,
-                    side=side,
-                    time_in_force=TimeInForce.DAY,
-                    limit_price=order["limit_price"],
-                    client_order_id=client_id
-                )
-                order_type = f"LIMIT @ ${order['limit_price']}"
-            else:
-                # Orden de mercado
-                request = MarketOrderRequest(
-                    symbol=symbol,
-                    qty=qty,
-                    side=side,
-                    time_in_force=TimeInForce.DAY,
-                    client_order_id=client_id
-                )
-                order_type = "MARKET"
+            # 1. Obtener Settled Cash para el cálculo
+            account = self.client.get_account()
+            # En Paper Trading no existe settled_cash, usamos cash como fallback
+            settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
+            
+            # 2. Lógica de Venta (Liquidar todo)
+            if side == OrderSide.SELL:
+                try:
+                    # Buscamos la posición actual para cerrar todo
+                    pos = self.client.get_open_position(symbol)
+                    qty_to_sell = pos.qty
+                    req = MarketOrderRequest(
+                        symbol=symbol,
+                        qty=qty_to_sell,
+                        side=OrderSide.SELL,
+                        time_in_force=TimeInForce.DAY
+                    )
+                    self.client.submit_order(req)
+                    logger.info(f"[{strategy}] VENTA ejecutada: Todo el inventario de {symbol}")
+                except Exception as e:
+                    logger.error(f"[{strategy}] Error al intentar vender {symbol}: {e}")
+                return
+
+            # 3. Lógica de Compra (Sizing Dinámico 4%)
+            # Cálculo: 4% del cash asentado, redondeado a 2 decimales
+            dynamic_notional = round(settled_cash * 0.04, 2)
+
+            if dynamic_notional < 1.0:
+                logger.warning(f"[{strategy}] Fondos insuficientes para {symbol} (Calc: ${dynamic_notional})")
+                return
+
+            # 4. Generar ID único y enviar orden Notional
+            mode_label = get_mode_label()
+            client_id = f"etf_{strategy.replace(' ','')[:10]}_{mode_label}_{uuid.uuid4().hex[:6]}"
+
+            request = MarketOrderRequest(
+                symbol=symbol,
+                notional=dynamic_notional,
+                side=OrderSide.BUY,
+                time_in_force=TimeInForce.DAY,
+                client_order_id=client_id
+            )
 
             result = self.client.submit_order(request)
-            logger.info(
-                f"[{strategy}] EXEC → {order['side'].upper()} {qty}x {symbol} "
-                f"@ {order_type} | ID: {result.id}"
-            )
-        except Exception as e:
-            logger.error(f"[{strategy}] ERROR al enviar orden {symbol}: {e}")
-            self.notifier.send_message(f"⚠️ <b>[ERROR {strategy}]</b>\nFallo al enviar orden por {symbol}: {e}")
+            logger.info(f"[{strategy}] ✅ COMPRA DINÁMICA: {symbol} por ${dynamic_notional} | ID: {result.id}")
 
+        except Exception as e:
+            error_msg = f"[{strategy}] ❌ ERROR CRÍTICO enviando orden {symbol}: {e}"
+            logger.error(error_msg)
+            self.notifier.send_message(f"⚠️ <b>[ERROR ORDER MANAGER]</b>\n{error_msg}")
+
+    # Helpers para el dashboard
     def get_account(self) -> dict:
-        """Retorna info de la cuenta (capital, PnL, etc.) para el dashboard."""
         try:
-            account = self.client.get_account()
-            return {
-                "portfolio_value": float(account.portfolio_value),
-                "cash": float(account.cash),
-                "equity": float(account.equity),
-                "status": account.status.value,
-            }
-        except Exception as e:
-            logger.error(f"[OrderManager] Error obteniendo cuenta: {e}")
-            return {}
-
-    def get_positions(self) -> list:
-        """Retorna posiciones abiertas para el dashboard."""
-        try:
-            positions = self.client.get_all_positions()
-            return [
-                {
-                    "symbol": p.symbol,
-                    "qty": float(p.qty),
-                    "avg_entry_price": float(p.avg_entry_price),
-                    "current_price": float(p.current_price),
-                    "unrealized_pl": float(p.unrealized_pl),
-                }
-                for p in positions
-            ]
-        except Exception as e:
-            logger.error(f"[OrderManager] Error obteniendo posiciones: {e}")
-            return []
+            acc = self.client.get_account()
+            return {"portfolio_value": float(acc.portfolio_value), "cash": float(acc.cash), "settled_cash": float(getattr(acc, 'settled_cash', 0.0))}
+        except: return {}
