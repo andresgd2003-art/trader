@@ -189,6 +189,48 @@ class TradingEngine:
 
     async def run(self):
         """Arranca el engine completo."""
+        
+        eq_symbols = self.equities_engine.get_eq_symbols() if self.equities_engine else []
+        all_symbols = list(set(ALL_SYMBOLS + eq_symbols))
+        
+        # --- HISTORICAL PRE-FETCH (Cold Start Fix) ---
+        try:
+            from alpaca.data.historical import StockHistoricalDataClient
+            from alpaca.data.requests import StockBarsRequest
+            from alpaca.data.timeframe import TimeFrame
+            from datetime import datetime, timedelta
+
+            class PseudoBar:
+                def __init__(self, sym, b):
+                    self.symbol = sym
+                    self.close = b.close
+                    self.high = b.high
+                    self.low = b.low
+                    self.volume = b.volume
+                    self.timestamp = b.timestamp
+
+            if all_symbols:
+                hist_client = StockHistoricalDataClient(self.api_key, self.secret_key)
+                now = datetime.utcnow()
+                req = StockBarsRequest(
+                    symbol_or_symbols=all_symbols,
+                    timeframe=TimeFrame.Minute,
+                    start=now - timedelta(days=5)
+                )
+                logger.info(f"[Engine] Descargando historial de 5 días para evitar Cold Start...")
+                bars = hist_client.get_stock_bars(req)
+                count = 0
+                for sym in all_symbols:
+                    if sym in bars:
+                        for b in bars[sym]:
+                            count += 1
+                            pb = PseudoBar(sym, b)
+                            await self._on_bar(pb)
+                logger.info(f"[Engine] ✅ Historial inyectado: {count} barras de 1Min procesadas.")
+        except Exception as e:
+            logger.warning(f"[Engine] Falló la pre-carga histórica: {e}")
+        # ----------------------------------------------
+
         self._subscribe()
 
         # Iniciar procesamiento de órdenes en segundo plano
