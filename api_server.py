@@ -561,21 +561,24 @@ async def get_history(period: str = "1M", engine: str = "home"):
             }
             ap_period, ap_tf = tf_map.get(period, ("1M", "1D"))
             
-            ph = client.get_portfolio_history(
-                GetPortfolioHistoryRequest(
-                    period=ap_period,
-                    timeframe=ap_tf,
-                    extended_hours=False
-                )
-            )
-            
-            home_points = []
-            if ph and ph.timestamp and ph.equity:
-                import datetime as _dt
-                for ts, eq in zip(ph.timestamp, ph.equity):
-                    if eq and eq > 0:
-                        date_str = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
-                        home_points.append({"date": date_str, "equity": round(float(eq), 2), "engine": "home"})
+            try:
+                # Usar el método REST RAW porque TradingClient nativo en esta versión de alpaca-py no tiene el método.
+                response = client.get("/account/portfolio/history", {
+                    "period": ap_period,
+                    "timeframe": ap_tf,
+                    "extended_hours": "false"
+                })
+                
+                home_points = []
+                if response and "timestamp" in response and "equity" in response:
+                    import datetime as _dt
+                    for ts, eq in zip(response["timestamp"], response["equity"]):
+                        if eq is not None and eq > 0:
+                            date_str = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
+                            home_points.append({"date": date_str, "equity": round(float(eq), 2), "engine": "home"})
+            except Exception as alpaca_err:
+                logger.error(f"[Charts] No se pudo obtener portfolio history de Alpaca: {alpaca_err}")
+                home_points = []
             return home_points
 
         # Cache interno sectorizado para ETF, Crypto, Eq
