@@ -914,10 +914,10 @@ async function updateGlobalHealth(acct) {
   // Buying Power
   document.getElementById('bp-value').textContent = fmtMoney(acct.buying_power);
   const bpBar = document.getElementById('bp-bar');
-  const eq = acct.equity || 1;
-  const ratio = (acct.buying_power / (eq * 2)) * 100; // Asumiendo margen 2x max
+  const eqBP = acct.equity || 1;
+  const ratio = (acct.buying_power / (eqBP * 2)) * 100; // Asumiendo margen 2x max
   bpBar.style.width = Math.min(Math.max(ratio, 0), 100) + '%';
-  document.getElementById('bp-sub').textContent = `Restante de tu fondo Total (${fmtMoney(eq)})`;
+  document.getElementById('bp-sub').textContent = `Restante de tu fondo Total (${fmtMoney(eqBP)})`;
 
   // Exposure
   const lng = acct.long_market_value || 0;
