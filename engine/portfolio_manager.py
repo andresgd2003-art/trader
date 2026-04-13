@@ -105,6 +105,19 @@ class PortfolioManager:
             logger.error(f"[PortfolioManager] Error verificando portfolio: {e}")
             return True  # No bloquear en caso de error de API
 
+    def validate_gfv(self, order_cost: float) -> bool:
+        """Verifica si hay enough settled_cash para evitar GFV."""
+        try:
+            account = self.client.get_account()
+            settled_cash = float(getattr(account, 'settled_cash', 0.0))
+            if order_cost > settled_cash:
+                logger.warning(f"[PortfolioManager] GFV REJECT: Costo ${order_cost:.2f} > Settled ${settled_cash:.2f}")
+                return False
+            return True
+        except Exception as e:
+            logger.error(f"[PortfolioManager] Error validando GFV: {e}")
+            return False
+
     def _trigger_halt(self, reason: str):
         """Activa el circuit breaker: pausa estrategias y liquida posiciones."""
         self._halted = True

@@ -79,16 +79,19 @@ class OrderManagerEquities:
     async def stop(self):
         self._running = False
 
-    def _calculate_qty(self, notional_usd: float, price: float) -> int:
+    def _calculate_notional(self) -> float:
         """
-        Calcula la cantidad de shares para acciones (enteros, no fraccionario).
-        Nunca supera MAX_POSITION_USD.
+        Calcula el notional para acciones (fraccionario).
+        Utiliza el settled_cash para evitar GFV. Nunca supera MAX_POSITION_USD.
         """
-        if price <= 0:
-            return 0
-        capped = min(notional_usd, self.MAX_POSITION_USD)
-        qty = int(capped / price)
-        return max(qty, 1) if capped >= price else 0
+        try:
+            account = self.client.get_account()
+            settled_cash = float(getattr(account, 'settled_cash', 0.0))
+            target_amount = settled_cash * 0.05
+            return min(target_amount, self.MAX_POSITION_USD)
+        except Exception as e:
+            logger.error(f"[OrderManagerEquities] Error calculando notional: {e}")
+            return 0.0
 
     def _client_id(self, strategy: str) -> str:
         safe = strategy.replace(" ", "")[:18]
@@ -109,15 +112,16 @@ class OrderManagerEquities:
         stop_loss_pct: porcentaje de pérdida máxima (ej: 0.03 = 3%)
         take_profit_pct: porcentaje de ganancia objetivo (ej: 0.06 = 6%)
         """
-        qty = self._calculate_qty(notional_usd, price)
-        if qty <= 0:
-            logger.warning(f"[{strategy_name}] Qty calculada = 0 para {symbol}. Omitido.")
+        notional = self._calculate_notional()
+        if notional <= 0:
+            logger.warning(f"[{strategy_name}] Notional calculado <= 0 para {symbol}. Omitido.")
             return
 
         order = {
             "type": "bracket_buy",
             "symbol": symbol,
-            "qty": qty,
+            "qty": None,
+            "notional": notional,
             "price": price,
             "stop_loss_pct": stop_loss_pct,
             "take_profit_pct": take_profit_pct,
@@ -125,8 +129,8 @@ class OrderManagerEquities:
         }
         await self._queue.put(order)
         logger.info(
-            f"[{strategy_name}] BRACKET BUY encolado: {qty}x {symbol} "
-            f"@ ${price:.2f} | SL:{stop_loss_pct*100:.1f}% TP:{take_profit_pct*100:.1f}%"
+            f"[{strategy_name}] BRACKET BUY encolado: {symbol} "
+            f"notional=${notional:.2f} @ ~${price:.2f} | SL:{stop_loss_pct*100:.1f}% TP:{take_profit_pct*100:.1f}%"
         )
 
     async def sell_short(
@@ -142,9 +146,7 @@ class OrderManagerEquities:
         Short sell con bracket (stop buy + take profit para short).
         Solo en paper trading.
         """
-        qty = self._calculate_qty(notional_usd, price)
-        if qty <= 0:
-            return
+        raise ValueError("Shorting disabled on Cash Account")
 
         order = {
             "type": "bracket_short",
@@ -241,7 +243,7 @@ class OrderManagerEquities:
 
                 req = MarketOrderRequest(
                     symbol=symbol,
-                    qty=order["qty"],
+                    notional=float(order["notional"]),
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.DAY,
                     order_class=OrderClass.BRACKET,
@@ -256,21 +258,7 @@ class OrderManagerEquities:
                 )
 
             elif order["type"] == "bracket_short":
-                stop_price = round(order["price"] * (1 + order["stop_loss_pct"]), 2)
-                tp_price = round(order["price"] * (1 - order["take_profit_pct"]), 2)
-
-                req = MarketOrderRequest(
-                    symbol=symbol,
-                    qty=order["qty"],
-                    side=OrderSide.SELL,
-                    time_in_force=TimeInForce.DAY,
-                    order_class=OrderClass.BRACKET,
-                    take_profit=TakeProfitRequest(limit_price=tp_price),
-                    stop_loss=StopLossRequest(stop_price=stop_price),
-                    client_order_id=client_id
-                )
-                result = self.client.submit_order(req)
-                logger.info(f"[{strategy}] ✅ BRACKET SHORT {symbol}: SL=${stop_price} | TP=${tp_price}")
+                raise ValueError("Shorting disabled on Cash Account")
 
             elif order["type"] == "market_sell":
                 req = MarketOrderRequest(

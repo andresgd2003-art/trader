@@ -1,0 +1,10 @@
+/opt/trader/logs/*.json {
+    daily
+    rotate 7
+    compress
+    missingok
+    size 50M
+    delaycompress
+    notifempty
+    create 0640 ubuntu ubuntu
+}

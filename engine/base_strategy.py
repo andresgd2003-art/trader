@@ -7,6 +7,7 @@ comunicarse con cualquier estrategia de forma uniforme.
 """
 from abc import ABC, abstractmethod
 import logging
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,8 @@ class BaseStrategy(ABC):
         self.order_manager = order_manager
         self.is_active = True           # Se puede pausar desde el dashboard
         self._position = {}             # {symbol: quantity} posiciones abiertas
-
+        self._history = deque(maxlen=500) # Prevención OOM
+        
         logger.info(f"[{self.name}] Estrategia inicializada. Activos: {symbols}")
 
     @abstractmethod

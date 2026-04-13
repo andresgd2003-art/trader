@@ -277,7 +277,15 @@ if __name__ == "__main__":
     # Inyectar referencia al equities engine para compartir el stream IEX
     engine.equities_engine = equities_engine
     
+    def global_exception_handler(loop, context):
+        msg = context.get("exception", context.get("message"))
+        notifier.send_message_sync(f"🚨 CRITICAL CRASH: {msg}")
+        loop.default_exception_handler(context)
+    
     async def run_both():
+        loop = asyncio.get_running_loop()
+        loop.set_exception_handler(global_exception_handler)
+        
         # Precargar símbolos del universo de equities ANTES de suscribir el WebSocket
         await equities_engine.initialize()
         

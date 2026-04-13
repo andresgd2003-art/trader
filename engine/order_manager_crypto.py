@@ -57,7 +57,9 @@ class OrderManagerCrypto:
         Ej: Si notional = 1000 y Price = 65000 -> qty = 0.0153
         """
         if current_price <= 0: return 0.0
-        exact_qty = notional_usd / current_price
+        # FASE 4: Límite estricto de 10.0 USD de capital por pos (Micro-sizing)
+        capped_notional = min(notional_usd, 10.0)
+        exact_qty = capped_notional / current_price
         # Redondear hacia abajo para no exceder fondos (o según doc precision: 4 to 8)
         return round(exact_qty, precision)
 

@@ -81,14 +81,22 @@ class CryptoTradingEngine:
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, lambda: asyncio.create_task(self.stop()))
 
-        # El stream cripto se corre en background (Thread no bloqueante)
-        stream_thread = threading.Thread(target=self.stream.run, daemon=True)
+        # Envolver wss_client.run() (self.stream.run) en un bucle con backoff
+        def _stream_loop():
+            while True:
+                try:
+                    self.stream.run()
+                except Exception as e:
+                    logger.error(f"[CryptoEngine] Stream abortado: {e}. Reconectando en 5s...")
+                    time.sleep(5)
+
+        stream_thread = threading.Thread(target=_stream_loop, daemon=True)
         stream_thread.start()
         
         logger.info("[CryptoEngine] Conexión Crypto WebSocket (V1Beta3) Activa.")
 
         try:
-            while stream_thread.is_alive():
+            while True:
                 await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"[CryptoEngine] Error en loop: {e}")
