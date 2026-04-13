@@ -76,6 +76,43 @@ class CryptoTradingEngine:
         
         order_task = asyncio.create_task(self.order_manager.start())
 
+        # --- HISTORICAL PRE-FETCH (Cold Start Fix) ---
+        try:
+            from alpaca.data.historical import CryptoHistoricalDataClient
+            from alpaca.data.requests import CryptoBarsRequest
+            from alpaca.data.timeframe import TimeFrame
+            from datetime import datetime, timedelta
+
+            class PseudoBar:
+                def __init__(self, sym, b):
+                    self.symbol = sym
+                    self.close = b.close
+                    self.high = b.high
+                    self.low = b.low
+                    self.volume = b.volume
+                    self.timestamp = b.timestamp
+
+            hist_client = CryptoHistoricalDataClient()
+            now = datetime.utcnow()
+            req = CryptoBarsRequest(
+                symbol_or_symbols=symbols,
+                timeframe=TimeFrame.Minute,
+                start=now - timedelta(days=5)
+            )
+            logger.info(f"[CryptoEngine] Descargando historial de 5 días para evitar Cold Start...")
+            bars = hist_client.get_crypto_bars(req)
+            count = 0
+            for sym in symbols:
+                if sym in bars:
+                    for b in bars[sym]:
+                        count += 1
+                        pb = PseudoBar(sym, b)
+                        await self._on_crypto_bar(pb)
+            logger.info(f"[CryptoEngine] ✅ Historial inyectado: {count} barras de 1Min procesadas.")
+        except Exception as e:
+            logger.warning(f"[CryptoEngine] Falló la pre-carga histórica: {e}")
+        # ----------------------------------------------
+
         # Configurar cierre limpio
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
