@@ -359,12 +359,12 @@
           <div class="h-sub" id="market-time-sub">Consultando API de Alpaca</div>
       </div>
 
-      <!-- Day Trade Widget -->
+      <!-- Cash Settled Widget -->
       <div class="health-card pdt">
-          <div class="h-title">⚠️ Límite de Day Trades</div>
-          <div class="h-value" id="dt-count-wrapper"><span id="dt-count">0 <span style="font-size: 0.6em; opacity: 0.7;">/ 3</span></span></div>
-          <div class="progress-bg"><div class="progress-fill" id="dt-bar" style="width:0%"></div></div>
-          <div class="h-sub" id="pdt-status">Operaciones Rápidas (P.D.T.)</div>
+          <div class="h-title">🛡️ FONDOS ASENTADOS (CASH ACCOUNT)</div>
+          <div class="h-value" id="dt-count-wrapper"><span id="dt-count">$0.00</span></div>
+          <div class="progress-bg"><div class="progress-fill green" id="dt-bar" style="width:100%"></div></div>
+          <div class="h-sub" id="pdt-status">Libre de PDT (Regla T+1)</div>
       </div>
 
       <!-- Buying Power Widget -->
@@ -884,31 +884,26 @@ async function fetchJSON(url) {
 // ── GLOBAL HEALTH DATA ──
 async function updateGlobalHealth(acct) {
   if (!acct) return;
-  // Day Trades
-  const trades = acct.daytrade_count || 0;
-  const eq = acct.equity || 0;
+  // Cash Settled vs Buying Power
+  const eq = acct.equity || 1; // Para evitar division entre 0
+  const settledCash = acct.cash || 0; 
   
   const dtBar = document.getElementById('dt-bar');
-  if (eq >= 25000) {
-    // Si la cuenta tiene >= $25k, es inmune a las restricciones de day trading
-    document.getElementById('dt-count').innerHTML = `${trades} <span style="font-size: 0.6em; opacity: 0.7;">/ &infin; (Ilimitados)</span>`;
-    dtBar.style.width = '100%';
-    dtBar.className = 'progress-fill green';
-    document.getElementById('pdt-status').innerHTML = '🏆 CUENTA PDT ILIMITADA (> $25K)';
-    document.getElementById('pdt-status').style.color = '#00bfa5';
-  } else {
-    document.getElementById('dt-count').innerHTML = `${trades} <span style="font-size: 0.6em; opacity: 0.7;">/ 3</span>`;
-    dtBar.style.width = Math.min((trades / 3) * 100, 100) + '%';
-    if (trades >= 3) { dtBar.className = 'progress-fill red'; }
-    else { dtBar.className = 'progress-fill yellow'; }
-    
-    if (acct.pattern_day_trader) {
-      document.getElementById('pdt-status').innerHTML = '⛔ ESTADO: PATTERN DAY TRADER (Al límite)';
+  document.getElementById('dt-count').innerHTML = fmtMoney(settledCash) + ' <span style="font-size: 0.55em; opacity: 0.7;">Disponible</span>';
+  
+  // La barra de T+1 (Caja Chica)
+  const cashPctBar = Math.min((settledCash / eq) * 100, 100);
+  dtBar.style.width = cashPctBar + '%';
+  
+  // Colores para Fondos Asentados (Si no hay fondos te quemas por GFV)
+  if (cashPctBar < 15) {
+      dtBar.className = 'progress-fill red';
+      document.getElementById('pdt-status').innerHTML = '⚠️ Poco Cash Restante (Riesgo GFV T+1)';
       document.getElementById('pdt-status').style.color = '#ff5252';
-    } else {
-      document.getElementById('pdt-status').innerHTML = '✅ Cuenta Segura (Ley PDT)';
-      document.getElementById('pdt-status').style.color = 'var(--text-dim)';
-    }
+  } else {
+      dtBar.className = 'progress-fill green';
+      document.getElementById('pdt-status').innerHTML = '✅ Liquidéz Estable (Cuenta Micro)';
+      document.getElementById('pdt-status').style.color = '#00bfa5';
   }
   
   // Buying Power
