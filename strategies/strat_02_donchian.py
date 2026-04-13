@@ -59,12 +59,12 @@ class DonchianBreakoutStrategy(BaseStrategy):
 
         if current_price >= channel_high and not self._has_position:
             logger.info(f"[{self.name}] 🟢 BREAKOUT ALCISTA! {bar.symbol} @ {current_price:.2f}")
-            await self.order_manager.buy(self.SYMBOL, qty=10, strategy_name=self.name)
+            await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
-            self._position[self.SYMBOL] = 10
+            self._position[self.SYMBOL] = 1
 
         elif current_price <= channel_low and self._has_position:
             logger.info(f"[{self.name}] 🔴 RUPTURA BAJISTA! Saliendo de {bar.symbol} @ {current_price:.2f}")
-            await self.order_manager.sell(self.SYMBOL, qty=10, strategy_name=self.name)
+            await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
             self._has_position = False
             self._position[self.SYMBOL] = 0
