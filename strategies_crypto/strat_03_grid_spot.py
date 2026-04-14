@@ -21,6 +21,7 @@ class CryptoGridSpotStrategy(BaseStrategy):
         self._tranche_usd = self.TOTAL_ALLOCATION_USD / self.TRANCHES
         self._active_bids = {} # { order_id: price }
         self._active_asks = {} # { order_id: price }
+        self._grid_deployed = False  # ⚠️ Guard anti-duplicados en reinicios
         
         self._cumulative_vol = 0.0
         self._cumulative_pv = 0.0
@@ -42,7 +43,10 @@ class CryptoGridSpotStrategy(BaseStrategy):
         # Si aún no tenemos un VWAP solido de +10 velas, usamos el close y guardamos baseline
         if self._vwap_baseline == 0.0:
             self._vwap_baseline = current_vwap
-            await self._deploy_grid(self._vwap_baseline, float(bar.close))
+            # ⚠️ GUARD: Solo desplegamos si no hay grid activa (anti-duplicados en reinicios)
+            if not self._grid_deployed:
+                self._grid_deployed = True
+                await self._deploy_grid(self._vwap_baseline, float(bar.close))
         else:
             # Rebalanceo si el mercado se mueve +- 5% respecto al vwap original anclado
             drift = abs(current_vwap - self._vwap_baseline) / self._vwap_baseline
@@ -52,6 +56,7 @@ class CryptoGridSpotStrategy(BaseStrategy):
                 # En un entorno real se mandarían cancelaciones al API via client.cancel_all_orders()
                 # Para simplificar arquitectura, limpiamos estado local.
                 self._active_bids.clear()
+                self._grid_deployed = False  # Permitir redespliegue tras drift
                 await self._deploy_grid(self._vwap_baseline, float(bar.close))
 
     async def _deploy_grid(self, baseline_price: float, current_price: float):
