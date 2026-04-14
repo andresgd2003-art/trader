@@ -210,8 +210,12 @@ class TradingEngine:
                     self.timestamp = b.timestamp
 
             if all_symbols:
-                hist_client = StockHistoricalDataClient(self.api_key, self.secret_key)
-                now = datetime.utcnow()
+                api_k = os.environ.get("ALPACA_API_KEY", "")
+                sec_k = os.environ.get("ALPACA_SECRET_KEY", "")
+                hist_client = StockHistoricalDataClient(api_k, sec_k)
+                
+                from datetime import timezone
+                now = datetime.now(timezone.utc)
                 req = StockBarsRequest(
                     symbol_or_symbols=all_symbols,
                     timeframe=TimeFrame.Minute,
@@ -220,9 +224,10 @@ class TradingEngine:
                 logger.info(f"[Engine] Descargando historial de 5 días para evitar Cold Start...")
                 bars = hist_client.get_stock_bars(req)
                 count = 0
-                for sym in all_symbols:
-                    if sym in bars:
-                        for b in bars[sym]:
+                if hasattr(bars, 'data'):
+                    for sym in all_symbols:
+                        if sym in bars.data:
+                            for b in bars.data[sym]:
                             count += 1
                             pb = PseudoBar(sym, b)
                             await self._on_bar(pb)
