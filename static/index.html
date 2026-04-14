@@ -721,13 +721,13 @@
     </div>
 
     <!-- Regime Banner -->
-    <div class="regime-banner" id="regime-banner">
-      <div class="regime-badge UNKNOWN" id="regime-badge">UNKNOWN</div>
+    <div class="regime-banner" id="eq-regime-banner">
+      <div class="regime-badge UNKNOWN" id="eq-regime-badge">UNKNOWN</div>
       <div class="regime-detail">
-        SPY: <span id="regime-spy">—</span> &nbsp;|&nbsp;
-        SMA200: <span id="regime-sma">—</span> &nbsp;|&nbsp;
-        VIX~: <span id="regime-vix">—</span> &nbsp;|&nbsp;
-        Estrategias activas: <span id="regime-strats">—</span>
+        SPY: <span id="eq-regime-spy">—</span> &nbsp;|&nbsp;
+        SMA200: <span id="eq-regime-sma">—</span> &nbsp;|&nbsp;
+        VIX~: <span id="eq-regime-vix">—</span> &nbsp;|&nbsp;
+        Estrategias activas: <span id="eq-regime-strats">—</span>
       </div>
     </div>
 
@@ -1355,14 +1355,16 @@ async function loadEquitiesData() {
 
   // Regime banner
   if (regime) {
-    const badge = document.getElementById('regime-badge');
-    const r = regime.regime || 'UNKNOWN';
-    badge.textContent = r;
-    badge.className = `regime-badge ${r}`;
-    setEl('regime-spy', `$${fmt(regime.spy_price)}`);
-    setEl('regime-sma', `$${fmt(regime.spy_sma200)}`);
-    setEl('regime-vix', fmt(regime.vix_price));
-    setEl('regime-strats', (regime.enabled_strategies||[]).map(n=>`#${n}`).join(', '));
+    const badge = document.getElementById('eq-regime-badge');
+    if (badge) {
+        const r = regime.regime || 'UNKNOWN';
+        badge.textContent = r;
+        badge.className = `regime-badge ${r}`;
+        setEl('eq-regime-spy', `$${fmt(regime.spy_price)}`);
+        setEl('eq-regime-sma', `$${fmt(regime.spy_sma200)}`);
+        setEl('eq-regime-vix', fmt(regime.vix_price));
+        setEl('eq-regime-strats', (regime.enabled_strategies||[]).map(n=>`#${n}`).join(', '));
+    }
   }
 
   // Universe chips

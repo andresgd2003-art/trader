@@ -183,7 +183,13 @@ class RegimeManager:
             strat_number: Número de estrategia (1-10)
             engine: Motor al que pertenece: 'etf', 'crypto', 'equities'
         """
-        regime = self.current_regime
+        # Utilizar el estado global en lugar de self.current_regime para forzar sincronía
+        regime_str = _CURRENT_REGIME.get("regime", "UNKNOWN")
+        try:
+            regime = Regime(regime_str)
+        except ValueError:
+            regime = Regime.UNKNOWN
+
         if engine == "crypto":
             enabled = REGIME_CRYPTO_MAP.get(regime, [])
         elif engine == "equities":
