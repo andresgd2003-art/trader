@@ -87,7 +87,7 @@ class RegimeManager:
     """
 
     VIX_BEAR_THRESHOLD = 25.0
-    VIX_BULL_THRESHOLD = 20.0
+    VIX_BULL_THRESHOLD = 30.0
     SMA_PERIOD = 200
 
     def __init__(self):
