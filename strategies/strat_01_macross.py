@@ -74,9 +74,9 @@ class GoldenCrossStrategy(BaseStrategy):
                 self._has_position = False
                 self._position[self.SYMBOL] = 0
 
-        # Modo 2: Tendencia Activa — ya está en Golden Cross con spread > 0.5%
+        # Modo 2: Tendencia Activa — ya está en Golden Cross con spread > 0.2%
         # ⚠️ Seguridad: spread mínimo evita entradas cerca del cruce donde hay ruido
-        elif fast_above and spread_pct >= 0.5 and not self._has_position:
+        elif fast_above and spread_pct >= 0.2 and not self._has_position:
             logger.info(f"[{self.name}] 🟢 TENDENCIA ACTIVA: SMA50 > SMA200 (+{spread_pct:.2f}%). Entrando en {bar.symbol}.")
             await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
