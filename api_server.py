@@ -317,8 +317,12 @@ async def update_cache_task():
             raw_positions = client.get_all_positions()
             categorized_pos = {"crypto": [], "etf": [], "eq": []}
             
-            # Whitelist de Equities (Acciones conocidas)
-            equity_symbols = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "COIN", "MARA"]
+            # Whitelist de ETFs conocidos (Todo lo demás a Equities)
+            etf_symbols = {
+                "SPY", "QQQ", "TQQQ", "SQQQ", "IWM", "DIA", "SMH", "SOXX", "SRVR", 
+                "XLK", "XLF", "XLV", "XLE", "XLI", "XLB", "XLU", "XLRE", "XLC", "XLP", "XLY",
+                "QID", "SH", "PSQ", "VIXY", "BND", "AGG", "SHY"
+            }
             
             for p in raw_positions:
                 # Conversión explícita a diccionario (Blindaje de Serialización)
@@ -338,10 +342,10 @@ async def update_cache_task():
                 
                 if is_crypto:
                     categorized_pos["crypto"].append(pos_data)
-                elif p.symbol in equity_symbols:
-                    categorized_pos["eq"].append(pos_data)
-                else:
+                elif p.symbol in etf_symbols:
                     categorized_pos["etf"].append(pos_data)
+                else:
+                    categorized_pos["eq"].append(pos_data)
             
             STATE_CACHE["positions"] = categorized_pos
             
@@ -367,12 +371,15 @@ async def update_cache_task():
                         "client_id":    str(o.client_order_id) if o.client_order_id else "",
                     }
                     
-                    is_crypto = o.asset_class.value == 'crypto' or '/USD' in o.symbol
-                    is_eq_client = "eq_" in ord_data["client_id"]
+                    # Usamos el meta parser para los órdenes que lo tengan, y si no, caemos a ETFs list
+                    meta = parse_order_meta(ord_data["client_id"])
+                    engine = meta.get("engine", "unknown")
+                    
+                    is_crypto = o.asset_class.value == 'crypto' or '/USD' in o.symbol or engine == "crypto"
                     
                     if is_crypto:
                         categorized_ords["crypto"].append(ord_data)
-                    elif is_eq_client or o.symbol in equity_symbols:
+                    elif engine == "equities" or (engine == "unknown" and o.symbol not in etf_symbols):
                         categorized_ords["eq"].append(ord_data)
                     else:
                         categorized_ords["etf"].append(ord_data)
