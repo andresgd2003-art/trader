@@ -80,6 +80,34 @@ class VCPStrategy(BaseStrategy):
             pass
         return list(HIGH_BETA_UNIVERSE)
 
+    def update_symbols(self, new_symbols: list):
+        self.symbols = new_symbols
+        self._traded_today = set()
+        self._daily_smas = {}
+        logger.info(f"[{self.name}] Calculando SMA200 diarias para {len(new_symbols)} símbolos...")
+        
+        try:
+            import yfinance as yf
+            import pandas as pd
+            if not getattr(self, '_daily_data_fetched', False) and self.symbols:
+                data = yf.download(self.symbols, period="300d", group_by='ticker', threads=True, progress=False)
+                count = 0
+                for sym in self.symbols:
+                    try:
+                        df = data if len(self.symbols) == 1 else data.get(sym)
+                        if df is not None and not df.empty and len(df) >= 200:
+                            sma50 = df['Close'].rolling(50).mean().iloc[-1]
+                            sma150 = df['Close'].rolling(150).mean().iloc[-1]
+                            sma200 = df['Close'].rolling(200).mean().iloc[-1]
+                            self._daily_smas[sym] = {"sma50": float(sma50), "sma150": float(sma150), "sma200": float(sma200)}
+                            count += 1
+                    except:
+                        pass
+                logger.info(f"[{self.name}] ✅ Se calcularon SMAs diarias reales para {count} símbolos.")
+                self._daily_data_fetched = True
+        except Exception as e:
+            logger.error(f"[{self.name}] Error descargando datos diarios: {e}")
+
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
@@ -96,13 +124,14 @@ class VCPStrategy(BaseStrategy):
         self._lows[sym].append(l)
         self._volumes[sym].append(v)
 
-        if len(self._closes[sym]) < self.SMA200_PERIOD:
-            return
+        # Usar las SMAs Diarias pre-calculadas en update_symbols en lugar de minutos
+        daily_smas = getattr(self, "_daily_smas", {}).get(sym)
+        if not daily_smas:
+            return  # No hay datos diarios suficientes para verificar la tendencia a largo plazo
 
-        closes = pd.Series(list(self._closes[sym]))
-        sma50  = SMAIndicator(closes, window=self.SMA50_PERIOD).sma_indicator().iloc[-1]
-        sma150 = SMAIndicator(closes, window=self.SMA150_PERIOD).sma_indicator().iloc[-1]
-        sma200 = SMAIndicator(closes, window=self.SMA200_PERIOD).sma_indicator().iloc[-1]
+        sma50  = daily_smas["sma50"]
+        sma150 = daily_smas["sma150"]
+        sma200 = daily_smas["sma200"]
 
         # 1. Verificar tendencia alcista (Stage 2)
         if not (c > sma50 > sma150 > sma200):

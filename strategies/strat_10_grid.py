@@ -91,9 +91,10 @@ class GridTradingStrategy(BaseStrategy):
             buy_price = round(self._baseline * (1 - self.GRID_STEP * i), 2)
 
             try:
+                qty_calculated = round(notional_per_level / buy_price, 4)
                 buy_req = LimitOrderRequest(
                     symbol=self.SYMBOL,
-                    notional=notional_per_level,
+                    qty=qty_calculated,
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.GTC,
                     limit_price=buy_price
