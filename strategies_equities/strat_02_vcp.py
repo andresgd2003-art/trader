@@ -144,6 +144,13 @@ class VCPStrategy(BaseStrategy):
                     score_note = f" | Score: {sc}/100"
                 except Exception:
                     pass
+            
+            # ⚠️ ANTI-DUPLICADO: Verificar posición viva para no re-entrar si reinició hoy
+            if self.sync_position_from_alpaca(sym) > 0:
+                logger.info(f"[{self.name}] ⚠️ Breakout en {sym} pero ya hay posición activa. Evitando duplicado.")
+                self._traded_today.add(sym)
+                return
+
             logger.info(
                 f"[{self.name}] 🏔️ VCP BREAKOUT {sym}! "
                 f"Close={c:.2f} > Resistance={resistance:.2f} | Vol={v:.0f} ({v/vol_avg_full:.1f}x){score_note}"

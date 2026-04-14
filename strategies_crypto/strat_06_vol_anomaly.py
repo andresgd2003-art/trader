@@ -18,11 +18,12 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
         super().__init__("Volume Anomaly", ["LINK/USD"], order_manager)
         self.regime_manager = regime_manager
         self._volumes = deque(maxlen=self.SMA_VOL_PERIOD * 2)
-        
-        self.in_position = False
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca("LINK/USD")
+        self.in_position = qty > 0
         self.entry_price = 0.0
         self.max_price = 0.0
-        self.current_qty = 0.0
+        self.current_qty = qty
 
     async def on_bar(self, bar):
         if self.regime_manager and not self.regime_manager.is_strategy_enabled(6, engine='crypto'):

@@ -58,7 +58,11 @@ class GridTradingStrategy(BaseStrategy):
         if self._baseline is None:
             self._baseline = current_price
             logger.info(f"[{self.name}] Baseline establecido: ${self._baseline:.2f}")
-            await self._place_grid()
+            # ⚠️ GUARD: Verificar si ya hay órdenes abiertas en Alpaca antes de redesplegar
+            if not self.check_open_orders_exist(self.SYMBOL):
+                await self._place_grid()
+            else:
+                self._grid_active = True  # Grid ya activa desde sesión anterior
             return
 
         pct_from_baseline = (current_price - self._baseline) / self._baseline * 100

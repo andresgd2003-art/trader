@@ -98,6 +98,12 @@ class PEADStrategy(BaseStrategy):
         gap_pct = (float(bar.open) - prev_c) / prev_c if prev_c > 0 else 0
 
         if gap_pct >= self.GAP_MIN_PCT and vol >= vol_avg * self.VOL_MULTIPLIER:
+            # ⚠️ ANTI-DUPLICADO: Verificar posición viva para no re-entrar si reinició hoy
+            if self.sync_position_from_alpaca(sym) > 0:
+                logger.info(f"[{self.name}] ⚠️ PEAD en {sym} pero ya hay posición activa. Evitando duplicado.")
+                self._earnings_candidates.discard(sym)
+                return
+
             logger.info(
                 f"[{self.name}] 📊 PEAD ENTRY {sym}: "
                 f"Gap={gap_pct*100:.1f}% | Vol={vol:.0f} ({vol/vol_avg:.1f}x)"

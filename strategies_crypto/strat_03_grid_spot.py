@@ -45,8 +45,12 @@ class CryptoGridSpotStrategy(BaseStrategy):
             self._vwap_baseline = current_vwap
             # ⚠️ GUARD: Solo desplegamos si no hay grid activa (anti-duplicados en reinicios)
             if not self._grid_deployed:
-                self._grid_deployed = True
-                await self._deploy_grid(self._vwap_baseline, float(bar.close))
+                if self.check_open_orders_exist(self.SYMBOL):
+                    logger.info(f"[{self.name}] ⚠️ Grid ya desplegada en Alpaca para {self.SYMBOL}.")
+                    self._grid_deployed = True
+                else:
+                    self._grid_deployed = True
+                    await self._deploy_grid(self._vwap_baseline, float(bar.close))
         else:
             # Rebalanceo si el mercado se mueve +- 5% respecto al vwap original anclado
             drift = abs(current_vwap - self._vwap_baseline) / self._vwap_baseline

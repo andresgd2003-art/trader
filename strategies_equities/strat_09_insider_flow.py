@@ -105,6 +105,13 @@ class InsiderFlowStrategy(BaseStrategy):
             f"[{self.name}] 🏦 INSIDER BUY SIGNAL {sym}! "
             f"Comprando en apertura @ ${bar.close:.2f}"
         )
+        # ⚠️ ANTI-DUPLICADO: Verificar posición viva para no re-entrar si reinició hoy
+        if self.sync_position_from_alpaca(sym) > 0:
+            logger.info(f"[{self.name}] ⚠️ Señal Insider en {sym} pero ya hay posición activa. Evitando duplicado.")
+            self._pending_next_open.discard(sym)
+            self._traded_today.add(sym)
+            return
+
         await self.order_manager.buy_bracket(
             symbol=sym,
             price=float(bar.close),
