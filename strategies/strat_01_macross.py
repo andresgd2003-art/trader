@@ -56,23 +56,30 @@ class GoldenCrossStrategy(BaseStrategy):
         sma_slow = closes[-self.SMA_SLOW:].mean()
 
         fast_above = sma_fast > sma_slow
+        spread_pct = (sma_fast - sma_slow) / sma_slow * 100  # % de separación
 
-        logger.info(f"[{self.name}] {bar.symbol} SMA{self.SMA_FAST}={sma_fast:.2f} SMA{self.SMA_SLOW}={sma_slow:.2f}")
+        logger.info(f"[{self.name}] {bar.symbol} SMA{self.SMA_FAST}={sma_fast:.2f} SMA{self.SMA_SLOW}={sma_slow:.2f} Spread={spread_pct:.2f}%")
 
-        # Detectar cruce (el estado cambió respecto al anterior)
+        # Modo 1: Detectar cruce (el estado cambió respecto al anterior)
         if self._prev_fast_above is not None and fast_above != self._prev_fast_above:
             if fast_above and not self._has_position:
-                # GOLDEN CROSS → Comprar
                 logger.info(f"[{self.name}] 🟢 GOLDEN CROSS detectado en {bar.symbol}! Enviando orden de COMPRA.")
                 await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
                 self._has_position = True
                 self._position[self.SYMBOL] = 1
 
             elif not fast_above and self._has_position:
-                # DEATH CROSS → Vender
                 logger.info(f"[{self.name}] 🔴 DEATH CROSS detectado en {bar.symbol}! Enviando orden de VENTA.")
                 await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
                 self._has_position = False
                 self._position[self.SYMBOL] = 0
+
+        # Modo 2: Tendencia Activa — ya está en Golden Cross con spread > 0.5%
+        # ⚠️ Seguridad: spread mínimo evita entradas cerca del cruce donde hay ruido
+        elif fast_above and spread_pct >= 0.5 and not self._has_position:
+            logger.info(f"[{self.name}] 🟢 TENDENCIA ACTIVA: SMA50 > SMA200 (+{spread_pct:.2f}%). Entrando en {bar.symbol}.")
+            await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
+            self._has_position = True
+            self._position[self.SYMBOL] = 1
 
         self._prev_fast_above = fast_above

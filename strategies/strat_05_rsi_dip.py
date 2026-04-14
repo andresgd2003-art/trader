@@ -15,8 +15,8 @@ class RSIDipStrategy(BaseStrategy):
 
     SYMBOL     = "TQQQ"
     RSI_PERIOD = 14
-    RSI_BUY    = 30
-    RSI_SELL   = 70
+    RSI_BUY    = 45   # Era 30 — sube para capturar correcciones moderadas en rally
+    RSI_SELL   = 65   # Era 70 — baja para asegurar ganancia antes de sobrecompra
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
