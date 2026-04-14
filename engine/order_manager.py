@@ -59,6 +59,8 @@ class OrderManager:
         """
         Encola una orden de COMPRA. El monto se calcula en la ejecución.
         """
+        if getattr(self, 'ignore_orders', False):
+            return
         order = {"side": "buy", "symbol": symbol, "strategy": strategy_name}
         await self._queue.put(order)
         logger.info(f"[OrderManager] COMPRA encolada para {symbol} ({strategy_name})")
@@ -67,6 +69,8 @@ class OrderManager:
         """
         Encola una orden de VENTA para liquidar la posición completa.
         """
+        if getattr(self, 'ignore_orders', False):
+            return
         order = {"side": "sell", "symbol": symbol, "strategy": strategy_name}
         await self._queue.put(order)
         logger.info(f"[OrderManager] VENTA encolada para {symbol} ({strategy_name})")

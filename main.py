@@ -222,6 +222,10 @@ class TradingEngine:
                     start=now - timedelta(days=5)
                 )
                 logger.info(f"[Engine] Descargando historial de 5 días para evitar Cold Start...")
+                
+                # SUPPRESS ORDERS DURING HISTORY
+                self.order_manager.ignore_orders = True
+                
                 bars = hist_client.get_stock_bars(req)
                 count = 0
                 if hasattr(bars, 'data'):
@@ -232,8 +236,26 @@ class TradingEngine:
                                 pb = PseudoBar(sym, b)
                                 await self._on_bar(pb)
                 logger.info(f"[Engine] ✅ Historial inyectado: {count} barras de 1Min procesadas.")
+                
+                # RESTORE AND RE-SYNC STATE
+                self.order_manager.ignore_orders = False
+                while not self.order_manager._queue.empty():
+                    try:
+                        self.order_manager._queue.get_nowait()
+                        self.order_manager._queue.task_done()
+                    except: break
+
+                for strat in self.strategies:
+                    for sym in strat.symbols:
+                        pos = strat.sync_position_from_alpaca(sym) > 0
+                        if hasattr(strat, "_has_position") and isinstance(strat._has_position, dict):
+                            strat._has_position[sym] = pos
+                        elif hasattr(strat, "in_position"):
+                            strat.in_position = pos
+                            
         except Exception as e:
             logger.warning(f"[Engine] Falló la pre-carga histórica: {e}")
+            self.order_manager.ignore_orders = False
         # ----------------------------------------------
 
         self._subscribe()
