@@ -108,6 +108,9 @@ class OrderManagerEquities:
         strategy_name: str = "",
         notional_usd: float = 100.0
     ):
+        if getattr(self, 'ignore_orders', False):
+            return
+
         notional = self._calculate_notional()
         if notional <= 0:
             logger.warning(f"[{strategy_name}] Notional calculado <= 0 para {symbol}. Omitido.")
@@ -136,6 +139,9 @@ class OrderManagerEquities:
 
     async def close_position(self, symbol: str, qty: Optional[float] = None, strategy_name: str = ""):
         """Cierra una posición larga."""
+        if getattr(self, 'ignore_orders', False):
+            return
+            
         order = {
             "type": "market_sell",
             "symbol": symbol,
