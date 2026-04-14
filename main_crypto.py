@@ -93,7 +93,8 @@ class CryptoTradingEngine:
                     self.timestamp = b.timestamp
 
             hist_client = CryptoHistoricalDataClient()
-            now = datetime.utcnow()
+            from datetime import timezone
+            now = datetime.now(timezone.utc)
             req = CryptoBarsRequest(
                 symbol_or_symbols=symbols,
                 timeframe=TimeFrame.Minute,
@@ -102,9 +103,10 @@ class CryptoTradingEngine:
             logger.info(f"[CryptoEngine] Descargando historial de 5 días para evitar Cold Start...")
             bars = hist_client.get_crypto_bars(req)
             count = 0
-            for sym in symbols:
-                if sym in bars:
-                    for b in bars[sym]:
+            if hasattr(bars, 'data'):
+                for sym in symbols:
+                    if sym in bars.data:
+                        for b in bars.data[sym]:
                         count += 1
                         pb = PseudoBar(sym, b)
                         await self._on_crypto_bar(pb)
