@@ -32,7 +32,9 @@ class MACDTrendStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self._closes = deque(maxlen=100)
         self._prev_macd_above_signal = None
-        self._has_position = False
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca(self.SYMBOL)
+        self._has_position = qty > 0
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):

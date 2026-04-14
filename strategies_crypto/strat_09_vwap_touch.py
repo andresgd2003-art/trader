@@ -19,12 +19,12 @@ class CryptoVWAPTouchStrategy(BaseStrategy):
         self.vwap_sum_v = 0.0
         self.current_vwap = 0.0
         self.last_day = -1
-        
         self.minutes_above_vwap = 0
-        
-        self.in_position = False
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca("BTC/USD")
+        self.in_position = qty > 0
         self.entry_vwap = 0.0
-        self.current_qty = 0.0
+        self.current_qty = qty
 
     async def on_bar(self, bar):
         if self.regime_manager and not self.regime_manager.is_strategy_enabled(9, engine='crypto'):

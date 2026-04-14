@@ -23,8 +23,10 @@ class CryptoEMACrossStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.EMA_SLOW * 2) 
         self._prev_fast_above = None    
-        self._has_position = False
-        self._current_qty = 0.0
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca(self.SYMBOL)
+        self._has_position = qty > 0
+        self._current_qty = qty
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):

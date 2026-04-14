@@ -35,7 +35,9 @@ class GoldenCrossStrategy(BaseStrategy):
         # Almacenamos los últimos 200 cierres para calcular SMAs
         self._closes = deque(maxlen=self.SMA_SLOW + 1)
         self._prev_fast_above = None    # Estado anterior (¿SMA50 estaba arriba?)
-        self._has_position = False
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca(self.SYMBOL)
+        self._has_position = qty > 0
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):

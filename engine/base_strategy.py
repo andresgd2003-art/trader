@@ -7,6 +7,7 @@ comunicarse con cualquier estrategia de forma uniforme.
 """
 from abc import ABC, abstractmethod
 import logging
+import os
 from collections import deque
 
 logger = logging.getLogger(__name__)
@@ -69,3 +70,62 @@ class BaseStrategy(ABC):
             "is_active": self.is_active,
             "positions": self._position,
         }
+
+    # ------------------------------------------------------------------ #
+    #  UTILIDADES ANTI-DUPLICADO EN REINICIOS                             #
+    # ------------------------------------------------------------------ #
+
+    def sync_position_from_alpaca(self, symbol: str) -> float:
+        """
+        Consulta Alpaca para saber si ya existe una posición real en `symbol`.
+        Retorna la cantidad (qty) si existe, 0.0 si no.
+        Úsalo en __init__ de estrategias con _has_position para restaurar
+        el estado tras reinicios sin duplicar órdenes.
+
+        Ejemplo de uso:
+            qty = self.sync_position_from_alpaca("BTC/USD")
+            self._has_position = qty > 0
+            self._current_qty = qty
+        """
+        try:
+            from alpaca.trading.client import TradingClient
+            api_key = os.environ.get("ALPACA_API_KEY", "")
+            secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
+            if not api_key:
+                return 0.0
+            client = TradingClient(api_key=api_key, secret_key=secret_key, paper=True)
+            # Alpaca usa BTCUSD sin slash para positions
+            alpaca_sym = symbol.replace("/", "")
+            try:
+                pos = client.get_open_position(alpaca_sym)
+                qty = float(pos.qty)
+                logger.info(f"[{self.name}] 🔄 Posición sincronizada desde Alpaca: {symbol} qty={qty:.5f}")
+                return qty
+            except Exception:
+                return 0.0
+        except Exception as e:
+            logger.warning(f"[{self.name}] sync_position_from_alpaca error: {e}")
+            return 0.0
+
+    def check_open_orders_exist(self, symbol: str) -> bool:
+        """
+        Verifica si ya existen órdenes abiertas (GTC/open) para `symbol` en Alpaca.
+        Úsalo en grids para evitar redesplegar si ya hay órdenes activas.
+        """
+        try:
+            from alpaca.trading.client import TradingClient
+            from alpaca.trading.requests import GetOrdersRequest
+            api_key = os.environ.get("ALPACA_API_KEY", "")
+            secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
+            if not api_key:
+                return False
+            client = TradingClient(api_key=api_key, secret_key=secret_key, paper=True)
+            alpaca_sym = symbol.replace("/", "")
+            orders = client.get_orders(GetOrdersRequest(status="open", symbols=[alpaca_sym]))
+            has_orders = len(orders) > 0
+            if has_orders:
+                logger.info(f"[{self.name}] 🔄 {len(orders)} órdenes abiertas encontradas en Alpaca para {symbol}. Grid ya activa.")
+            return has_orders
+        except Exception as e:
+            logger.warning(f"[{self.name}] check_open_orders_exist error: {e}")
+            return False

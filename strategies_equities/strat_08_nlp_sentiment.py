@@ -158,6 +158,13 @@ class NLPSentimentStrategy(BaseStrategy):
         vol_avg = sum(list(self._volumes[sym])[:-1]) / max(len(self._volumes[sym]) - 1, 1)
 
         if vol >= vol_avg * VOL_CONFIRMATION:
+            # ⚠️ ANTI-DUPLICADO: Verificar posición viva para no re-entrar si reinició hoy
+            if self.sync_position_from_alpaca(sym) > 0:
+                logger.info(f"[{self.name}] ⚠️ Volumen confirmado en {sym} pero ya hay posición activa. Evitando duplicado.")
+                self._pending_buy.discard(sym)
+                self._traded_today.add(sym)
+                return
+
             logger.info(
                 f"[{self.name}] ✅ Volume confirmed {sym}! "
                 f"Vol={vol:.0f} ({vol/vol_avg:.1f}x). Comprando."

@@ -28,6 +28,11 @@ class CryptoEMARibbonStrategy(BaseStrategy):
         self.db_path = os.environ.get("DB_PATH", "/app/data/trades.db")
         self._init_db()
         self._load_state()
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca("BCH/USD")
+        if qty > 0:
+            self.in_position = True
+            self.current_qty = qty
 
     def _init_db(self):
         try:

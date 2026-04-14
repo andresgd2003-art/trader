@@ -67,6 +67,11 @@ class SectorRotationStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self._closes: dict[str, deque] = {s: deque(maxlen=70) for s in ALL_SYMBOLS}
         self._current_positions: dict[str, bool] = {}
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        for sym in ALL_SYMBOLS:
+            qty = self.sync_position_from_alpaca(sym)
+            if qty > 0:
+                self._current_positions[sym] = True
         self._last_friday = -1
 
     async def on_bar(self, bar) -> None:

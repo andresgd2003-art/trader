@@ -25,8 +25,10 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
         self._closes = deque(maxlen=self.SQUEEZE_PERIOD + 20)
         self._volumes = deque(maxlen=self.BB_PERIOD)
         self._bandwidths = deque(maxlen=self.SQUEEZE_PERIOD)
-        self._has_position = False
-        self._current_qty = 0.0
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca(self.SYMBOL)
+        self._has_position = qty > 0
+        self._current_qty = qty
         self._peak_price = 0.0
 
     async def on_bar(self, bar) -> None:

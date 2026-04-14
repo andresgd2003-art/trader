@@ -17,7 +17,9 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self.entry_price = 0.0
         self.max_price = 0.0
-        self.in_position = False
+        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
+        qty = self.sync_position_from_alpaca("ETH/USD")
+        self.in_position = qty > 0
         self.last_check_minute = -1
         self.BINANCE_API = "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=ETHUSDT"
 

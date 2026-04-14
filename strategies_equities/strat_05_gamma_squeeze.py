@@ -79,6 +79,12 @@ class GammaSqueezeStrategy(BaseStrategy):
             vol_avg = sum(list(self._volumes[sym])[:-1]) / max(len(self._volumes[sym]) - 1, 1)
 
             if vol_avg > 0 and vol >= vol_avg * self.VOL_MULTIPLIER:
+                # ⚠️ ANTI-DUPLICADO: Verificar posición viva para no re-entrar si reinició hoy
+                if self.sync_position_from_alpaca(sym) > 0:
+                    logger.info(f"[{self.name}] ⚠️ Spread Gamma detectado en {sym} pero ya hay posición activa. Evitando duplicado.")
+                    self._traded_today.add(sym)
+                    return
+
                 logger.info(
                     f"[{self.name}] 🔥 GAMMA SQUEEZE signal {sym}! "
                     f"Close={close:.2f} > SMA20={sma20:.2f} | "
