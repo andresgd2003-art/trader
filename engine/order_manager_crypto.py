@@ -130,8 +130,18 @@ class OrderManagerCrypto:
         client_id = f"cry_{safe_strat_name}_{mode_label}_{uuid.uuid4().hex[:8]}"
 
         try:
-            # FIX Redondeo Crypto: Si es VENTA, asegurarse de no pedir más de lo que hay
+            # FIX Redondeo Crypto: Si es VENTA, asegurarse de no pedir más de lo que hay, o si no hay limit_price liquidar todo
             if side == OrderSide.SELL:
+                if not order.get("limit_price"):
+                    try:
+                        resp = self.client.close_position(symbol)
+                        logger.info(f"[{strategy}] VENTA CRIPTO Liquidación Total enviada para {symbol}.")
+                        return
+                    except Exception as e:
+                        logger.error(f"[{strategy}] Error cerrando posición completa de {symbol}: {e}")
+                        return
+                
+                # Si hay limit_price, seguimos con el ajuste numérico
                 try:
                     pos = self.client.get_open_position(symbol)
                     av_qty = float(pos.qty_available)
