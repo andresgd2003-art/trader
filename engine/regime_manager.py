@@ -138,11 +138,19 @@ class RegimeManager:
             spy_price = spy_close_prices[-1]
             spy_sma200 = float(pd.Series(spy_close_prices).rolling(self.SMA_PERIOD).mean().iloc[-1])
 
-            # VIX proxy via VIXY ETF
-            vix_df = vix_bars.df.reset_index()
-            vixy_prices = vix_df[vix_df["symbol"] == "VIXY"]["close"].values
-            vix_proxy = float(vixy_prices[-1]) if len(vixy_prices) > 0 else 20.0
+            try:
+                import yfinance as yf
+                vix_ticker = yf.Ticker("^VIX")
+                vix_hist = vix_ticker.history(period="5d")
+                if not vix_hist.empty:
+                    vix_proxy = float(vix_hist["Close"].iloc[-1])
+                else:
+                    vix_proxy = 20.0
+            except Exception as e:
+                logger.warning(f"[Regime] Falló obtención de ^VIX via yfinance: {e}")
+                vix_proxy = 20.0
 
+            # Como usamos ^VIX real, los threshold originales de VIX (20 y 30) son correctos
             # Determinar régimen
             if spy_price > spy_sma200 and vix_proxy < self.VIX_BULL_THRESHOLD:
                 regime = Regime.BULL

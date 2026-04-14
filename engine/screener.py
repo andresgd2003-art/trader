@@ -46,7 +46,7 @@ class PreMarketScreener:
     """
 
     MIN_PRICE = 1.0
-    MAX_PRICE = 25.0
+    MAX_PRICE = 3000.0
     TOP_N = 20  # Pedir los top 20, filtrar a los que pasan el precio
 
     def __init__(self):
