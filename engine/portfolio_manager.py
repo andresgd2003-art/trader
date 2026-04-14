@@ -117,6 +117,7 @@ class PortfolioManager:
         """
         🛡️ VALIDACIÓN ANTI-GFV:
         Retorna True solo si hay suficiente settled_cash para cubrir el costo.
+        Usa bloqueo local (spent_today) porque settled_cash no se deduce intradiariamente.
         """
         try:
             if self._halted: return False
@@ -124,11 +125,18 @@ class PortfolioManager:
             # Fallback para Paper Trading
             settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
             
-            if settled_cash >= notional_amount:
-                logger.info(f"[PortfolioManager] Fondos validados: ${notional_amount} (Disponible ${settled_cash})")
+            # Inicializar spent_today si no existe
+            if not hasattr(self, 'spent_today'):
+                self.spent_today = 0.0
+
+            available_now = settled_cash - self.spent_today
+            
+            if available_now >= notional_amount:
+                self.spent_today += notional_amount
+                logger.info(f"[PortfolioManager] Fondos validados: ${notional_amount} (Disponible ${available_now}, Spent ${self.spent_today})")
                 return True
             else:
-                logger.warning(f"[PortfolioManager] BLOQUEADO: No hay fondos asentados (T+1) para ${notional_amount} (Disponible: ${settled_cash})")
+                logger.warning(f"[PortfolioManager] BLOQUEADO: No hay fondos asentados (T+1) para ${notional_amount} (Disponible: ${available_now})")
                 return False
         except Exception as e:
             logger.critical(f"[PortfolioManager] Error en validación de fondos: {e}. Asumiendo $0.")
