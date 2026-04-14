@@ -228,9 +228,9 @@ class TradingEngine:
                     for sym in all_symbols:
                         if sym in bars.data:
                             for b in bars.data[sym]:
-                            count += 1
-                            pb = PseudoBar(sym, b)
-                            await self._on_bar(pb)
+                                count += 1
+                                pb = PseudoBar(sym, b)
+                                await self._on_bar(pb)
                 logger.info(f"[Engine] ✅ Historial inyectado: {count} barras de 1Min procesadas.")
         except Exception as e:
             logger.warning(f"[Engine] Falló la pre-carga histórica: {e}")
