@@ -107,9 +107,9 @@ class CryptoTradingEngine:
                 for sym in symbols:
                     if sym in bars.data:
                         for b in bars.data[sym]:
-                        count += 1
-                        pb = PseudoBar(sym, b)
-                        await self._on_crypto_bar(pb)
+                            count += 1
+                            pb = PseudoBar(sym, b)
+                            await self._on_crypto_bar(pb)
             logger.info(f"[CryptoEngine] ✅ Historial inyectado: {count} barras de 1Min procesadas.")
         except Exception as e:
             logger.warning(f"[CryptoEngine] Falló la pre-carga histórica: {e}")
