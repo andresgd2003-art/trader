@@ -104,11 +104,16 @@ class OrderManager:
                     # Buscamos la posición actual para cerrar todo
                     pos = self.client.get_open_position(symbol)
                     qty_to_sell = pos.qty
+                    
+                    mode_label = get_mode_label()
+                    client_id = f"strat_{strategy.replace(' ','')[:10]}_{mode_label}_{uuid.uuid4().hex[:8]}"
+
                     req = MarketOrderRequest(
                         symbol=symbol,
                         qty=qty_to_sell,
                         side=OrderSide.SELL,
-                        time_in_force=TimeInForce.DAY
+                        time_in_force=TimeInForce.DAY,
+                        client_order_id=client_id
                     )
                     self.client.submit_order(req)
                     logger.info(f"[{strategy}] VENTA ejecutada: Todo el inventario de {symbol}")
@@ -126,7 +131,7 @@ class OrderManager:
 
             # 4. Generar ID único y enviar orden Notional
             mode_label = get_mode_label()
-            client_id = f"etf_{strategy.replace(' ','')[:10]}_{mode_label}_{uuid.uuid4().hex[:6]}"
+            client_id = f"strat_{strategy.replace(' ','')[:10]}_{mode_label}_{uuid.uuid4().hex[:8]}"
 
             request = MarketOrderRequest(
                 symbol=symbol,
