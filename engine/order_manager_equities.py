@@ -211,29 +211,46 @@ class OrderManagerEquities:
         try:
             if order["type"] == "bracket_buy":
                 price = order["price"]
-                stop_price = round(price * (1 - order["stop_loss_pct"]), 2)
-                tp_price = round(price * (1 + order["take_profit_pct"]), 2)
+                notional = float(order["notional"])
+                stop_loss_pct = order["stop_loss_pct"]
+                tp_pct = order["take_profit_pct"]
 
-                # Alpaca: bracket orders NO soportan notional (fraccional).
-                # Convertir notional a qty entera. Mínimo 1 acción.
-                qty = max(1, int(order["notional"] // price))
+                # Intentar bracket con qty entera primero
+                qty = max(1, int(notional // price))
+                stop_price = round(price * (1 - stop_loss_pct), 2)
+                tp_price = round(price * (1 + tp_pct), 2)
 
                 # Validar que stop_price sea válido (< price - 0.01)
                 if stop_price >= price - 0.01:
                     stop_price = round(price - 0.02, 2)
 
-                req = MarketOrderRequest(
-                    symbol=symbol,
-                    qty=qty,
-                    side=OrderSide.BUY,
-                    time_in_force=TimeInForce.DAY,
-                    order_class=OrderClass.BRACKET,
-                    take_profit=TakeProfitRequest(limit_price=tp_price),
-                    stop_loss=StopLossRequest(stop_price=stop_price),
-                    client_order_id=client_id
-                )
-                result = self.client.submit_order(req)
-                logger.info(f"[{strategy}] ✅ BRACKET BUY {symbol} | Qty: {qty} @ ~${price:.2f} | ID:{result.id}")
+                try:
+                    req = MarketOrderRequest(
+                        symbol=symbol,
+                        qty=qty,
+                        side=OrderSide.BUY,
+                        time_in_force=TimeInForce.DAY,
+                        order_class=OrderClass.BRACKET,
+                        take_profit=TakeProfitRequest(limit_price=tp_price),
+                        stop_loss=StopLossRequest(stop_price=stop_price),
+                        client_order_id=client_id
+                    )
+                    result = self.client.submit_order(req)
+                    logger.info(f"[{strategy}] ✅ BRACKET BUY {symbol} | Qty: {qty} @ ~${price:.2f} | ID:{result.id}")
+                except Exception as bracket_err:
+                    # Fallback: orden simple con notional (fraccional, sin stop/tp)
+                    # Esto cubre: fractional errors, stop_price vs base_price mismatches
+                    logger.warning(f"[{strategy}] Bracket falló para {symbol}: {bracket_err}. Fallback a orden simple.")
+                    fallback_id = self._client_id(strategy)
+                    req = MarketOrderRequest(
+                        symbol=symbol,
+                        notional=notional,
+                        side=OrderSide.BUY,
+                        time_in_force=TimeInForce.DAY,
+                        client_order_id=fallback_id
+                    )
+                    result = self.client.submit_order(req)
+                    logger.info(f"[{strategy}] ✅ SIMPLE BUY (fallback) {symbol} | ${notional:.2f} | ID:{result.id}")
 
             elif order["type"] == "market_sell":
                 # Si llegamos aquí, el Firewall ya validó que tenemos posición
