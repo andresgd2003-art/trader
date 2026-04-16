@@ -1320,13 +1320,9 @@ async function loadCryptoData() {
 //  TAB EQUITIES — carga de datos
 // ══════════════════════════════════════════════════════
 const EQ_STRATEGIES = [
-  { name: 'Gapper Momentum',  regime: 'BULL', symbols: 'Dynamic Gainers', strat: 1 },
-  { name: 'VCP Minervini',    regime: 'BULL', symbols: 'High Beta ETF',  strat: 2 },
-  { name: 'Opening Gap Fade', regime: 'BEAR', symbols: 'Dynamic Gainers', strat: 3 },
+  { name: 'VCP Minervini',    regime: 'BULL', symbols: 'High Beta',       strat: 2 },
   { name: 'PEAD Earnings',    regime: 'BULL', symbols: 'News Driven',     strat: 4 },
   { name: 'Gamma Squeeze',    regime: 'BULL', symbols: 'Short Interest',  strat: 5 },
-  { name: 'RSI Extreme',      regime: 'BEAR', symbols: 'Dynamic Losers',  strat: 6 },
-  { name: 'Stat Pairs Arb',   regime: 'CHOP', symbols: 'KO/PEP, V/MA…',  strat: 7 },
   { name: 'NLP Sentiment',    regime: 'BULL', symbols: 'News Headlines',  strat: 8 },
   { name: 'Insider Flow',     regime: 'BULL', symbols: 'SEC Form 4',      strat: 9 },
   { name: 'Sector Rotation',  regime: 'CHOP', symbols: '11 SPDR ETFs',    strat: 10 },

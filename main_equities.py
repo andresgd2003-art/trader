@@ -28,6 +28,8 @@ from engine.portfolio_manager import PortfolioManager
 from strategies_equities import (
     VCPStrategy,
     PEADStrategy,
+    GammaSqueezeStrategy,
+    NLPSentimentStrategy,
     InsiderFlowStrategy,
     SectorRotationStrategy,
 )
@@ -80,10 +82,12 @@ class EquitiesEngine:
 
     def _register_strategies(self) -> list:
         strats = [
-            VCPStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            PEADStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            InsiderFlowStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),
+            VCPStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),          # idx 0, strat 2
+            PEADStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),         # idx 1, strat 4
+            GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 2, strat 5
+            NLPSentimentStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 3, strat 8
+            InsiderFlowStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),  # idx 4, strat 9
+            SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 5, strat 10
         ]
         _EQ_ENGINE_STATUS["strategies"] = [s.name for s in strats]
         logger.info(f"[EquitiesEngine] {len(strats)} estrategias registradas.")
@@ -138,8 +142,19 @@ class EquitiesEngine:
         await self._on_news(news)
 
     async def _on_news(self, news):
-        """Handler de noticias (NLP Deshabilitado por ahora)."""
-        pass
+        """Dispatch news to strategies that can process it (PEAD earnings + NLP sentiment)."""
+        symbols = getattr(news, 'symbols', []) or []
+        headline = getattr(news, 'headline', '') or ''
+        for s in self.strategies:
+            try:
+                if hasattr(s, 'flag_earnings_candidate'):
+                    for sym in symbols:
+                        s.flag_earnings_candidate(sym)
+                if hasattr(s, 'on_news'):
+                    for sym in symbols:
+                        s.on_news(sym, headline)
+            except Exception as e:
+                logger.warning(f"[EquitiesEngine] Error in {s.name} news handler: {e}")
 
     async def _portfolio_monitor(self):
         """Chequea el portfolio cada 5 minutos."""
@@ -149,8 +164,8 @@ class EquitiesEngine:
 
     async def _insider_cron(self):
         """Cron job a las 18:00 EST para buscar Form 4 de EDGAR."""
-        # InsiderFlowStrategy es ahora index 2
-        insider_strat: InsiderFlowStrategy = self.strategies[2]
+        # Buscar InsiderFlowStrategy por tipo (no por índice hardcodeado)
+        insider_strat = next(s for s in self.strategies if isinstance(s, InsiderFlowStrategy))
         while True:
             now = datetime.now()
             # Esperar hasta las 18:00 EST
@@ -174,11 +189,10 @@ class EquitiesEngine:
 
     def get_eq_symbols(self) -> list:
         """Retorna todos los símbolos que el equities engine necesita en el stream."""
-        return list(set(
-            self._eq_symbols
-            + self.strategies[0].symbols   # VCP
-            + (self.strategies[3].symbols if len(self.strategies) > 3 else []) # Sector ETFs
-        ))
+        all_syms = list(self._eq_symbols)
+        for s in self.strategies:
+            all_syms.extend(s.symbols)
+        return list(set(all_syms))
 
     async def initialize(self):
         """Inicializa los símbolos obtenidos del screener antes de arrancar los loops infinitos."""
