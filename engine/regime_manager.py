@@ -60,12 +60,12 @@ REGIME_CRYPTO_MAP = {
     Regime.UNKNOWN: [3, 9, 10],          # Solo defensivos
 }
 
-# Mapa de estrategias — Motor Equities (más sensible al régimen)
+# Mapa de estrategias — Motor Equities (solo estrategias activas: 2,4,5,8,9,10)
 REGIME_EQUITIES_MAP = {
-    Regime.BULL:  [1, 2, 4, 5, 8, 9],   # Gapper, VCP, PEAD, Gamma, NLP, Insider
-    Regime.BEAR:  [3, 6, 7],             # Gap Fade, RSI Extreme, Stat Arb (van en corto o neutro)
-    Regime.CHOP:  [7, 10],               # Stat Arb, Sector Rotation
-    Regime.UNKNOWN: [7, 10],             # Solo los más seguros
+    Regime.BULL:  [2, 4, 5, 8, 9],      # VCP, PEAD, Gamma, NLP, Insider
+    Regime.BEAR:  [8, 10],               # NLP Sentiment (defensivo), Sector Rotation
+    Regime.CHOP:  [9, 10],               # Insider Flow, Sector Rotation
+    Regime.UNKNOWN: [10],                # Solo Sector Rotation (más seguro)
 }
 
 # Compatibilidad hacia atrás — se mantiene el mapa original
