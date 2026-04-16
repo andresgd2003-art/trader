@@ -59,7 +59,7 @@ if not API_KEY or not SECRET_KEY:
 else:
     logger.info(f"[API] Keys cargadas correctamente. Prefijo: {API_KEY[:4]}***")
 
-LOG_PATH = os.environ.get("LOG_PATH", "/app/data/engine.log")
+LOG_PATH = os.environ.get("LOG_PATH", "/opt/trader/data/engine.log")
 
 # ============================================================
 # APP FASTAPI
@@ -90,7 +90,9 @@ STATE_CACHE = {
     "account": None,
     "positions": {"crypto": [], "etf": [], "eq": []},
     "orders": {"crypto": [], "etf": [], "eq": []},
-    "clock": None
+    "clock": None,
+    "orders_full": [],
+    "symbol_bars": {},
 }
 
 # ============================================================
@@ -113,7 +115,9 @@ async def _build_charts_task():
             orders = client.get_orders(
                 filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
             )
-            
+            STATE_CACHE["orders_full"] = list(orders)
+            logger.debug(f"[Cache] orders_full actualizado: {len(STATE_CACHE['orders_full'])} órdenes")
+
             valid = [o for o in orders if o.client_order_id and (
                 str(o.client_order_id).startswith("strat_") or 
                 str(o.client_order_id).startswith("cry_") or 
@@ -689,31 +693,36 @@ async def get_history(period: str = "1M", engine: str = "home"):
 
 @app.get("/api/symbol/history/{symbol}")
 async def get_symbol_history(symbol: str, period: str = "1D"):
-    """Retorna historial de barras para un símbolo específico (para mini-charts)."""
+    """Retorna historial de barras para un símbolo específico (para mini-charts). Con cache TTL 5min."""
+    import time as _time
+    cache_key = f"{symbol}:{period}"
+    sb_cache = STATE_CACHE.setdefault("symbol_bars", {})
+    cached = sb_cache.get(cache_key)
+    if cached and (_time.time() - cached.get("ts", 0)) < 300:
+        return cached["bars"]
     try:
         client = StockHistoricalDataClient(API_KEY, SECRET_KEY)
-        
+
         if period == "1D":
             tf = TimeFrame.Minute
             qty = 390 # un día de mercado aprox
         else:
             tf = TimeFrame.Day
             qty = 30
-            
+
         request_params = StockBarsRequest(
             symbol_or_symbols=symbol,
             timeframe=tf,
             limit=qty
         )
         bars = client.get_stock_bars(request_params)
-        
-        return [
-            {
-                "t": b.timestamp.isoformat(),
-                "c": b.close
-            }
+
+        result = [
+            {"t": b.timestamp.isoformat(), "c": b.close}
             for b in bars[symbol]
         ]
+        sb_cache[cache_key] = {"bars": result, "ts": _time.time()}
+        return result
     except Exception as e:
         logger.error(f"[API] Error historia símbolo: {e}")
         return []
@@ -729,10 +738,13 @@ async def get_strategy_stats():
     - Añade 'mode_breakdown' {A: N, B: N, C: N, LEGACY: N} por estrategia
     """
     try:
-        client = get_trading_client()
-        orders = client.get_orders(
-            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
-        )
+        orders = STATE_CACHE.get("orders_full") or []
+        if not orders:
+            logger.warning("[API] orders_full cache vacío en strategy_stats, fallback a Alpaca")
+            client = get_trading_client()
+            orders = list(client.get_orders(
+                filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
+            ))
 
         stats = {}
         tracker = {}
@@ -824,11 +836,13 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
     """
     try:
         from datetime import timezone, timedelta
-        client = get_trading_client()
-        # Fase 5: l\u00edmite ampliado a 1000 para cubrir hist\u00f3rico completo
-        orders = client.get_orders(
-            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
-        )
+        orders = STATE_CACHE.get("orders_full") or []
+        if not orders:
+            logger.warning("[API] orders_full cache vacío en reports, fallback a Alpaca")
+            client = get_trading_client()
+            orders = list(client.get_orders(
+                filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
+            ))
 
         # Umbrales de tiempo
         now = datetime.now(timezone.utc)
@@ -935,11 +949,14 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
 async def get_strategy_history(strategy: str, period: str = "1M"):
     """Retorna la curva de P&L de una estrategia específica calculando desde sus órdenes."""
     try:
-        client = get_trading_client()
-        orders = client.get_orders(
-            filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=500)
-        )
-        
+        orders = STATE_CACHE.get("orders_full") or []
+        if not orders:
+            logger.warning("[API] orders_full cache vacío en strategy_history, fallback a Alpaca")
+            client = get_trading_client()
+            orders = list(client.get_orders(
+                filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
+            ))
+
         strat_orders = []
         for o in orders:
             if o.status.value != "filled" or not o.client_order_id:
@@ -1070,9 +1087,13 @@ async def get_equities_portfolio():
 async def get_equities_orders():
     """Órdenes del día filtradas con prefijo 'eq_'."""
     try:
-        client = get_trading_client()
-        request = GetOrdersRequest(status=QueryOrderStatus.ALL, limit=50)
-        orders = client.get_orders(request)
+        orders = STATE_CACHE.get("orders_full") or []
+        if not orders:
+            logger.warning("[API] orders_full cache vacío en equities_orders, fallback a Alpaca")
+            client = get_trading_client()
+            orders = list(client.get_orders(
+                filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
+            ))
         eq_orders = [
             {
                 "id": str(o.id),

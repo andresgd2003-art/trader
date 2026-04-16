@@ -38,7 +38,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(os.environ.get("DATA_PATH", "/app/data")) / "stock_scores.db"
+DB_PATH = Path(os.environ.get("DATA_PATH", "/opt/trader/data")) / "stock_scores.db"
 
 
 # ── Universo de acciones a evaluar ──────────────────────────────────────────
