@@ -210,12 +210,21 @@ class OrderManagerEquities:
 
         try:
             if order["type"] == "bracket_buy":
-                stop_price = round(order["price"] * (1 - order["stop_loss_pct"]), 2)
-                tp_price = round(order["price"] * (1 + order["take_profit_pct"]), 2)
+                price = order["price"]
+                stop_price = round(price * (1 - order["stop_loss_pct"]), 2)
+                tp_price = round(price * (1 + order["take_profit_pct"]), 2)
+
+                # Alpaca: bracket orders NO soportan notional (fraccional).
+                # Convertir notional a qty entera. Mínimo 1 acción.
+                qty = max(1, int(order["notional"] // price))
+
+                # Validar que stop_price sea válido (< price - 0.01)
+                if stop_price >= price - 0.01:
+                    stop_price = round(price - 0.02, 2)
 
                 req = MarketOrderRequest(
                     symbol=symbol,
-                    notional=float(order["notional"]),
+                    qty=qty,
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.DAY,
                     order_class=OrderClass.BRACKET,
@@ -224,7 +233,7 @@ class OrderManagerEquities:
                     client_order_id=client_id
                 )
                 result = self.client.submit_order(req)
-                logger.info(f"[{strategy}] ✅ BRACKET BUY {symbol} | Monto: ${order['notional']:.2f} | ID:{result.id}")
+                logger.info(f"[{strategy}] ✅ BRACKET BUY {symbol} | Qty: {qty} @ ~${price:.2f} | ID:{result.id}")
 
             elif order["type"] == "market_sell":
                 # Si llegamos aquí, el Firewall ya validó que tenemos posición
