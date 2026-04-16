@@ -21,6 +21,7 @@ class CryptoSentimentStrategy(BaseStrategy):
     def __init__(self, order_manager, regime_manager=None):
         super().__init__("Sentiment F&G", ["BTC/USD"], order_manager)
         self.regime_manager = regime_manager
+        # [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
         self.db_path = os.environ.get("DB_PATH", "/opt/trader/data/trades.db")
         self._init_db()
         

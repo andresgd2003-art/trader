@@ -32,6 +32,7 @@ load_dotenv(env_path)
 
 # Configurar el logger ANTES de importar nada más
 from engine.logger import setup_logger
+# [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
 setup_logger(log_path=os.environ.get("LOG_PATH", "/opt/trader/data/engine.log"))
 
 logger = logging.getLogger("Engine")

@@ -25,6 +25,7 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.RSI_PERIOD * 2)
         
+        # [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
         self.db_path = os.environ.get("DB_PATH", "/opt/trader/data/trades.db")
         self._init_db()
 

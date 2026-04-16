@@ -59,6 +59,7 @@ MODE_DESCRIPTIONS = {
 # ── Estado Global ────────────────────────────────────────────
 _ACTIVE_MODE: str = MODE_A
 _MODE_META: dict = {}
+# [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
 _PERSIST_PATH: Path = Path(os.environ.get("DATA_PATH", "/opt/trader/data")) / ".trading_mode"
 
 
@@ -130,6 +131,7 @@ def _persist_mode(mode: str) -> None:
 def _log_mode_change(mode: str) -> None:
     """Registra el cambio de modo en el log CSV histórico."""
     try:
+        # [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data
         log_path = Path(os.environ.get("DATA_PATH", "/opt/trader/data")) / "mode_log.csv"
         exists = log_path.exists()
         with open(log_path, "a", encoding="utf-8") as f:
