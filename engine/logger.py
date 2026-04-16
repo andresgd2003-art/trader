@@ -26,6 +26,7 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_entry)
 
 
+# [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
 def setup_logger(log_path: str = "/opt/trader/data/engine.log") -> logging.Logger:
     """
     Configura el logger principal del sistema.

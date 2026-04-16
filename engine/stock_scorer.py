@@ -38,6 +38,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
 DB_PATH = Path(os.environ.get("DATA_PATH", "/opt/trader/data")) / "stock_scores.db"
 
 

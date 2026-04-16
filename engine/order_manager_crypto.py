@@ -141,7 +141,7 @@ class OrderManagerCrypto:
                         logger.error(f"[{strategy}] Error cerrando posición completa de {symbol}: {e}")
                         return
                 
-                # [P1 Fix] Validación defensiva pre-SELL con limit_price: abortar si no hay posición real
+                # [P1 FIX - 2026-04-15] Validación defensiva pre-SELL con limit_price: abortar si no hay posición real
                 try:
                     real_pos = self.client.get_open_position(symbol)
                     real_qty = float(getattr(real_pos, "qty_available", None) or real_pos.qty or 0)

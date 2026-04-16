@@ -86,6 +86,8 @@ def get_trading_client() -> TradingClient:
     
     return TradingClient(api_key=ak, secret_key=sk, paper=is_paper)
 
+# [P3 FIX - 2026-04-15] STATE_CACHE extendido para eliminar llamadas redundantes a Alpaca.
+# Se agregaron 'orders_full' para historial completo y 'symbol_bars' para mini-charts sin HTTP 429.
 STATE_CACHE = {
     "account": None,
     "positions": {"crypto": [], "etf": [], "eq": []},

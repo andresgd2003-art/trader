@@ -25,6 +25,7 @@ class CryptoEMARibbonStrategy(BaseStrategy):
         self.in_position = False
         self.current_qty = 0.0
 
+        # [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
         self.db_path = os.environ.get("DB_PATH", "/opt/trader/data/trades.db")
         self._init_db()
         self._load_state()
