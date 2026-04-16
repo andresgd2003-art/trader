@@ -32,7 +32,7 @@ load_dotenv(env_path)
 
 # Configurar el logger ANTES de importar nada más
 from engine.logger import setup_logger
-setup_logger(log_path=os.environ.get("LOG_PATH", "/app/data/engine.log"))
+setup_logger(log_path=os.environ.get("LOG_PATH", "/opt/trader/data/engine.log"))
 
 logger = logging.getLogger("Engine")
 
@@ -74,7 +74,7 @@ SECRET_KEY = os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SEC
 PAPER      = True if API_KEY and API_KEY.startswith("PK") else False
 
 # Todos los símbolos que necesitamos recibir en el WebSocket
-ALL_SYMBOLS = ["QQQ", "SMH", "XLK", "SRVR", "SPY", "SOXX", "TQQQ"]
+ALL_SYMBOLS = ["QQQ", "SMH", "XLK", "SRVR", "SPY", "SOXX", "TQQQ", "XLC", "IWM", "DIA"]
 
 
 # ============================================================
@@ -174,18 +174,29 @@ class TradingEngine:
 
     def _subscribe(self):
         """Suscribe el stream a todos los símbolos: ETF + Equities."""
-        eq_symbols = self.equities_engine.get_eq_symbols() if self.equities_engine else []
-        all_symbols = list(set(ALL_SYMBOLS + eq_symbols))
-        self.stream.subscribe_bars(self._on_bar, *all_symbols)
-        self.stream.subscribe_quotes(self._on_quote, *ALL_SYMBOLS)  # Quotes solo ETF
-        
-        # Suscribir a noticias del universo filtrado de acciones
-        if eq_symbols:
-            self.stream.subscribe_news(self._on_news, *eq_symbols)
+        try:
+            eq_symbols = self.equities_engine.get_eq_symbols() if self.equities_engine else []
+            # Filter out symbols with dots (like BRK.B) - they crash the IEX WebSocket
+            eq_symbols = [s for s in eq_symbols if '.' not in s]
+            all_symbols = list(set(ALL_SYMBOLS + eq_symbols))
             
-        logger.info(f"[Engine] Suscrito a: {ALL_SYMBOLS}")
-        if eq_symbols:
-            logger.info(f"[Engine] + Equities symbols: {len(eq_symbols)} adicionales y +News Stream Activo")
+            logger.info(f"[Engine] Preparando suscripción WebSocket IEX para {len(all_symbols)} símbolos...")
+            self.stream.subscribe_bars(self._on_bar, *all_symbols)
+            logger.info(f"[Engine] ✅ subscribe_bars OK")
+            self.stream.subscribe_quotes(self._on_quote, *ALL_SYMBOLS)
+            logger.info(f"[Engine] ✅ subscribe_quotes OK")
+            
+            # Suscribir a noticias del universo filtrado de acciones
+            if eq_symbols:
+                self.stream.subscribe_news(self._on_news, *eq_symbols)
+                
+            logger.info(f"[Engine] Suscrito a ETF: {ALL_SYMBOLS}")
+            if eq_symbols:
+                logger.info(f"[Engine] + Equities symbols: {len(eq_symbols)} adicionales y +News Stream Activo")
+        except Exception as e:
+            logger.critical(f"[Engine] ❌ ERROR FATAL en _subscribe: {e}")
+            import traceback
+            logger.critical(traceback.format_exc())
 
     async def run(self):
         """Arranca el engine completo."""

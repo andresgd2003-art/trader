@@ -25,7 +25,7 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.RSI_PERIOD * 2)
         
-        self.db_path = os.environ.get("DB_PATH", "/app/data/trades.db")
+        self.db_path = os.environ.get("DB_PATH", "/opt/trader/data/trades.db")
         self._init_db()
 
     def _init_db(self):

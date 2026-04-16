@@ -26,7 +26,7 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_entry)
 
 
-def setup_logger(log_path: str = "/app/data/engine.log") -> logging.Logger:
+def setup_logger(log_path: str = "/opt/trader/data/engine.log") -> logging.Logger:
     """
     Configura el logger principal del sistema.
 

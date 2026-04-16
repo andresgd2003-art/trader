@@ -25,7 +25,7 @@ class CryptoEMARibbonStrategy(BaseStrategy):
         self.in_position = False
         self.current_qty = 0.0
 
-        self.db_path = os.environ.get("DB_PATH", "/app/data/trades.db")
+        self.db_path = os.environ.get("DB_PATH", "/opt/trader/data/trades.db")
         self._init_db()
         self._load_state()
         # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
@@ -116,6 +116,8 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                         else:
                             logger.info(f"[{self.name}] Full Bullish Alignment + Pullback al EMA21. Comprando!")
                             self.in_position = True
+                            # [P1 Fix] qty es aspiracional; order_manager_crypto aplica cap real de $15.
+                            # La validación pre-SELL en order_manager_crypto.sell() usa posición real de Alpaca.
                             self.current_qty = round(100.0 / bar.close, 5)
                             await self.order_manager.buy(
                                 symbol=bar.symbol,

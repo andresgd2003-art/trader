@@ -141,15 +141,19 @@ class OrderManagerCrypto:
                         logger.error(f"[{strategy}] Error cerrando posición completa de {symbol}: {e}")
                         return
                 
-                # Si hay limit_price, seguimos con el ajuste numérico
+                # [P1 Fix] Validación defensiva pre-SELL con limit_price: abortar si no hay posición real
                 try:
-                    pos = self.client.get_open_position(symbol)
-                    av_qty = float(pos.qty_available)
-                    if qty > av_qty:
-                        logger.warning(f"[{strategy}] Ajustando VENTA de {qty} a balance disponible {av_qty} {symbol}")
-                        qty = av_qty
+                    real_pos = self.client.get_open_position(symbol)
+                    real_qty = float(getattr(real_pos, "qty_available", None) or real_pos.qty or 0)
+                    if real_qty <= 0:
+                        logger.error(f"[{strategy}] [CryptoSELL] Sin posición real en {symbol}, abortando SELL.")
+                        return
+                    if qty > real_qty:
+                        logger.warning(f"[{strategy}] [CryptoSELL] qty solicitada {qty} > disponible {real_qty}. Clampando a {real_qty}.")
+                        qty = real_qty
                 except Exception as pos_e:
-                    logger.debug(f"[{strategy}] No se pudo obtener la pos para ajustar: {pos_e}")
+                    logger.error(f"[{strategy}] [CryptoSELL] No se pudo verificar posición de {symbol}: {pos_e}. Abortando por seguridad.")
+                    return
 
             if order["limit_price"]:
                 request = LimitOrderRequest(
