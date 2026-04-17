@@ -67,6 +67,7 @@ class PortfolioManager:
         self.strategies = strategies or []
         self._ath = 0.0
         self._halted = False
+        self._halted_at: datetime | None = None
 
     def check(self) -> bool:
         """
@@ -103,6 +104,15 @@ class PortfolioManager:
             if not self._halted and drawdown >= self.MAX_DRAWDOWN_PCT:
                 self._trigger_halt(f"Drawdown {drawdown*100:.1f}% superó el límite.")
                 return False
+
+            # Auto-resume tras 24h de halt
+            if self._halted and self._halted_at:
+                elapsed = (datetime.now() - self._halted_at).total_seconds()
+                if elapsed >= 86400:
+                    logger.info("[PortfolioManager] Auto-resume tras 24h de halt.")
+                    self.notifier.send_message("🟢 <b>[CIRCUIT BREAKER]</b> Auto-resume activado tras 24h. Operativa reanudada.")
+                    self.resume()
+                    return True
 
             return True
 
@@ -144,6 +154,7 @@ class PortfolioManager:
 
     def _trigger_halt(self, reason: str):
         self._halted = True
+        self._halted_at = datetime.now()
         _PORTFOLIO_STATUS["is_halted"] = True
         _PORTFOLIO_STATUS["halt_reason"] = reason
         logger.critical(f"[PortfolioManager] 🚨 CIRCUIT BREAKER ACTIVADO: {reason}")
@@ -161,7 +172,9 @@ class PortfolioManager:
 
     def resume(self):
         self._halted = False
+        self._halted_at = None
         _PORTFOLIO_STATUS["is_halted"] = False
+        _PORTFOLIO_STATUS["halt_reason"] = None
         for strat in self.strategies:
             if hasattr(strat, 'resume'): strat.resume()
         logger.info("[PortfolioManager] Engine reactivado.")

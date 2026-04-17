@@ -1394,7 +1394,7 @@ async function loadEquitiesData() {
       <td style="font-weight:600;color:var(--eq-accent)">${p.symbol}</td>
       <td>${fmt(p.qty, 0)}</td>
       <td class="${colorClass(p.unrealized_pl)}">${fmtMoney(p.unrealized_pl)}</td>
-      <td style="color:var(--text-secondary)">—</td>
+      <td style="color:var(--text-secondary)">${p.strategy || '—'}</td>
     </tr>`).join('') : '<tr><td colspan="4" class="empty-msg">Sin posiciones equities</td></tr>';
 
   // Render strategy cards
