@@ -16,12 +16,10 @@ import pandas as pd
 from ta.trend import EMAIndicator, SMAIndicator
 from engine.base_strategy import BaseStrategy
 try:
-    from engine.daily_mode import get_active_mode
     from engine.stock_scorer import get_scorer
     _SCORER_AVAILABLE = True
 except ImportError:
     _SCORER_AVAILABLE = False
-    def get_active_mode(): return "A"
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +43,7 @@ class VCPStrategy(BaseStrategy):
 
     def __init__(self, order_manager, regime_manager=None):
         # En Modo C se amplia el universo con scores > 55; fallback al estático
-        initial_universe = self._get_universe_for_mode()
+        initial_universe = self._get_universe()
         super().__init__(
             name="VCP Minervini",
             symbols=initial_universe,
@@ -60,22 +58,16 @@ class VCPStrategy(BaseStrategy):
         self._traded_today: set = set()
 
     @staticmethod
-    def _get_universe_for_mode() -> list:
-        """Retorna el universo de acciones según el modo activo.
-        Modo C: usa el top del scorer + HIGH_BETA_UNIVERSE como fallback.
-        Otros modos: usa HIGH_BETA_UNIVERSE estático.
-        """
+    def _get_universe() -> list:
+        """Retorna el universo de acciones usando scorer + HIGH_BETA_UNIVERSE."""
         if not _SCORER_AVAILABLE:
             return list(HIGH_BETA_UNIVERSE)
         try:
-            mode = get_active_mode()
-            if mode == "C":
-                scored = get_scorer().get_symbols_above(min_score=55.0)
-                if scored:
-                    # Combinar el universo scorado + HIGH_BETA por si se solapan
-                    combined = list(dict.fromkeys(scored + HIGH_BETA_UNIVERSE))  # preserva orden
-                    logger.info(f"[VCP] 🎯 Modo C: universo ampliado a {len(combined)} acciones")
-                    return combined
+            scored = get_scorer().get_symbols_above(min_score=55.0)
+            if scored:
+                combined = list(dict.fromkeys(scored + HIGH_BETA_UNIVERSE))
+                logger.info(f"[VCP] Universo ampliado a {len(combined)} acciones via scorer")
+                return combined
         except Exception:
             pass
         return list(HIGH_BETA_UNIVERSE)
@@ -166,7 +158,7 @@ class VCPStrategy(BaseStrategy):
         if c > resistance and v > vol_avg_full * self.BREAKOUT_VOL:
             # En Modo C: anotar el score en el log para trazabilidad
             score_note = ""
-            if _SCORER_AVAILABLE and get_active_mode() == "C":
+            if _SCORER_AVAILABLE:
                 try:
                     top = {s["symbol"]: s["score"] for s in get_scorer().get_top_scores(50)}
                     sc = top.get(sym, "n/a")

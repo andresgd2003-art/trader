@@ -17,10 +17,6 @@ from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from engine.notifier import TelegramNotifier
 
-try:
-    from engine.daily_mode import get_mode_label
-except ImportError:
-    def get_mode_label(): return "mA"
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +101,7 @@ class OrderManager:
                     pos = self.client.get_open_position(symbol)
                     qty_to_sell = pos.qty
                     
-                    mode_label = get_mode_label()
-                    client_id = f"strat_{strategy.replace(' ','')[:10]}_{mode_label}_{uuid.uuid4().hex[:8]}"
+                    client_id = f"strat_{strategy.replace(' ','')[:10]}_{uuid.uuid4().hex[:8]}"
 
                     req = MarketOrderRequest(
                         symbol=symbol,
@@ -130,8 +125,7 @@ class OrderManager:
                 return
 
             # 4. Generar ID único y enviar orden Notional
-            mode_label = get_mode_label()
-            client_id = f"strat_{strategy.replace(' ','')[:10]}_{mode_label}_{uuid.uuid4().hex[:8]}"
+            client_id = f"strat_{strategy.replace(' ','')[:10]}_{uuid.uuid4().hex[:8]}"
 
             request = MarketOrderRequest(
                 symbol=symbol,

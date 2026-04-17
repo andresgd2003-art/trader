@@ -998,44 +998,7 @@ async function updateGlobalHealth(acct) {
     }
   } catch(e) { /* regime widget falla silenciosamente */ }
 
-  // ── Daily Mode A/B/C Widget ──
-  try {
-    const modeData = await fetchJSON('/api/daily-mode');
-    if (modeData && modeData.mode) {
-      const modeColors = { A: '#00bfa5', B: '#4f8ef7', C: '#ab47bc' };
-      const modeEmojis = { A: '🌡️', B: '📰', C: '🎯' };
-      const mc = modeColors[modeData.mode] || '#fff';
-
-      // Actualizar el borde del card de régimen con el color del modo
-      const rc = document.getElementById('regime-card');
-      if (rc) rc.style.borderColor = mc;
-
-      // Insertar badge de modo en el widget si existe el elemento
-      let modeBadge = document.getElementById('daily-mode-badge');
-      if (!modeBadge) {
-        // Crear badge dinámicamente si no existe
-        const regimeHeader = document.querySelector('#regime-card .card-header > div:first-child');
-        if (regimeHeader) {
-          modeBadge = document.createElement('div');
-          modeBadge.id = 'daily-mode-badge';
-          modeBadge.style.cssText = `margin-top:6px;display:flex;align-items:center;gap:8px;`;
-          regimeHeader.appendChild(modeBadge);
-        }
-      }
-      if (modeBadge) {
-        const sched = (modeData.schedule || []).slice(0, 3)
-          .map(d => `<span style="font-size:0.65rem;background:rgba(255,255,255,0.05);border-radius:4px;padding:2px 5px;margin-right:3px;">${d.date.slice(5)} <b>${d.mode}</b></span>`)
-          .join('');
-        modeBadge.innerHTML = `
-          <span style="background:${mc}22;border:1px solid ${mc}55;border-radius:6px;padding:3px 10px;font-size:0.75rem;font-weight:700;color:${mc}">
-            ${modeEmojis[modeData.mode]} Modo ${modeData.mode} — ${modeData.name || ''}
-          </span>
-          <span style="font-size:0.65rem;color:var(--text-dim)">Próximos: ${sched}</span>
-          ${modeData.forced ? '<span style="font-size:0.65rem;color:#ff9800;margin-left:4px;">⚠️ OVERRIDE MANUAL</span>' : ''}
-        `;
-      }
-    }
-  } catch(e) { /* modo widget falla silenciosamente */ }
+  // Daily Mode A/B/C widget removed (mode system eliminated)
 
   // Reloj
   const clock = await fetchJSON('/api/clock');

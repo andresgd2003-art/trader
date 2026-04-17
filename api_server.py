@@ -406,7 +406,7 @@ async def startup_event():
     asyncio.create_task(update_history_cache_task())
     asyncio.create_task(_build_charts_task())
     asyncio.create_task(_weekly_scoring_task())
-    asyncio.create_task(_daily_mode_refresh_task())
+    # _daily_mode_refresh_task removed (A/B/C mode system eliminated)
 
 async def _weekly_scoring_task():
     """Job semanal de scoring (Propuesta C). Corre cada domingo 18:00 UTC."""
@@ -432,15 +432,6 @@ async def _weekly_scoring_task():
             logger.error(f"[Scoring] Error en el job semanal: {e}")
         await asyncio.sleep(6 * 3600)  # Correr cada 6 horas (ligero, usa caché de 24h)
 
-async def _daily_mode_refresh_task():
-    """Refresca el modo A/B/C al inicio y cada medianoche UTC."""
-    while True:
-        try:
-            from engine.daily_mode import DailyModeManager
-            DailyModeManager().refresh()
-        except Exception as e:
-            logger.debug(f"[DailyMode] Error en refresh: {e}")
-        await asyncio.sleep(3600)  # verificar cada hora (sin impacto)
 
 # R\u00e9gimen de mercado compartido entre el api_server y main.py
 _regime_manager_instance = None
@@ -582,17 +573,7 @@ async def get_daily_mode():
       B = market-news-analyst (Filtro de Noticias)
       C = us-stock-analysis (Scoring Dinámico)
     """
-    try:
-        from engine.daily_mode import get_mode_meta, DailyModeManager
-        meta = get_mode_meta()
-        if not meta:
-            # Primera vez: inicializar el manager
-            DailyModeManager()
-            meta = get_mode_meta()
-        return meta
-    except Exception as e:
-        logger.error(f"[API] Error en /api/daily-mode: {e}")
-        return {"mode": "A", "error": str(e)}
+    return {"status": "removed", "message": "A/B/C mode rotation eliminated"}
 
 
 @app.get("/api/news-filter")
@@ -605,19 +586,15 @@ async def get_news_filter_status():
     Solo relevante cuando el Modo B está activo.
     """
     try:
-        from engine.daily_mode import get_active_mode
         from engine.news_risk_filter import get_news_filter
-        active_mode = get_active_mode()
         cache = get_news_filter().get_cache_status()
         return {
-            "active": active_mode == "B",
-            "mode":   active_mode,
+            "active": True,
             "cache":  cache,
-            "note":   "Solo activo en Modo B. En otros modos el filtro está desconectado."
         }
     except Exception as e:
         logger.error(f"[API] Error en /api/news-filter: {e}")
-        return {"active": False, "cache": [], "error": str(e)}
+        return {"active": True, "cache": [], "error": str(e)}
 
 
 @app.get("/api/stock-scores")
@@ -633,18 +610,14 @@ async def get_stock_scores(limit: int = 20, min_score: float = 0):
     En modo A/B retorna los scores calculados previamente (si existen).
     """
     try:
-        from engine.daily_mode import get_active_mode
         from engine.stock_scorer import get_scorer
-        active_mode = get_active_mode()
         scorer = get_scorer()
         all_scores = scorer.get_top_scores(limit=limit)
         filtered = [s for s in all_scores if s["score"] >= min_score]
         return {
-            "mode_active": active_mode,
-            "mode_c_active": active_mode == "C",
+            "mode_c_active": True,
             "count": len(filtered),
             "scores": filtered,
-            "note": "Modo C activo: scorer actualiza cada 6h. Otros modos: usa último cálculo disponible."
         }
     except Exception as e:
         logger.error(f"[API] Error en /api/stock-scores: {e}")
@@ -737,7 +710,7 @@ async def get_strategy_stats():
     Mejoras Fase 17:
     - Usa parse_order_meta() para obtener el nombre correcto (fix bug parts[1])
     - Añade campo 'engine' (etf/crypto/equities) por estrategia
-    - Añade 'mode_breakdown' {A: N, B: N, C: N, LEGACY: N} por estrategia
+    - mode_breakdown removed (A/B/C mode system eliminated)
     """
     try:
         orders = STATE_CACHE.get("orders_full") or []
@@ -768,7 +741,6 @@ async def get_strategy_stats():
             meta = parse_order_meta(o.client_order_id)
             strat_name = meta["name"]
             engine     = meta["engine"]
-            mode       = meta["mode"]   # "A", "B", "C" o "LEGACY"
 
             if strat_name not in stats:
                 stats[strat_name] = {
@@ -778,15 +750,9 @@ async def get_strategy_stats():
                     "symbol": o.symbol,
                     "realized_pnl": 0.0,
                     "engine": engine,
-                    # Desglose por modo: cuántas órdenes se ejecutaron en cada propuesta
-                    "mode_breakdown": {"A": 0, "B": 0, "C": 0, "LEGACY": 0},
                 }
 
             stats[strat_name]["trades"] += 1
-
-            # Contabilizar en qué modo se ejecutó esta orden
-            mode_key = mode if mode in ("A", "B", "C") else "LEGACY"
-            stats[strat_name]["mode_breakdown"][mode_key] += 1
 
             if o.status.value == "filled":
                 stats[strat_name]["filled"] += 1
@@ -875,20 +841,11 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
 
         output = io.StringIO()
         writer = csv.writer(output)
-        # Fase 4: Nuevas columnas Motor, Modo, Propuesta
         writer.writerow([
-            "Fecha (UTC)", "Estrategia", "Motor", "Modo (A/B/C)", "Propuesta Activa",
+            "Fecha (UTC)", "Estrategia", "Motor",
             "Clase de Activo", "Simbolo", "Lado", "Cantidad", "Precio ($)", "Volumen ($)",
             "P&L Realizado ($)", "ID Orden"
         ])
-
-        # Mapa de modo a nombre de propuesta
-        PROPOSAL_NAMES = {
-            "A": "market-environment-analysis (Régimen)",
-            "B": "market-news-analyst (Filtro Noticias)",
-            "C": "us-stock-analysis (Scoring Dinámico)",
-            "LEGACY": "Legado (sin modo registrado)",
-        }
 
         tracker = {}
         for o, meta in filtered:
@@ -902,8 +859,6 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
 
             strat_name = meta["name"]
             engine     = meta["engine"]
-            mode       = meta["mode"]        # "A", "B", "C" o "LEGACY"
-            proposal   = PROPOSAL_NAMES.get(mode, mode)
 
             # Calcular P&L realizado
             tracker_key = f"{strat_name}_{o.symbol}"
@@ -928,7 +883,7 @@ async def download_report(strategy: str = "all", period: str = "weekly", engine_
                 tracker[tracker_key] = {"pos": pos, "avg": avg}
 
             writer.writerow([
-                date_str, strat_name, engine, mode, proposal,
+                date_str, strat_name, engine,
                 asset_class, o.symbol, o.side.value.upper(), qty, price, vol,
                 realized_pnl if o.side.value == "sell" else "-",
                 str(o.id)

@@ -56,7 +56,7 @@ def parse_order_meta(raw: Optional[str]) -> dict:
     # Detectar si el penúltimo token (antes del UUID) es un modo mA/mB/mC
     mode = "LEGACY"
     if inner and _MODE_PATTERN.match(inner[-1]):
-        mode = inner[-1][1].upper()  # "A", "B" o "C"
+        _ignored_mode = inner[-1][1].upper()  # backward compat: skip mode token
         name_parts = inner[:-1]
     else:
         name_parts = inner
