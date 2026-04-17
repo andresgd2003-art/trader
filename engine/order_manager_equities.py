@@ -26,10 +26,6 @@ from alpaca.trading.requests import (
 from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
 
 from engine.notifier import TelegramNotifier
-try:
-    from engine.daily_mode import get_mode_label
-except ImportError:
-    def get_mode_label(): return "mA"
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +92,7 @@ class OrderManagerEquities:
 
     def _client_id(self, strategy: str) -> str:
         safe = strategy.replace(" ", "")[:18]
-        mode_label = get_mode_label()
-        return f"eq_{safe}_{mode_label}_{uuid.uuid4().hex[:8]}"
+        return f"eq_{safe}_{uuid.uuid4().hex[:8]}"
 
     async def buy_bracket(
         self,
@@ -199,13 +194,11 @@ class OrderManagerEquities:
         # ==========================================
         if order["type"] == "bracket_buy":
             try:
-                from engine.daily_mode import get_active_mode
                 from engine.news_risk_filter import get_news_filter, RiskLevel
-                if get_active_mode() == "B":
-                    risk = await get_news_filter().get_risk(symbol)
-                    if risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
-                        logger.warning(f"📰 [NEWS FILTER] Bloqueado {symbol} por riesgo {risk.value}")
-                        return
+                risk = await get_news_filter().get_risk(symbol)
+                if risk in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+                    logger.warning(f"📰 [NEWS FILTER] Bloqueado {symbol} por riesgo {risk.value}")
+                    return
             except Exception: pass
 
         try:
