@@ -194,10 +194,6 @@ class TradingEngine:
             self.stream.subscribe_quotes(self._on_quote, *ALL_SYMBOLS)
             logger.info(f"[Engine] ✅ subscribe_quotes OK")
             
-            # Suscribir a noticias del universo filtrado de acciones
-            if eq_symbols:
-                self.news_stream.subscribe_news(self._on_news, *eq_symbols)
-                
             logger.info(f"[Engine] Suscrito a ETF: {ALL_SYMBOLS}")
             if eq_symbols:
                 logger.info(f"[Engine] + Equities symbols: {len(eq_symbols)} adicionales y +News Stream Activo")

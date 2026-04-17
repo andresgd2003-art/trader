@@ -322,14 +322,30 @@ async def update_cache_task():
             # Positions update & Categorization
             raw_positions = client.get_all_positions()
             categorized_pos = {"crypto": [], "etf": [], "eq": []}
-            
+
             # Whitelist de ETFs conocidos (Todo lo demás a Equities)
             etf_symbols = {
-                "SPY", "QQQ", "TQQQ", "SQQQ", "IWM", "DIA", "SMH", "SOXX", "SRVR", 
+                "SPY", "QQQ", "TQQQ", "SQQQ", "IWM", "DIA", "SMH", "SOXX", "SRVR",
                 "XLK", "XLF", "XLV", "XLE", "XLI", "XLB", "XLU", "XLRE", "XLC", "XLP", "XLY",
                 "QID", "SH", "PSQ", "VIXY", "BND", "AGG", "SHY"
             }
-            
+
+            # Pre-build symbol→strategy map from recent filled equities orders
+            symbol_to_strategy: dict = {}
+            try:
+                from alpaca.trading.requests import GetOrdersRequest
+                from alpaca.trading.enums import QueryOrderStatus
+                _strat_orders = client.get_orders(filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=100))
+                for _o in _strat_orders:
+                    _cid = str(_o.client_order_id or "")
+                    if _cid.startswith("eq_") and _o.filled_qty and float(_o.filled_qty) > 0:
+                        _meta = parse_order_meta(_cid)
+                        _name = _meta.get("name", "")
+                        if _name and _o.symbol not in symbol_to_strategy:
+                            symbol_to_strategy[_o.symbol] = _name
+            except Exception:
+                pass
+
             for p in raw_positions:
                 # Conversión explícita a diccionario (Blindaje de Serialización)
                 pos_data = {
@@ -351,8 +367,9 @@ async def update_cache_task():
                 elif p.symbol in etf_symbols:
                     categorized_pos["etf"].append(pos_data)
                 else:
+                    pos_data["strategy"] = symbol_to_strategy.get(p.symbol, "—")
                     categorized_pos["eq"].append(pos_data)
-            
+
             STATE_CACHE["positions"] = categorized_pos
             
             # Orders update & Categorization
