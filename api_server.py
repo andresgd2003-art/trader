@@ -721,14 +721,11 @@ async def get_symbol_history(symbol: str, period: str = "1D"):
 
 
 @app.get("/api/strategy/stats")
-async def get_strategy_stats():
+async def get_strategy_stats(period: str = "today"):
     """Retorna estadísticas agrupadas por estrategia.
-    
-    Mejoras Fase 17:
-    - Usa parse_order_meta() para obtener el nombre correcto (fix bug parts[1])
-    - Añade campo 'engine' (etf/crypto/equities) por estrategia
-    - mode_breakdown removed (A/B/C mode system eliminated)
+    period: 'today' | 'week' | 'month' | 'all'
     """
+    from datetime import timezone, timedelta
     try:
         orders = STATE_CACHE.get("orders_full") or []
         if not orders:
@@ -737,6 +734,17 @@ async def get_strategy_stats():
             orders = list(client.get_orders(
                 filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=1000)
             ))
+
+        # Calcular umbral de fecha según período
+        now = datetime.now(timezone.utc)
+        if period == "today":
+            threshold = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == "week":
+            threshold = now - timedelta(days=7)
+        elif period == "month":
+            threshold = now - timedelta(days=30)
+        else:
+            threshold = None  # "all" — sin filtro
 
         stats = {}
         tracker = {}
@@ -752,6 +760,13 @@ async def get_strategy_stats():
         valid_orders.sort(
             key=lambda x: (x.filled_at or x.created_at or datetime.min.replace(tzinfo=__import__('datetime').timezone.utc))
         )
+
+        # Aplicar filtro de período
+        if threshold:
+            valid_orders = [
+                o for o in valid_orders
+                if (o.filled_at or o.created_at or datetime.min.replace(tzinfo=timezone.utc)) >= threshold
+            ]
 
         for o in valid_orders:
             # Fase 17: usar parser robusto en vez de parts[1]
