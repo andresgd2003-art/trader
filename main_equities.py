@@ -25,6 +25,7 @@ from engine.screener import PreMarketScreener
 from engine.regime_manager import RegimeManager
 from engine.order_manager_equities import OrderManagerEquities
 from engine.portfolio_manager import PortfolioManager
+from engine.notifier import TelegramNotifier
 from strategies_equities import (
     VCPStrategy,
     PEADStrategy,
@@ -74,10 +75,11 @@ class EquitiesEngine:
         # Instanciar las 10 estrategias
         self.strategies = self._register_strategies()
 
-        # Portfolio Manager (circuit breaker)
+        # Portfolio Manager (circuit breaker con resume inteligente por régimen)
         self.portfolio_manager = PortfolioManager(
             order_manager=self.order_manager,
-            strategies=self.strategies
+            strategies=self.strategies,
+            regime_manager=self.regime_manager,
         )
 
     def _register_strategies(self) -> list:
@@ -215,6 +217,101 @@ class EquitiesEngine:
             f"[EquitiesEngine] ✅ Initialize completado. {len(self.get_eq_symbols())} símbolos listos."
         )
 
+    async def _adopt_orphan_positions(self):
+        """
+        Al arrancar, detecta posiciones equities abiertas sin stop activo y les asigna
+        un trailing stop del 15%. Posiciones bajo $1.00 se liquidan directamente.
+        Previene que posiciones de sesiones anteriores queden sin gestión.
+        """
+        try:
+            from alpaca.trading.client import TradingClient
+            from alpaca.trading.requests import MarketOrderRequest, TrailingStopOrderRequest, GetOrdersRequest
+            from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
+
+            paper = os.environ.get("PAPER_TRADING", "True").lower() == "true"
+            client = TradingClient(api_key=API_KEY, secret_key=SECRET_KEY, paper=paper)
+
+            etf_whitelist = {
+                "SPY", "QQQ", "TQQQ", "IWM", "DIA", "SMH", "SOXX", "SRVR",
+                "XLK", "XLF", "XLV", "XLE", "XLI", "XLB", "XLU", "XLRE", "XLC", "XLP", "XLY",
+            }
+
+            positions = client.get_all_positions()
+            eq_positions = [
+                p for p in positions
+                if p.asset_class.value != 'crypto'
+                and '/' not in p.symbol
+                and p.symbol not in etf_whitelist
+            ]
+
+            if not eq_positions:
+                logger.info("[EquitiesEngine] Sin posiciones equities huérfanas al arrancar.")
+                return
+
+            # Obtener símbolos con órdenes stop/bracket activas
+            open_orders = client.get_orders(filter=GetOrdersRequest(
+                status=QueryOrderStatus.OPEN, limit=200
+            ))
+            protected_symbols = set()
+            for o in open_orders:
+                order_type = str(getattr(o, 'order_type', '') or '').lower()
+                order_class = str(getattr(o, 'order_class', '') or '').lower()
+                if any(t in order_type or t in order_class for t in ['stop', 'bracket', 'trailing']):
+                    protected_symbols.add(o.symbol)
+
+            adopted, liquidated = [], []
+
+            for pos in eq_positions:
+                sym = pos.symbol
+                qty = float(pos.qty)
+                price = float(pos.current_price) if pos.current_price else 0.0
+
+                if qty <= 0 or sym in protected_symbols:
+                    continue
+
+                if price < 1.00:
+                    # Liquidar penny stocks directamente
+                    try:
+                        req = MarketOrderRequest(
+                            symbol=sym,
+                            qty=qty,
+                            side=OrderSide.SELL,
+                            time_in_force=TimeInForce.DAY,
+                            client_order_id=self.order_manager._client_id("Adopt_Liquidate"),
+                        )
+                        client.submit_order(req)
+                        liquidated.append(f"{sym}(${price:.2f})")
+                        logger.warning(f"[EquitiesEngine] 🗑️ LIQUIDADA posición huérfana (precio<$1): {sym} qty={qty}")
+                    except Exception as e:
+                        logger.error(f"[EquitiesEngine] Error liquidando {sym}: {e}")
+                else:
+                    # Colocar trailing stop 15%
+                    try:
+                        req = TrailingStopOrderRequest(
+                            symbol=sym,
+                            qty=qty,
+                            side=OrderSide.SELL,
+                            time_in_force=TimeInForce.DAY,
+                            trail_percent=15.0,
+                            client_order_id=self.order_manager._client_id("Adopt_Trail"),
+                        )
+                        client.submit_order(req)
+                        adopted.append(f"{sym}(${price:.2f})")
+                        logger.info(f"[EquitiesEngine] 🛡️ ADOPTADA posición huérfana: {sym} qty={qty} @ ${price:.2f} → trailing 15%")
+                    except Exception as e:
+                        logger.error(f"[EquitiesEngine] Error adoptando {sym}: {e}")
+
+            if adopted or liquidated:
+                msg = "🛡️ <b>[ADOPCIÓN DE POSICIONES]</b>\n"
+                if adopted:
+                    msg += f"Trailing stop 15% → {', '.join(adopted)}\n"
+                if liquidated:
+                    msg += f"Liquidadas (precio &lt;$1) → {', '.join(liquidated)}"
+                TelegramNotifier().send_message(msg)
+
+        except Exception as e:
+            logger.error(f"[EquitiesEngine] Error en adopción de posiciones huérfanas: {e}")
+
     async def start_engine(self):
         """Punto de entrada principal con resiliencia global."""
         _EQ_ENGINE_STATUS["is_running"] = True
@@ -222,6 +319,9 @@ class EquitiesEngine:
 
         # Inicio del order manager
         order_task = asyncio.create_task(self.order_manager.start())
+
+        # Adoptar posiciones huérfanas de sesiones anteriores
+        await self._adopt_orphan_positions()
 
         try:
             # Lanzar tareas concurrentes

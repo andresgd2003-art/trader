@@ -45,10 +45,14 @@ class PortfolioManager:
     MAX_DRAWDOWN_PCT = 0.10   # 10% caída desde ATH → halt
     MAX_POSITION_USD = 20.0   # Ajustado para cuenta de $500
 
-    def __init__(self, order_manager=None, strategies: list = None):
+    # Mínimo 1h antes de evaluar resume; alerta Telegram si supera 48h en halt
+    MIN_HALT_SECS_BEFORE_RESUME = 3600
+    ALERT_HALT_SECS = 172800
+
+    def __init__(self, order_manager=None, strategies: list = None, regime_manager=None):
         self.api_key = os.getenv('APCA_API_KEY_ID') or os.getenv('ALPACA_API_KEY')
         self.secret_key = os.getenv('APCA_API_SECRET_KEY') or os.getenv('ALPACA_SECRET_KEY')
-        
+
         # Detección automática (PK -> Paper, AK -> Live)
         self.paper = True if self.api_key and self.api_key.startswith('PK') else False
 
@@ -65,9 +69,11 @@ class PortfolioManager:
         self.notifier = TelegramNotifier()
         self.order_manager = order_manager
         self.strategies = strategies or []
+        self.regime_manager = regime_manager
         self._ath = 0.0
         self._halted = False
         self._halted_at: datetime | None = None
+        self._48h_alert_sent = False
 
     def check(self) -> bool:
         """
@@ -105,14 +111,36 @@ class PortfolioManager:
                 self._trigger_halt(f"Drawdown {drawdown*100:.1f}% superó el límite.")
                 return False
 
-            # Auto-resume tras 24h de halt
+            # Auto-resume inteligente por régimen de mercado
             if self._halted and self._halted_at:
                 elapsed = (datetime.now() - self._halted_at).total_seconds()
-                if elapsed >= 86400:
-                    logger.info("[PortfolioManager] Auto-resume tras 24h de halt.")
-                    self.notifier.send_message("🟢 <b>[CIRCUIT BREAKER]</b> Auto-resume activado tras 24h. Operativa reanudada.")
-                    self.resume()
-                    return True
+
+                # Alerta a las 48h si sigue halted
+                if elapsed >= self.ALERT_HALT_SECS and not self._48h_alert_sent:
+                    self.notifier.send_message(
+                        "⚠️ <b>[CIRCUIT BREAKER]</b> 48h en halt. "
+                        "El régimen sigue desfavorable. Revisión manual recomendada."
+                    )
+                    self._48h_alert_sent = True
+
+                # No evaluar resume antes de 1h
+                if elapsed >= self.MIN_HALT_SECS_BEFORE_RESUME and self.regime_manager:
+                    try:
+                        from engine.regime_manager import Regime
+                        regime = self.regime_manager.assess_if_needed()
+                        if regime in (Regime.BULL, Regime.CHOP):
+                            logger.info(f"[PortfolioManager] Auto-resume: régimen {regime.value} favorable tras {elapsed/3600:.1f}h de halt.")
+                            self.notifier.send_message(
+                                f"🟢 <b>[CIRCUIT BREAKER]</b> Auto-resume activado.\n"
+                                f"Régimen: {regime.value} | Tiempo en halt: {elapsed/3600:.1f}h"
+                            )
+                            self._48h_alert_sent = False
+                            self.resume()
+                            return True
+                        else:
+                            logger.info(f"[PortfolioManager] Halt activo. Régimen {regime.value} — esperando BULL/CHOP para reanudar.")
+                    except Exception as re:
+                        logger.warning(f"[PortfolioManager] Error evaluando régimen para resume: {re}")
 
             return True
 
