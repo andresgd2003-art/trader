@@ -607,8 +607,17 @@
       </div>
     </div>
     
+    <!-- Selector período P&L estrategias -->
+    <div style="display:flex;align-items:center;gap:8px;margin-top:20px;margin-bottom:4px;">
+      <span style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;">P&amp;L por estrategia:</span>
+      <button class="pnl-period-btn" data-period="today" onclick="setStratPeriod('today')"  style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 10px;font-size:0.73rem;cursor:pointer;color:var(--text-primary);font-weight:700;opacity:1;">Hoy</button>
+      <button class="pnl-period-btn" data-period="week"  onclick="setStratPeriod('week')"  style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 10px;font-size:0.73rem;cursor:pointer;color:var(--text-primary);opacity:0.4;">7d</button>
+      <button class="pnl-period-btn" data-period="month" onclick="setStratPeriod('month')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 10px;font-size:0.73rem;cursor:pointer;color:var(--text-primary);opacity:0.4;">30d</button>
+      <button class="pnl-period-btn" data-period="all"   onclick="setStratPeriod('all')"   style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 10px;font-size:0.73rem;cursor:pointer;color:var(--text-primary);opacity:0.4;">Todo</button>
+    </div>
+
     <!-- Estrategias ETF -->
-    <div class="section-header" style="margin-top:20px"><div class="section-title">🎯 Las 10 Estrategias ETF</div></div>
+    <div class="section-header" style="margin-top:8px"><div class="section-title">🎯 Las 10 Estrategias ETF</div></div>
     <div class="strat-grid" id="etf-strat-grid" style="margin-bottom:20px;">
       <!-- generado por JS -->
     </div>
@@ -839,6 +848,20 @@ const ETF_STRATEGIES = [
   { name: 'Pairs Trading', regime: 'CHOP', symbols: 'QQQ/SPY' },
   { name: 'Grid Trading', regime: 'CHOP', symbols: 'TQQQ' },
 ];
+
+// ── PERÍODO P&L POR ESTRATEGIA ──
+let stratPeriod = 'today';
+function setStratPeriod(p) {
+  stratPeriod = p;
+  document.querySelectorAll('.pnl-period-btn').forEach(b => {
+    b.style.opacity = b.dataset.period === p ? '1' : '0.4';
+    b.style.fontWeight = b.dataset.period === p ? '700' : '400';
+  });
+  const tab = document.querySelector('.tab-btn.active')?.dataset?.tab || 'etf';
+  if (tab === 'etf') refreshETF();
+  else if (tab === 'crypto') refreshCrypto();
+  else if (tab === 'equities') refreshEquities();
+}
 
 // ── TAB SWITCHING ──
 function switchTab(tab) {
@@ -1109,7 +1132,7 @@ async function loadEtfData() {
     fetchJSON('/api/account'),
     fetchJSON('/api/positions'),
     fetchJSON('/api/orders'),
-    fetchJSON('/api/strategy/stats')
+    fetchJSON(`/api/strategy/stats?period=${stratPeriod}`)
   ]);
 
   if (acct) {
@@ -1207,7 +1230,7 @@ async function loadCryptoData() {
     fetchJSON('/api/account'),
     fetchJSON('/api/positions'),
     fetchJSON('/api/orders'),
-    fetchJSON('/api/strategy/stats')
+    fetchJSON(`/api/strategy/stats?period=${stratPeriod}`)
   ]);
 
   if (acct) {
@@ -1298,7 +1321,7 @@ async function loadEquitiesData() {
     fetchJSON('/api/equities/portfolio'),
     fetchJSON('/api/orders'),
     fetchJSON('/api/positions'),
-    fetchJSON('/api/strategy/stats')
+    fetchJSON(`/api/strategy/stats?period=${stratPeriod}`)
   ]);
   
   if (portfolio && portfolio.equity) {
