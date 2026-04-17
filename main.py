@@ -52,6 +52,7 @@ _api_thread.start()
 logger.info("[Engine] API Dashboard arrancado en http://0.0.0.0:8000")
 
 from alpaca.data.live import StockDataStream
+from alpaca.data.live.news import NewsDataStream
 from alpaca.data.enums import DataFeed
 
 from engine.order_manager import OrderManager
@@ -115,6 +116,12 @@ class TradingEngine:
             api_key=API_KEY,
             secret_key=SECRET_KEY,
             feed=DataFeed.IEX   # Feed gratuito, suficiente para paper trading
+        )
+        
+        # Stream WebSocket de Noticias para Estrategia NLP y Risk Filter
+        self.news_stream = NewsDataStream(
+            api_key=API_KEY,
+            secret_key=SECRET_KEY
         )
 
     def _register_strategies(self) -> list:
@@ -189,7 +196,7 @@ class TradingEngine:
             
             # Suscribir a noticias del universo filtrado de acciones
             if eq_symbols:
-                self.stream.subscribe_news(self._on_news, *eq_symbols)
+                self.news_stream.subscribe_news(self._on_news, *eq_symbols)
                 
             logger.info(f"[Engine] Suscrito a ETF: {ALL_SYMBOLS}")
             if eq_symbols:
@@ -303,8 +310,11 @@ class TradingEngine:
             stream_thread = threading.Thread(target=self.stream.run, daemon=True)
             stream_thread.start()
             
+            news_thread = threading.Thread(target=self.news_stream.run, daemon=True)
+            news_thread.start()
+            
             # Mantener el loop de asyncio activo
-            while stream_thread.is_alive():
+            while stream_thread.is_alive() or news_thread.is_alive():
                 await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"[Engine] Error en loop principal: {e}")
@@ -323,9 +333,15 @@ class TradingEngine:
                  await self.stream.stop()
             elif hasattr(self.stream, 'close'):
                  await self.stream.close()
-            logger.info("[Engine] WebSocket cerrado con éxito.")
+                 
+            if hasattr(self.news_stream, 'stop'):
+                 await self.news_stream.stop()
+            elif hasattr(self.news_stream, 'close'):
+                 await self.news_stream.close()
+                 
+            logger.info("[Engine] WebSockets cerrados con éxito.")
         except Exception as e:
-            logger.error(f"[Engine] Error cerrando WebSocket: {e}")
+            logger.error(f"[Engine] Error cerrando WebSockets: {e}")
         
         # Permitir que el proceso termine
         loop = asyncio.get_running_loop()
