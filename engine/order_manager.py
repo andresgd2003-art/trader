@@ -97,12 +97,18 @@ class OrderManager:
             # 2. Lógica de Venta (Liquidar todo)
             if side == OrderSide.SELL:
                 try:
-                    # Buscamos la posición actual para cerrar todo
                     pos = self.client.get_open_position(symbol)
-                    qty_to_sell = pos.qty
-                    
-                    client_id = f"strat_{strategy.replace(' ','')[:10]}_{uuid.uuid4().hex[:8]}"
+                    qty_to_sell = float(pos.qty)
+                    if qty_to_sell <= 0:
+                        logger.warning(f"[{strategy}] Sin qty disponible para vender {symbol}. Ignorado.")
+                        return
+                except Exception:
+                    # Posición no existe — probablemente ya cerrada por bracket/stop de Alpaca
+                    logger.warning(f"[{strategy}] VENTA ignorada: {symbol} no tiene posición abierta (ya cerrada por Alpaca).")
+                    return
 
+                try:
+                    client_id = f"strat_{strategy.replace(' ','')[:10]}_{uuid.uuid4().hex[:8]}"
                     req = MarketOrderRequest(
                         symbol=symbol,
                         qty=qty_to_sell,
@@ -111,9 +117,9 @@ class OrderManager:
                         client_order_id=client_id
                     )
                     self.client.submit_order(req)
-                    logger.info(f"[{strategy}] VENTA ejecutada: Todo el inventario de {symbol}")
+                    logger.info(f"[{strategy}] ✅ VENTA ejecutada: {qty_to_sell} {symbol}")
                 except Exception as e:
-                    logger.error(f"[{strategy}] Error al intentar vender {symbol}: {e}")
+                    logger.error(f"[{strategy}] Error enviando SELL {symbol}: {e}")
                 return
 
             # 3. Lógica de Compra (Sizing Dinámico 4%)
