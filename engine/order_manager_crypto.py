@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from datetime import datetime
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -10,12 +11,41 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+# Horario de mercado US (America/New_York — TZ ya está seteado en main.py)
+_MARKET_OPEN_HOUR  = 9
+_MARKET_OPEN_MIN   = 30
+_MARKET_CLOSE_HOUR = 16
+_MARKET_CLOSE_MIN  = 30
+
+def _us_market_is_open() -> bool:
+    """Retorna True si el mercado de valores US está abierto ahora mismo."""
+    now = datetime.now()
+    if now.weekday() >= 5:          # Sábado=5, Domingo=6
+        return False
+    open_mins  = _MARKET_OPEN_HOUR  * 60 + _MARKET_OPEN_MIN
+    close_mins = _MARKET_CLOSE_HOUR * 60 + _MARKET_CLOSE_MIN
+    now_mins   = now.hour * 60 + now.minute
+    return open_mins <= now_mins < close_mins
+
+
 class OrderManagerCrypto:
     """
     Gestor centralizado de órdenes exclusivo para Criptomonedas (V1Beta3 API).
     Soporta matemáticas fraccionarias puras (Spot trading).
+
+    Capital dinámico:
+      - Mercado abierto  → cap $15 (conservador, capital reservado para ETF/Equities)
+      - Mercado cerrado  → cap expandido (20% del capital disponible, máx $40)
+        con reserva fija del 40% del settled_cash para la apertura del día siguiente.
     """
     MIN_DELAY_SECONDS = 0.4
+
+    # Caps y reservas para el modo noche
+    DAY_CAP_USD       = 15.0    # Cap durante horas de mercado
+    NIGHT_CAP_MAX_USD = 40.0    # Tope absoluto nocturno
+    NIGHT_CAP_PCT     = 0.20    # % del capital disponible nocturno por posición
+    NIGHT_RESERVE_PCT = 0.40    # % de settled_cash siempre reservado para apertura
+    MIN_EQUITY_EXPAND = 80.0    # No expandir si equity total < $80
 
     def __init__(self, arbiter=None):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
@@ -47,16 +77,48 @@ class OrderManagerCrypto:
         self._running = False
         logger.info("[OrderManagerCrypto] Worker detenido.")
 
+    def _get_dynamic_cap(self) -> float:
+        """
+        Retorna el cap de notional en USD según el horario de mercado.
+        Durante horas de mercado: $15 (conservador).
+        Fuera de mercado: hasta 20% del capital disponible (máx $40),
+        reservando siempre un 40% del settled_cash para la apertura.
+        """
+        if _us_market_is_open():
+            return self.DAY_CAP_USD
+
+        # Modo noche: calcular cap dinámico
+        try:
+            account = self.client.get_account()
+            equity = float(account.equity or 0)
+            settled = float(getattr(account, 'settled_cash', account.cash if self.paper else 0))
+
+            # No expandir si la cuenta está muy baja
+            if equity < self.MIN_EQUITY_EXPAND:
+                logger.debug(f"[OrderManagerCrypto] Equity ${equity:.2f} < ${self.MIN_EQUITY_EXPAND} → modo conservador nocturno.")
+                return self.DAY_CAP_USD
+
+            reserve    = settled * self.NIGHT_RESERVE_PCT
+            available  = max(settled - reserve, 0.0)
+            night_cap  = min(available * self.NIGHT_CAP_PCT, self.NIGHT_CAP_MAX_USD)
+
+            if night_cap > self.DAY_CAP_USD:
+                logger.debug(f"[OrderManagerCrypto] 🌙 Modo noche: cap ${night_cap:.2f} (disponible ${available:.2f}, reserva ${reserve:.2f})")
+            return max(night_cap, self.DAY_CAP_USD)   # Nunca menos que el cap diurno
+
+        except Exception as e:
+            logger.warning(f"[OrderManagerCrypto] Error calculando cap nocturno: {e}. Usando cap diurno.")
+            return self.DAY_CAP_USD
+
     def _calculate_crypto_qty(self, notional_usd: float, current_price: float, precision: int = 4) -> float:
         """
         Calcula la cantidad fraccionaria exacta permitida para Cripto.
-        Ej: Si notional = 1000 y Price = 65000 -> qty = 0.0153
+        El cap se ajusta dinámicamente según horario de mercado.
         """
         if current_price <= 0: return 0.0
-        # FASE 4: Límite estricto de 15.0 USD de capital por pos (Micro-sizing)
-        capped_notional = min(notional_usd, 15.0)
+        cap = self._get_dynamic_cap()
+        capped_notional = min(notional_usd, cap)
         exact_qty = capped_notional / current_price
-        # Redondear hacia abajo para no exceder fondos (o según doc precision: 4 to 8)
         return round(exact_qty, precision)
 
     async def request_buy(self, symbol: str, priority: int, strategy_name: str) -> bool:
