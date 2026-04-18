@@ -103,7 +103,9 @@ class OrderManagerCrypto:
             night_cap  = min(available * self.NIGHT_CAP_PCT, self.NIGHT_CAP_MAX_USD)
 
             if night_cap > self.DAY_CAP_USD:
-                logger.debug(f"[OrderManagerCrypto] 🌙 Modo noche: cap ${night_cap:.2f} (disponible ${available:.2f}, reserva ${reserve:.2f})")
+                logger.info(f"[OrderManagerCrypto] 🌙 Modo noche: cap ${night_cap:.2f} (equity ${equity:.2f}, disponible ${available:.2f}, reserva ${reserve:.2f})")
+            else:
+                logger.info(f"[OrderManagerCrypto] 🌙 Modo noche activo pero cap=${night_cap:.2f} ≤ cap diurno ${self.DAY_CAP_USD} (equity ${equity:.2f} — cuenta pequeña)")
             return max(night_cap, self.DAY_CAP_USD)   # Nunca menos que el cap diurno
 
         except Exception as e:
