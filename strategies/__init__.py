@@ -9,11 +9,8 @@ from .strat_05_rsi_dip import RSIDipStrategy
 from .strat_06_bollinger import BollingerReversionStrategy
 from .strat_07_vix_filter import VIXFilteredReversionStrategy
 # from .strat_08_vwap import VWAPBounceStrategy
-# from .strat_09_pairs import PairsTradingStrategy
+from .strat_09_pairs import PairsTradingStrategy
 from .strat_10_grid import GridTradingStrategy
-
-import logging
-logging.getLogger("strategies").warning("⚠️ Estrategias 08 (VWAP) y 09 (Pairs) están deshabilitadas para cuentas Cash.")
 
 __all__ = [
     "GoldenCrossStrategy",
@@ -24,6 +21,6 @@ __all__ = [
     "BollingerReversionStrategy",
     "VIXFilteredReversionStrategy",
     # "VWAPBounceStrategy",
-    # "PairsTradingStrategy",
+    "PairsTradingStrategy",
     "GridTradingStrategy",
 ]
