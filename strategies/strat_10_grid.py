@@ -1,22 +1,18 @@
 """
-strategies/strat_10_grid.py — Grid Trading
-==========================================
-LÓGICA:
-- Establece un precio base (baseline)
-- Coloca órdenes de COMPRA cada -1% por debajo del baseline
-- Coloca órdenes de VENTA cada +1% por encima del baseline
-- Cuando una orden se ejecuta, se "repone" la grid colocando la contraria
+strategies/strat_10_grid.py — Grid Trading SOXX (Cash Account Compatible)
+==========================================================================
+LÓGICA COMPLETA:
+- Establece un precio base (baseline) al detectar la primera barra
+- Coloca órdenes Limit de COMPRA escalonadas cada -3% debajo del baseline
+- Monitorea posición real: si SOXX sube +3% desde baseline, VENDE (take profit)
+- Si el precio drifa >5%, recalibra la grid
 
-¿Por qué funciona?
-En mercados laterales (sin tendencia clara), el precio sube y baja
-dentro de un rango. El grid captura esas oscilaciones automáticamente,
-comprando barato y vendiendo caro repetidamente.
-
-NOTA: Funciona mejor en mercados con baja volatilidad y tendencia lateral.
+CPU OPTIMIZATION:
+- Logging throttled a cada 5 minutos (no cada barra)
 """
 import logging
 import asyncio
-from collections import defaultdict
+import time
 from engine.base_strategy import BaseStrategy
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import LimitOrderRequest
@@ -29,8 +25,10 @@ logger = logging.getLogger(__name__)
 class GridTradingStrategy(BaseStrategy):
 
     SYMBOL      = "SOXX"
-    GRID_STEP   = 0.03    # 3% entre cada nivel (Protección T+1 Cash Account)
+    GRID_STEP   = 0.03    # 3% entre cada nivel
     GRID_LEVELS = 5       # Niveles de grid
+    TAKE_PROFIT = 0.03    # Vender si sube 3% desde baseline
+    LOG_INTERVAL = 300    # Loguear cada 5 minutos
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -41,6 +39,7 @@ class GridTradingStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self._baseline    = None
         self._grid_active = False
+        self._last_log_time = 0
         self._client = TradingClient(
             api_key=os.environ.get("ALPACA_API_KEY", ""),
             secret_key=os.environ.get("ALPACA_SECRET_KEY", ""),
@@ -56,32 +55,60 @@ class GridTradingStrategy(BaseStrategy):
         if self._baseline is None:
             self._baseline = current_price
             logger.info(f"[{self.name}] Baseline establecido: ${self._baseline:.2f}")
-            # ⚠️ GUARD: Verificar si ya hay órdenes abiertas en Alpaca antes de redesplegar
             if not self.check_open_orders_exist(self.SYMBOL):
                 await self._place_grid()
             else:
-                self._grid_active = True  # Grid ya activa desde sesión anterior
+                self._grid_active = True
             return
 
-        pct_from_baseline = (current_price - self._baseline) / self._baseline * 100
-        logger.info(
-            f"[{self.name}] {self.SYMBOL} ${current_price:.2f} "
-            f"({pct_from_baseline:+.1f}% desde baseline)"
-        )
+        pct_from_baseline = (current_price - self._baseline) / self._baseline
+
+        # Logging throttled
+        now = time.time()
+        if now - self._last_log_time >= self.LOG_INTERVAL:
+            logger.info(
+                f"[{self.name}] {self.SYMBOL} ${current_price:.2f} "
+                f"({pct_from_baseline*100:+.1f}% desde baseline)"
+            )
+            self._last_log_time = now
+
+        # ── TAKE PROFIT: Si el precio sube 3%+ desde el baseline, vender ──
+        if pct_from_baseline >= self.TAKE_PROFIT:
+            qty = self.sync_position_from_alpaca(self.SYMBOL)
+            if qty > 0:
+                logger.info(
+                    f"[{self.name}] 💰 TAKE PROFIT: SOXX ${current_price:.2f} "
+                    f"(+{pct_from_baseline*100:.1f}% desde ${self._baseline:.2f}). "
+                    f"Vendiendo {qty} shares."
+                )
+                await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
+                # Recalibrar baseline al nuevo precio
+                self._baseline = current_price
+                self._grid_active = False
+                # Redesplegar grid desde el nuevo baseline
+                await self._place_grid()
+
+        # ── RECALIBRACIÓN: Si el precio drifa >5%, redesplegar grid ──
+        elif abs(pct_from_baseline) > 0.05 and self._grid_active:
+            logger.info(
+                f"[{self.name}] 🔄 Drift >5%. Recalibrando baseline "
+                f"de ${self._baseline:.2f} a ${current_price:.2f}"
+            )
+            self._baseline = current_price
+            self._grid_active = False
+            await self._place_grid()
 
     async def _place_grid(self):
         if not self._baseline:
             return
 
-        logger.info(f"[{self.name}] Colocando {self.GRID_LEVELS} niveles de compra (Paso 3%)...")
+        logger.info(f"[{self.name}] 🏗️ Colocando {self.GRID_LEVELS} niveles de compra (Paso 3%)...")
 
         try:
-            # Obtener cash para sizing dinámico (mismo 4% que OrderManager)
             acc = self._client.get_account()
             cash_ref = float(getattr(acc, 'settled_cash', acc.cash))
             notional_per_level = round(cash_ref * 0.04, 2)
-            
-            if notional_per_level < 1.0: notional_per_level = 10.0 # Mínimo seguridad
+            if notional_per_level < 1.0: notional_per_level = 10.0
         except:
             notional_per_level = 10.0
 
@@ -90,6 +117,9 @@ class GridTradingStrategy(BaseStrategy):
 
             try:
                 qty_calculated = round(notional_per_level / buy_price, 4)
+                if qty_calculated < 0.001:
+                    continue
+                    
                 buy_req = LimitOrderRequest(
                     symbol=self.SYMBOL,
                     qty=qty_calculated,
@@ -98,11 +128,11 @@ class GridTradingStrategy(BaseStrategy):
                     limit_price=buy_price
                 )
                 self._client.submit_order(buy_req)
-                logger.info(f"[{self.name}] Grid BUY colocada @ ${buy_price:.2f} (Monto: ${notional_per_level})")
+                logger.info(f"[{self.name}] Grid BUY @ ${buy_price:.2f} (${notional_per_level})")
                 await asyncio.sleep(0.5)
 
             except Exception as e:
                 logger.error(f"[{self.name}] Error en nivel {i}: {e}")
 
         self._grid_active = True
-        logger.info(f"[{self.name}] ✅ Grid activo al 3%. Base=${self._baseline:.2f}")
+        logger.info(f"[{self.name}] ✅ Grid activa. Base=${self._baseline:.2f}")

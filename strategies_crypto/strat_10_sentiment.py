@@ -102,32 +102,39 @@ class CryptoSentimentStrategy(BaseStrategy):
 
                     logger.info(f"[{self.name}] Extreme Fear detectado + Oversold. Entrando fuerte.")
                     self.in_position = True
-                    self.current_qty = round(250.0 / bar.close, 5)
+                    cap = self.order_manager._get_dynamic_cap()
+                    self.current_qty = round(cap / float(bar.close), 5)
                     await self.order_manager.buy(
                         symbol=bar.symbol,
-                        notional_usd=250.0,
+                        notional_usd=cap,
                         current_price=bar.close,
                         strategy_name=self.name
                     )
             else:
-                if self.current_qty > 0:
-                    if fg_index >= 85:
-                        logger.info(f"[{self.name}] F&G >= 85. Extreme Greed, liquidando todo.")
-                        await self.order_manager.sell_exact(
-                            symbol=bar.symbol, exact_qty=self.current_qty, strategy_name=self.name
-                        )
-                        # Liberar BTC en el árbitro
-                        self.order_manager.release_asset(bar.symbol, self.name)
-                        self.in_position = False
-                        self.current_qty = 0.0
-                    elif fg_index >= 75:
-                        logger.info(f"[{self.name}] F&G >= 75. Greed. Tomando 50% de ganancia.")
-                        sell_qty = round(self.current_qty / 2, 5)
-                        self.current_qty -= sell_qty
+                # Sincronizar qty real desde Alpaca (no confiar en tracking interno)
+                real_qty = self.sync_position_from_alpaca(bar.symbol)
+                if real_qty <= 0:
+                    self.in_position = False
+                    self.current_qty = 0.0
+                    return
+                self.current_qty = real_qty
+                
+                if fg_index >= 85:
+                    logger.info(f"[{self.name}] F&G >= 85. Extreme Greed, liquidando todo.")
+                    await self.order_manager.sell_exact(
+                        symbol=bar.symbol, exact_qty=real_qty, strategy_name=self.name
+                    )
+                    self.order_manager.release_asset(bar.symbol, self.name)
+                    self.in_position = False
+                    self.current_qty = 0.0
+                elif fg_index >= 75:
+                    logger.info(f"[{self.name}] F&G >= 75. Greed. Tomando 50% de ganancia.")
+                    sell_qty = round(real_qty / 2, 5)
+                    if sell_qty > 0:
                         await self.order_manager.sell_exact(
                             symbol=bar.symbol, exact_qty=sell_qty, strategy_name=self.name
                         )
-                        # Si ya vendimos todo, liberar
+                        self.current_qty = real_qty - sell_qty
                         if self.current_qty <= 0:
                             self.order_manager.release_asset(bar.symbol, self.name)
                             self.in_position = False

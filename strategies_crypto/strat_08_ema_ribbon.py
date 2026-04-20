@@ -97,11 +97,14 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                 if self.in_position:
                     if e8 < e34:
                         logger.info(f"[{self.name}] EMA8 cruzó EMA34 hacia abajo. Fin de Ribbon. Vendiendo.")
-                        await self.order_manager.sell_exact(
-                            symbol=bar.symbol, exact_qty=self.current_qty, strategy_name=self.name
-                        )
-                        # Liberar BCH en el árbitro
-                        self.order_manager.release_asset(bar.symbol, self.name)
+                        # Usar qty REAL de Alpaca, no el tracking interno
+                        real_qty = self.sync_position_from_alpaca(bar.symbol)
+                        if real_qty > 0:
+                            await self.order_manager.sell_exact(
+                                symbol=bar.symbol, exact_qty=real_qty, strategy_name=self.name
+                            )
+                            # Liberar BCH en el árbitro
+                            self.order_manager.release_asset(bar.symbol, self.name)
                         self.in_position = False
                         self.current_qty = 0.0
                 else:
@@ -115,12 +118,12 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                         else:
                             logger.info(f"[{self.name}] Full Bullish Alignment + Pullback al EMA21. Comprando!")
                             self.in_position = True
-                            # [P1 Fix] qty es aspiracional; order_manager_crypto aplica cap real de $15.
-                            # La validación pre-SELL en order_manager_crypto.sell() usa posición real de Alpaca.
-                            self.current_qty = round(100.0 / bar.close, 5)
+                            # Calcular qty basándose en el cap REAL del OrderManager
+                            cap = self.order_manager._get_dynamic_cap()
+                            self.current_qty = round(cap / float(bar.close), 5)
                             await self.order_manager.buy(
                                 symbol=bar.symbol,
-                                notional_usd=100.0,
+                                notional_usd=cap,
                                 current_price=bar.close,
                                 strategy_name=self.name
                             )
