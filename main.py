@@ -65,6 +65,7 @@ from strategies import (
     RSIDipStrategy,
     BollingerReversionStrategy,
     VIXFilteredReversionStrategy,
+    PairsTradingStrategy,
     GridTradingStrategy,
 )
 
@@ -138,9 +139,10 @@ class TradingEngine:
             RSIDipStrategy(order_manager=self.order_manager, regime_manager=rm),
             BollingerReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
             VIXFilteredReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
+            PairsTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
             GridTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
         ]
-        logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas (CASH compatible).")
+        logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas.")
         return strategies
 
     async def _on_bar(self, bar):
