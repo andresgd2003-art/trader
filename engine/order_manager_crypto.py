@@ -189,26 +189,19 @@ class OrderManagerCrypto:
         client_id = f"cry_{safe_strat_name}_{uuid.uuid4().hex[:8]}"
 
         try:
-            # FIX Redondeo Crypto: Si es VENTA, asegurarse de no pedir más de lo que hay, o si no hay limit_price liquidar todo
+            # FIX Redondeo Crypto: Si es VENTA, asegurarse de no pedir más de lo que hay
             if side == OrderSide.SELL:
-                if not order.get("limit_price"):
-                    try:
-                        resp = self.client.close_position(symbol)
-                        logger.info(f"[{strategy}] VENTA CRIPTO Liquidación Total enviada para {symbol}.")
-                        return
-                    except Exception as e:
-                        logger.error(f"[{strategy}] Error cerrando posición completa de {symbol}: {e}")
-                        return
-                
-                # [P1 FIX - 2026-04-15] Validación defensiva pre-SELL con limit_price: abortar si no hay posición real
+                # Validación defensiva pre-SELL: abortar si no hay posición real
                 try:
                     real_pos = self.client.get_open_position(symbol)
                     real_qty = float(getattr(real_pos, "qty_available", None) or real_pos.qty or 0)
                     if real_qty <= 0:
                         logger.error(f"[{strategy}] [CryptoSELL] Sin posición real en {symbol}, abortando SELL.")
                         return
-                    if qty > real_qty:
-                        logger.warning(f"[{strategy}] [CryptoSELL] qty solicitada {qty} > disponible {real_qty}. Clampando a {real_qty}.")
+                    
+                    # Si pedimos vender más de lo que hay, o si es una orden market pura que antes usaba close_position
+                    if qty > real_qty or not order.get("limit_price"):
+                        logger.info(f"[{strategy}] [CryptoSELL] Ajustando qty a {real_qty} para venta completa de {symbol}.")
                         qty = real_qty
                 except Exception as pos_e:
                     logger.error(f"[{strategy}] [CryptoSELL] No se pudo verificar posición de {symbol}: {pos_e}. Abortando por seguridad.")
