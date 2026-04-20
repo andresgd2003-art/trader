@@ -116,15 +116,12 @@ class GridTradingStrategy(BaseStrategy):
             buy_price = round(self._baseline * (1 - self.GRID_STEP * i), 2)
 
             try:
-                qty_calculated = round(notional_per_level / buy_price, 4)
-                if qty_calculated < 0.001:
-                    continue
-                    
+                qty_calculated = max(1, int(notional_per_level // buy_price))
                 buy_req = LimitOrderRequest(
                     symbol=self.SYMBOL,
                     qty=qty_calculated,
                     side=OrderSide.BUY,
-                    time_in_force=TimeInForce.GTC,
+                    time_in_force=TimeInForce.DAY,
                     limit_price=buy_price
                 )
                 self._client.submit_order(buy_req)
