@@ -26,8 +26,6 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
         self.current_qty = qty
 
     async def on_bar(self, bar):
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(6, engine='crypto'):
-            return
 
         self._volumes.append(bar.volume)
 

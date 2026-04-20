@@ -29,8 +29,6 @@ class CryptoGridSpotStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(3, engine='crypto'):
-            return
 
         # Simple VWAP tracking since boot
         typ_price = (float(bar.high) + float(bar.low) + float(bar.close)) / 3.0

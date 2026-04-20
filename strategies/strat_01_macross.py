@@ -42,8 +42,6 @@ class GoldenCrossStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(1):
-            return
 
         # Agregar el precio de cierre al histórico
         self._closes.append(float(bar.close))

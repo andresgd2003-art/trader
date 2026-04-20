@@ -55,8 +55,6 @@ class StatArbStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine='equities'):
-            return
 
         # Control de timeframe 15min
         minute = bar.timestamp.minute if hasattr(bar.timestamp, 'minute') else 0

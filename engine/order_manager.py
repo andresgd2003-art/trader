@@ -122,9 +122,23 @@ class OrderManager:
                     logger.error(f"[{strategy}] Error enviando SELL {symbol}: {e}")
                 return
 
-            # 3. Lógica de Compra (Sizing Dinámico 4%)
-            # Cálculo: 4% del cash asentado, redondeado a 2 decimales
-            dynamic_notional = round(settled_cash * 0.04, 2)
+            # 3. Lógica de Compra (Sizing Dinámico por Régimen)
+            from engine.regime_manager import get_current_regime
+            
+            regime_data  = get_current_regime()
+            regime_str   = regime_data.get("regime", "UNKNOWN")
+            
+            # Escala de riesgo por régimen
+            REGIME_NOTIONAL_PCT = {
+                "BULL":    0.04,   # 4% — máximo agresividad, mercado favorable
+                "CHOP":    0.03,   # 3% — moderado, mercado lateral
+                "BEAR":    0.02,   # 2% — conservador, mercado bajista
+                "UNKNOWN": 0.02,   # 2% — seguro por defecto si no hay datos
+            }
+            pct = REGIME_NOTIONAL_PCT.get(regime_str, 0.02)
+            
+            dynamic_notional = round(settled_cash * pct, 2)
+            logger.info(f"[OrderManager] Sizing régimen {regime_str}: {pct*100:.0f}% → ${dynamic_notional}")
 
             if dynamic_notional < 1.0:
                 logger.warning(f"[{strategy}] Fondos insuficientes para {symbol} (Calc: ${dynamic_notional})")

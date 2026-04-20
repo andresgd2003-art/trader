@@ -70,8 +70,6 @@ class CryptoEMARibbonStrategy(BaseStrategy):
             logger.error(f"[{self.name}] DB Load Error: {e}")
 
     async def on_bar(self, bar):
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(8, engine='crypto'):
-            return
 
         dt = bar.timestamp
         # Evaluamos solo 1 vez cada 4 horas

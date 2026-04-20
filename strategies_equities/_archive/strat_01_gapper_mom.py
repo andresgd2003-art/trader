@@ -51,8 +51,6 @@ class GapperMomentumStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine='equities'):
-            return
 
         symbol = bar.symbol
         bar_time = bar.timestamp.time() if hasattr(bar.timestamp, 'time') else dtime(9, 30)

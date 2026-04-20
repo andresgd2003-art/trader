@@ -40,8 +40,6 @@ class DonchianBreakoutStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(2):
-            return
 
         self._highs.append(float(bar.high))
         self._lows.append(float(bar.low))

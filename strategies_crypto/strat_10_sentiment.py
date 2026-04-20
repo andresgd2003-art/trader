@@ -73,8 +73,6 @@ class CryptoSentimentStrategy(BaseStrategy):
         return 50 # neutral en caso de error
 
     async def on_bar(self, bar):
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(10, engine='crypto'):
-            return
         dt = bar.timestamp
         # Detectar cierre de día (aprox medianoche o nueva barra dia)
         # Evaluamos F&G a las 00:05 UTC para dejar que el mercado abra nuevo dia

@@ -63,8 +63,6 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
             logger.error(f"[{self.name}] DB Update Error: {e}")
 
     async def on_bar(self, bar):
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(4, engine='crypto'):
-            return
 
         self._closes.append(bar.close)
 

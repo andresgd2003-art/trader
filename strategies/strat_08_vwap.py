@@ -56,8 +56,6 @@ class VWAPBounceStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(8):
-            return
 
         # Iniciar EOD close loop la primera vez que llegue una barra
         if not self._loop_started:
@@ -98,7 +96,7 @@ class VWAPBounceStrategy(BaseStrategy):
                 and volume > avg_volume
                 and not self._has_position):
             logger.info(f"[{self.name}] 🟢 Precio cruzó VWAP desde abajo con volumen alto! COMPRANDO {self.SYMBOL}")
-            await self.order_manager.buy(self.SYMBOL, qty=self.QTY, strategy_name=self.name)
+            await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
             self._position[self.SYMBOL] = self.QTY
 
@@ -111,7 +109,7 @@ class VWAPBounceStrategy(BaseStrategy):
             if (now.hour == self.CLOSE_HOUR and now.minute >= self.CLOSE_MIN
                     and self._has_position):
                 logger.info(f"[{self.name}] 🔔 15:50 EST → Cerrando posición intraday.")
-                await self.order_manager.sell(self.SYMBOL, qty=self.QTY, strategy_name=self.name)
+                await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
                 self._has_position = False
                 self._position[self.SYMBOL] = 0
             await asyncio.sleep(60)

@@ -65,6 +65,7 @@ from strategies import (
     RSIDipStrategy,
     BollingerReversionStrategy,
     VIXFilteredReversionStrategy,
+    VWAPBounceStrategy,
     PairsTradingStrategy,
     GridTradingStrategy,
 )
@@ -139,6 +140,7 @@ class TradingEngine:
             RSIDipStrategy(order_manager=self.order_manager, regime_manager=rm),
             BollingerReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
             VIXFilteredReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
+            VWAPBounceStrategy(order_manager=self.order_manager, regime_manager=rm),
             PairsTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
             GridTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
         ]

@@ -61,9 +61,6 @@ class MomentumRotationStrategy(BaseStrategy):
     async def _rotate(self):
         """Calcula el mejor ETF y rota el portafolio."""
         # Verificar régimen antes de rotar
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(3):
-            logger.info(f"[{self.name}] Rotación pausada por régimen de mercado.")
-            return
         from datetime import timedelta
         end = datetime.now(timezone.utc)
         start = end - timedelta(days=self.LOOKBACK_DAYS + 5)
