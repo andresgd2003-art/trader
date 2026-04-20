@@ -1167,7 +1167,7 @@ async function loadEtfData() {
     <tr>
       <td style="font-weight:600">${o.symbol}</td>
       <td class="${o.side==='buy'?'badge-buy':'badge-sell'}">${o.side?.toUpperCase()}</td>
-      <td>${o.qty}</td>
+      <td>${o.qty > 0 ? o.qty : (o.notional ? '$' + o.notional.toFixed(2) : (o.filled_notional ? '$' + o.filled_notional.toFixed(2) : '—'))}</td>
       <td style="color:var(--text-secondary)">${o.type}</td>
       <td class="${o.status==='filled'?'badge-filled':o.status==='new'?'badge-new':'badge-held'}">${o.status}</td>
       <td>${o.filled_avg_price ? fmtMoney(o.filled_avg_price) : '—'}</td>

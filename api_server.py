@@ -387,6 +387,8 @@ async def update_cache_task():
                         "type":         o.order_type.value if o.order_type else "market",
                         "qty":          float(o.qty) if o.qty else 0,
                         "filled_qty":   float(o.filled_qty) if o.filled_qty else 0,
+                        "notional":        float(o.notional) if o.notional else None,
+                        "filled_notional": float(getattr(o, 'filled_notional', None) or 0) or None,
                         "status":       o.status.value,
                         "limit_price":  float(o.limit_price) if o.limit_price else None,
                         "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else None,
