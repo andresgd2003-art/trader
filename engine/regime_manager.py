@@ -44,28 +44,28 @@ _CURRENT_REGIME: dict = {
     "enabled_strategies": [],
 }
 
-# Mapa de estrategias habilitadas por régimen — Motor ETF
+# Mapa de estrategias habilitadas por régimen — Motor ETF (Todas las 10 activas)
 REGIME_ETF_MAP = {
-    Regime.BULL:  [1, 2, 4, 5, 8],      # Golden Cross, Donchian, MACD, RSI Dip, VWAP
-    Regime.BEAR:  [6, 7, 10],            # Bollinger Reversion, RSI+VIX, Grid
-    Regime.CHOP:  [3, 7, 9, 10],         # Momentum Rotation, RSI+VIX, Pairs, Grid
-    Regime.UNKNOWN: [1, 7, 10],          # Conservador si no hay datos
+    Regime.BULL:  list(range(1, 11)),
+    Regime.BEAR:  list(range(1, 11)),
+    Regime.CHOP:  list(range(1, 11)),
+    Regime.UNKNOWN: list(range(1, 11)),
 }
 
-# Mapa de estrategias — Motor Crypto (24/7, sin restricción de sesión)
+# Mapa de estrategias — Motor Crypto (Todas las 10 activas)
 REGIME_CRYPTO_MAP = {
-    Regime.BULL:  [1, 2, 4, 5, 8, 10],  # Tendencia: EMA, BB, Smart TWAP, EMA Ribbon, Sentiment
-    Regime.BEAR:  [3, 6, 7, 10],         # Neutral-short: Grid, Vol Anomaly, Pair Divergence, Sentiment
-    Regime.CHOP:  [3, 7, 9, 10],         # Grid, Pair Divergence, VWAP, Sentiment
-    Regime.UNKNOWN: [3, 9, 10],          # Solo defensivos
+    Regime.BULL:  list(range(1, 11)),
+    Regime.BEAR:  list(range(1, 11)),
+    Regime.CHOP:  list(range(1, 11)),
+    Regime.UNKNOWN: list(range(1, 11)),
 }
 
-# Mapa de estrategias — Motor Equities (solo estrategias activas: 2,4,5,8,9,10)
+# Mapa de estrategias — Motor Equities (Todas las activas)
 REGIME_EQUITIES_MAP = {
-    Regime.BULL:  [2, 4, 5, 8, 9],      # VCP, PEAD, Gamma, NLP, Insider
-    Regime.BEAR:  [8, 10],               # NLP Sentiment (defensivo), Sector Rotation
-    Regime.CHOP:  [9, 10],               # Insider Flow, Sector Rotation
-    Regime.UNKNOWN: [10],                # Solo Sector Rotation (más seguro)
+    Regime.BULL:  [2, 4, 5, 8, 9, 10],
+    Regime.BEAR:  [2, 4, 5, 8, 9, 10],
+    Regime.CHOP:  [2, 4, 5, 8, 9, 10],
+    Regime.UNKNOWN: [2, 4, 5, 8, 9, 10],
 }
 
 # Compatibilidad hacia atrás — se mantiene el mapa original
@@ -172,10 +172,11 @@ class RegimeManager:
                 "enabled_strategies": enabled,
             })
 
+            sizing = "4%" if regime == Regime.BULL else "3%" if regime == Regime.CHOP else "2%"
             logger.info(
                 f"[Regime] 📊 Régimen: {regime.value} | "
                 f"SPY={spy_price:.2f} vs SMA200={spy_sma200:.2f} | "
-                f"VIX~{vix_proxy:.2f} | Estrategias activas: {enabled}"
+                f"VIX~{vix_proxy:.2f} | Sizing activo: {sizing} | Todas activas!"
             )
 
             return regime
