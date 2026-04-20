@@ -237,6 +237,18 @@ class EquitiesEngine:
             }
 
             positions = client.get_all_positions()
+
+            # Cerrar inmediatamente cualquier SHORT en ETF whitelist (huérfano de Pairs Trading)
+            for p in positions:
+                qty = float(p.qty)
+                if p.symbol in etf_whitelist and qty < 0:
+                    try:
+                        client.close_position(p.symbol)
+                        logger.warning(f"[EquitiesEngine] 🔴 SHORT huérfano en ETF cerrado: {p.symbol} qty={qty}")
+                        self.notifier.send_message(f"⚠️ <b>[ADOPT]</b> SHORT huérfano cerrado: {p.symbol} qty={qty}")
+                    except Exception as e:
+                        logger.error(f"[EquitiesEngine] Error cerrando SHORT huérfano {p.symbol}: {e}")
+
             eq_positions = [
                 p for p in positions
                 if p.asset_class.value != 'crypto'
