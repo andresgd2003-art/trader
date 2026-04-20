@@ -248,15 +248,42 @@ class OrderManagerEquities:
             elif order["type"] == "market_sell":
                 # Si llegamos aquí, el Firewall ya validó que tenemos posición
                 pos = self.client.get_open_position(symbol)
+                qty_available = float(getattr(pos, 'qty_available', pos.qty))
+                
+                # Si qty disponible es 0 pero hay qty held_for_orders,
+                # cancelar las bracket orders pendientes primero
+                if qty_available <= 0:
+                    total_qty = float(pos.qty)
+                    if total_qty > 0:
+                        logger.info(f"[{strategy}] {symbol}: qty held by bracket orders. Cancelando órdenes pendientes...")
+                        try:
+                            # Cancelar órdenes abiertas del símbolo
+                            open_orders = self.client.get_orders({"status": "open", "symbols": symbol})
+                            for oo in open_orders:
+                                try:
+                                    self.client.cancel_order_by_id(oo.id)
+                                except: pass
+                            import asyncio
+                            await asyncio.sleep(1)  # Esperar a que Alpaca libere las qty
+                            # Re-verificar qty disponible
+                            pos = self.client.get_open_position(symbol)
+                            qty_available = float(getattr(pos, 'qty_available', pos.qty))
+                        except Exception as cancel_err:
+                            logger.warning(f"[{strategy}] Error cancelando órdenes de {symbol}: {cancel_err}")
+                
+                if qty_available <= 0:
+                    logger.warning(f"[{strategy}] {symbol}: Sin qty disponible aún después de cancelar. Abortando.")
+                    return
+                    
                 req = MarketOrderRequest(
                     symbol=symbol,
-                    qty=pos.qty, # Vendemos todo lo que tenemos
+                    qty=qty_available,
                     side=OrderSide.SELL,
                     time_in_force=TimeInForce.DAY,
                     client_order_id=client_id
                 )
                 self.client.submit_order(req)
-                logger.info(f"[{strategy}] ✅ MARKET SELL (CIERRE) {symbol} x{pos.qty}")
+                logger.info(f"[{strategy}] ✅ MARKET SELL (CIERRE) {symbol} x{qty_available}")
 
             _EQ_STATUS["orders_today"] += 1
             _EQ_STATUS["last_order"] = {"symbol": symbol, "type": order["type"], "strategy": strategy}

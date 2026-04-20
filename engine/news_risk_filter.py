@@ -119,8 +119,13 @@ class NewsRiskFilter:
             # Importar NewsClient de alpaca-py (no requiere API key)
             from alpaca.data.historical.news import NewsClient
             from alpaca.data.requests import NewsRequest
+            import os
 
-            client = NewsClient()
+            # NewsClient requiere autenticación con API keys
+            client = NewsClient(
+                api_key=os.environ.get("APCA_API_KEY_ID") or os.environ.get("ALPACA_API_KEY", ""),
+                secret_key=os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SECRET_KEY", "")
+            )
             start_time = datetime.now(timezone.utc) - timedelta(hours=self.LOOKBACK_HOURS)
 
             request = NewsRequest(
