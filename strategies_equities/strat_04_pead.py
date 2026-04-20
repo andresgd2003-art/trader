@@ -39,18 +39,31 @@ class PEADStrategy(BaseStrategy):
             order_manager=order_manager
         )
         self.regime_manager = regime_manager
-        self._closes: dict[str, deque] = {}
         self._volumes: dict[str, deque] = {}
         self._prev_close: dict[str, float] = {}
+        self._daily_metrics: dict[str, dict] = {} # {sym: {sma50, avg_vol_20d}}
         self._positions: dict[str, dict] = {}  # {sym: {entry_date, entry_price, qty}}
         self._earnings_candidates: set = set()  # Symbols detectados por el news handler
 
     def flag_earnings_candidate(self, symbol: str):
         """Llamado desde el news handler cuando se detecta earnings surprise."""
-        self._earnings_candidates.add(symbol)
-        if symbol not in self.symbols:
-            self.symbols.append(symbol)
-        logger.info(f"[{self.name}] {symbol} marcado como candidato PEAD.")
+        import yfinance as yf
+        try:
+            df = yf.download(symbol, period="100d", group_by='ticker', threads=True, progress=False)
+            if df is not None and not df.empty and len(df) >= 50:
+                sma50 = float(df['Close'].rolling(50).mean().iloc[-1])
+                avg_vol_20d = float(df['Volume'].rolling(20).mean().iloc[-1])
+                
+                self._daily_metrics[symbol] = {
+                    "sma50": sma50,
+                    "avg_vol_20d": avg_vol_20d
+                }
+                self._earnings_candidates.add(symbol)
+                if symbol not in self.symbols:
+                    self.symbols.append(symbol)
+                logger.info(f"[{self.name}] {symbol} marcado como candidato PEAD. SMA50={sma50:.2f}, AvgVol20d={avg_vol_20d:.0f}")
+        except Exception as e:
+            logger.error(f"[{self.name}] Error leyendo macro histórico para candidato {symbol}: {e}")
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
@@ -61,12 +74,12 @@ class PEADStrategy(BaseStrategy):
         vol = float(bar.volume)
 
         # Inicializar buffers si es nuevo símbolo
-        if sym not in self._closes:
-            self._closes[sym] = deque(maxlen=60)
-            self._volumes[sym] = deque(maxlen=25)
+        if sym not in self._volumes:
+            self._volumes[sym] = deque(maxlen=60)
 
-        self._closes[sym].append(close)
         self._volumes[sym].append(vol)
+
+        daily_metrics = self._daily_metrics.get(sym)
 
         # ── Gestión de posiciones abiertas ──
         if sym in self._positions:
@@ -74,28 +87,29 @@ class PEADStrategy(BaseStrategy):
             from datetime import datetime
             days_held = (datetime.now() - pos["entry_date"]).days
 
-            # Exit: 14 días o SMA50 break
-            if len(self._closes[sym]) >= self.SMA50:
-                sma50 = pd.Series(list(self._closes[sym])).rolling(self.SMA50).mean().iloc[-1]
+            # Exit: 14 días o SMA50 break (SMA50 Real Macros)
+            if daily_metrics:
+                sma50 = daily_metrics["sma50"]
                 if close < sma50 or days_held >= self.HOLD_DAYS:
-                    reason = "SMA50 break" if close < sma50 else "14 días cumplidos"
+                    reason = "SMA50 break (Real Macro)" if close < sma50 else f"{days_held} días cumplidos"
                     logger.info(f"[{self.name}] EXIT {sym}: {reason}")
                     await self.order_manager.close_position(sym, None, self.name)
                     del self._positions[sym]
             return
 
         # ── Evaluación de entrada ──
-        if sym not in self._earnings_candidates:
+        if sym not in self._earnings_candidates or not daily_metrics:
             return
 
-        if len(self._volumes[sym]) < 20:
-            return
-
-        vol_avg = sum(list(self._volumes[sym])[-20:]) / 20
+        # Calcular el volumen promedio del minuto (dividiendo el vol diario entre 390 mins de mercado)
+        vol_avg_20d = daily_metrics["avg_vol_20d"]
+        vol_avg_minute = vol_avg_20d / 390.0
+        
         prev_c = self._prev_close.get(sym, close * 0.95)
         gap_pct = (float(bar.open) - prev_c) / prev_c if prev_c > 0 else 0
 
-        if gap_pct >= self.GAP_MIN_PCT and vol >= vol_avg * self.VOL_MULTIPLIER:
+        # Disparar si hay un Gap Up y el volumen ES EXPLOSIVO en esta vela (3x el promedio del minuto)
+        if gap_pct >= self.GAP_MIN_PCT and vol >= vol_avg_minute * self.VOL_MULTIPLIER:
             # ⚠️ ANTI-DUPLICADO: Verificar posición viva para no re-entrar si reinició hoy
             if self.sync_position_from_alpaca(sym) > 0:
                 logger.info(f"[{self.name}] ⚠️ PEAD en {sym} pero ya hay posición activa. Evitando duplicado.")

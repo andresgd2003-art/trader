@@ -51,11 +51,9 @@ class VCPStrategy(BaseStrategy):
         )
         self.regime_manager = regime_manager
         self._universe = initial_universe
-        self._closes: dict[str, deque] = {s: deque(maxlen=210) for s in self._universe}
-        self._highs: dict[str, deque] = {s: deque(maxlen=30) for s in self._universe}
-        self._lows: dict[str, deque] = {s: deque(maxlen=30) for s in self._universe}
-        self._volumes: dict[str, deque] = {s: deque(maxlen=30) for s in self._universe}
+        self._volumes: dict[str, deque] = {s: deque(maxlen=60) for s in self._universe}
         self._traded_today: set = set()
+        self._vcp_candidates: dict = {}
 
     @staticmethod
     def _get_universe() -> list:
@@ -75,8 +73,8 @@ class VCPStrategy(BaseStrategy):
     def update_symbols(self, new_symbols: list):
         self.symbols = new_symbols
         self._traded_today = set()
-        self._daily_smas = {}
-        logger.info(f"[{self.name}] Calculando SMA200 diarias para {len(new_symbols)} símbolos...")
+        self._vcp_candidates = {}
+        logger.info(f"[{self.name}] Buscando candidatos VCP diarios (3 semanas) en {len(new_symbols)} símbolos...")
         
         try:
             import yfinance as yf
@@ -91,14 +89,38 @@ class VCPStrategy(BaseStrategy):
                             sma50 = df['Close'].rolling(50).mean().iloc[-1]
                             sma150 = df['Close'].rolling(150).mean().iloc[-1]
                             sma200 = df['Close'].rolling(200).mean().iloc[-1]
-                            self._daily_smas[sym] = {"sma50": float(sma50), "sma150": float(sma150), "sma200": float(sma200)}
-                            count += 1
-                    except:
+                            
+                            c = df['Close'].iloc[-1]
+                            
+                            # 1. Filtro Macroeconómico (Tendencia)
+                            if c > sma50 > sma150 > sma200:
+                                recent_df = df.iloc[-15:] # Últimas 3 semanas
+                                if len(recent_df) >= 15:
+                                    highs = recent_df['High'].values
+                                    lows = recent_df['Low'].values
+                                    vols = recent_df['Volume'].values
+                                    
+                                    ranges = highs - lows
+                                    first_week_range = sum(ranges[:5]) / 5
+                                    last_week_range = sum(ranges[-5:]) / 5
+                                    
+                                    vol_avg_full = sum(vols) / len(vols)
+                                    vol_avg_last = sum(vols[-5:]) / 5
+                                    
+                                    # 2. Contracción de Volatility y Secado de Volúmen
+                                    if last_week_range < first_week_range and vol_avg_last < vol_avg_full * self.VOL_DRY_PCT:
+                                        resistance = max(highs)
+                                        self._vcp_candidates[sym] = {"resistance": resistance}
+                                        count += 1
+                    except Exception as loop_e:
                         pass
-                logger.info(f"[{self.name}] ✅ Se calcularon SMAs diarias reales para {count} símbolos.")
+                logger.info(f"[{self.name}] ✅ {count} símbolos pasaron el filtro Macro VCP. Listos para cazar breakouts.")
                 self._daily_data_fetched = True
+                
+                if self._vcp_candidates:
+                    logger.debug(f"[VCP] Candidatos y sus resistencias: {self._vcp_candidates}")
         except Exception as e:
-            logger.error(f"[{self.name}] Error descargando datos diarios: {e}")
+            logger.error(f"[{self.name}] Error descargando/procesando datos macro diarios: {e}")
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
@@ -107,53 +129,28 @@ class VCPStrategy(BaseStrategy):
             return
 
         sym = bar.symbol
-        c, h, l, v = float(bar.close), float(bar.high), float(bar.low), float(bar.volume)
+        if sym not in self._vcp_candidates:
+            return  # No es candidato macroeconómico del día
 
-        self._closes[sym].append(c)
-        self._highs[sym].append(h)
-        self._lows[sym].append(l)
+        c, v = float(bar.close), float(bar.volume)
+        
+        if sym not in self._volumes:
+            self._volumes[sym] = deque(maxlen=60)
         self._volumes[sym].append(v)
 
-        # Usar las SMAs Diarias pre-calculadas en update_symbols en lugar de minutos
-        daily_smas = getattr(self, "_daily_smas", {}).get(sym)
-        if not daily_smas:
-            return  # No hay datos diarios suficientes para verificar la tendencia a largo plazo
+        resistance = self._vcp_candidates[sym]["resistance"]
 
-        sma50  = daily_smas["sma50"]
-        sma150 = daily_smas["sma150"]
-        sma200 = daily_smas["sma200"]
-
-        # 1. Verificar tendencia alcista (Stage 2)
-        if not (c > sma50 > sma150 > sma200):
-            return
-
-        # 2. Verificar VCP: rango H-L se estrecha en últimas 3 semanas
-        recent_highs = list(self._highs[sym])[-self.VCP_WEEKS * 5:]
-        recent_lows  = list(self._lows[sym])[-self.VCP_WEEKS * 5:]
-        recent_vols  = list(self._volumes[sym])[-self.VCP_WEEKS * 5:]
-
-        if len(recent_highs) < 10:
-            return
-
-        ranges = [recent_highs[i] - recent_lows[i] for i in range(len(recent_highs))]
-        # Rango se estrecha si la última semana < primera semana
-        first_week_range = sum(ranges[:5]) / 5
-        last_week_range  = sum(ranges[-5:]) / 5
-
-        if last_week_range >= first_week_range:
-            return  # No hay contracción
-
-        # 3. Volumen seco en la última semana
-        vol_avg_full = sum(recent_vols) / len(recent_vols)
-        vol_avg_last = sum(recent_vols[-5:]) / 5
-
-        if vol_avg_last > vol_avg_full * self.VOL_DRY_PCT:
-            return  # No hay dry-up de volumen
-
-        # 4. Breakout: precio por encima del high de las últimas 3 semanas con volumen
-        resistance = max(recent_highs[:-1])  # Resistencia = max excluyendo la barra actual
-
-        if c > resistance and v > vol_avg_full * self.BREAKOUT_VOL:
+        # 4. Breakout: precio rompe la resistencia con expansión de volumen intradía
+        if c > resistance:
+            if len(self._volumes[sym]) > 5:
+                # Comprar volumen relativo intradía (las últimas barras excluyendo la actual)
+                recent_vols = list(self._volumes[sym])[:-1]
+                avg_min_vol = sum(recent_vols) / len(recent_vols)
+                
+                # Se requiere un pico de volumen relativo en minuto real
+                if v < avg_min_vol * self.BREAKOUT_VOL:
+                    return
+            
             # En Modo C: anotar el score en el log para trazabilidad
             score_note = ""
             if _SCORER_AVAILABLE:
@@ -171,8 +168,8 @@ class VCPStrategy(BaseStrategy):
                 return
 
             logger.info(
-                f"[{self.name}] 🏔️ VCP BREAKOUT {sym}! "
-                f"Close={c:.2f} > Resistance={resistance:.2f} | Vol={v:.0f} ({v/vol_avg_full:.1f}x){score_note}"
+                f"[{self.name}] 🏔️ VCP BREAKOUT INTRA-DAY {sym}! "
+                f"Close={c:.2f} > Res={resistance:.2f} | Vol={v:.0f}x{score_note}"
             )
             await self.order_manager.buy_bracket(
                 symbol=sym,
