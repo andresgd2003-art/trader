@@ -813,8 +813,8 @@
         <div class="card-header"><span class="card-title">🔄 Órdenes Equities Hoy</span></div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
-            <thead><tr><th>Símbolo</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Estrategia</th></tr></thead>
-            <tbody id="eq-orders-body"><tr><td colspan="5" class="empty-msg">Cargando...</td></tr></tbody>
+            <thead><tr><th>Símbolo</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Fill Price</th><th>Estrategia</th></tr></thead>
+            <tbody id="eq-orders-body"><tr><td colspan="6" class="empty-msg">Cargando...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1395,14 +1395,17 @@ async function loadEquitiesData() {
 
   const ordBody = document.getElementById('eq-orders-body');
   ordBody.innerHTML = eqOrds.slice(0,15).map(o => {
-    const strat = (o.client_id||'').replace('eq_','').split('_')[0] || '—';
+    let strat = (o.client_id||'').replace('eq_','').split('_')[0] || '—';
+    if (!o.client_id || (o.client_id.length > 20 && !o.client_id.startsWith('eq_'))) {
+        strat = o.strategy ? o.strategy : 'Auto-Bracket';
+    }
     return `<tr>
       <td style="font-weight:600;color:var(--eq-accent)">${o.symbol}</td>
       <td class="${o.side==='buy'?'badge-buy':'badge-sell'}">${o.side?.toUpperCase()}</td>
       <td>${o.filled_qty || o.qty}</td>
       <td class="${o.status==='filled'?'badge-filled':'badge-new'}">${o.status}</td>
       <td>${o.filled_avg_price ? fmtMoney(o.filled_avg_price) : '—'}</td>
-      <td style="color:var(--text-dim)">#${strat}</td>
+      <td style="color:var(--text-dim)">${strat.startsWith('#') ? '' : '#'}${strat}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" class="empty-msg">Sin órdenes equities hoy</td></tr>';
 

@@ -394,6 +394,7 @@ async def update_cache_task():
                         "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else None,
                         "created_at":   o.submitted_at.isoformat() if o.submitted_at else None,
                         "client_id":    str(o.client_order_id) if o.client_order_id else "",
+                        "strategy":     symbol_to_strategy.get(o.symbol, "")
                     }
                     
                     # Usamos el meta parser para los órdenes que lo tengan, y si no, caemos a ETFs list
