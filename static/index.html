@@ -1009,14 +1009,11 @@ async function updateGlobalHealth(acct) {
         const ts = new Date(regime.last_assessed);
         setEl('regime-ts', ts.toLocaleTimeString());
       }
-      if (regime.active_strategies) {
-        const ETF_NAMES  = {1:'GoldenCross',2:'Donchian',3:'Rotation',4:'MACD',5:'RSI Dip',6:'Bollinger',7:'VIX RSI',8:'VWAP',9:'Pairs',10:'Grid'};
-        const CRYPTO_NAMES = {1:'EMA Cross',2:'BB Break',3:'Grid',4:'SmartTWAP',5:'Funding',6:'Vol Anom',7:'PairDiv',8:'EMAribb',9:'VWAP',10:'Sentiment'};
-        const EQ_NAMES   = {1:'Gapper',2:'VCP',3:'GapFade',4:'PEAD',5:'Gamma',6:'RSI Ext',7:'StatArb',8:'NLP',9:'Insider',10:'SectorRot'};
-        const fmt = (nums, nameMap) => nums.length ? nums.map(n => `<span style="background:rgba(255,255,255,0.06);border-radius:4px;padding:2px 6px;margin:2px;display:inline-block;font-size:0.7rem;">#${n} ${nameMap[n]||n}</span>`).join('') : '<em style="color:var(--text-dim)">Ninguno activo</em>';
-        document.getElementById('regime-etf-bots').innerHTML = fmt(regime.active_strategies.etf || [], ETF_NAMES);
-        document.getElementById('regime-crypto-bots').innerHTML = fmt(regime.active_strategies.crypto || [], CRYPTO_NAMES);
-        document.getElementById('regime-eq-bots').innerHTML = fmt(regime.active_strategies.equities || [], EQ_NAMES);
+      if (regime.regime) {
+        const sizingDesc = regime.regime === 'BULL' ? '🟢 Sizing Alto (4%)' : regime.regime === 'CHOP' ? '🟡 Sizing Medio (3%)' : regime.regime === 'BEAR' ? '🔴 Sizing Bajo (2%)' : '⚪ Sizing Base (2%)';
+        document.getElementById('regime-etf-bots').innerHTML = `<div style="font-size:0.85rem">10/10 Activos</div><div style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">${sizingDesc}</div>`;
+        document.getElementById('regime-crypto-bots').innerHTML = `<div style="font-size:0.85rem">10/10 Activos</div><div style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">Motor 24/7 Always-On</div>`;
+        document.getElementById('regime-eq-bots').innerHTML = `<div style="font-size:0.85rem">10/10 Activos</div><div style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">Exposición Gestionada</div>`;
       }
     }
   } catch(e) { /* regime widget falla silenciosamente */ }
@@ -1199,7 +1196,7 @@ async function loadEtfData() {
           <div class="strat-name">${s.name}</div>
           <div class="strat-status active" title="Activa"></div>
         </div>
-        <div class="strat-regime" style="color:var(--text-dim)">${s.regime}</div>
+        <div class="strat-regime" style="color:var(--green)">100% ACTIVA • SIZING DINÁMICO</div>
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px">
             <div class="strat-symbol">${s.symbols}</div>
             <div style="font-size:0.75rem; font-weight:700" class="${colorClass(pnl)}">${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}</div>
@@ -1293,7 +1290,7 @@ async function loadCryptoData() {
         <div class="strat-name">${s.name}</div>
         <div class="strat-status ${owned ? 'active' : 'standby'}" title="${owned?'Posición abierta':'Stand-by'}"></div>
       </div>
-      <div class="strat-regime">P${s.p} • ${s.regime}</div>
+      <div class="strat-regime">P${s.p} • SIEMPRE ACTIVA</div>
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px">
           <div class="strat-symbol">${s.symbols}</div>
           <div style="font-size:0.75rem; font-weight:700" class="${colorClass(pnl)}">${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}</div>
@@ -1345,7 +1342,7 @@ async function loadEquitiesData() {
         setEl('eq-regime-spy', `$${fmt(regime.spy_price)}`);
         setEl('eq-regime-sma', `$${fmt(regime.spy_sma200)}`);
         setEl('eq-regime-vix', fmt(regime.vix_price));
-        setEl('eq-regime-strats', (regime.enabled_strategies||[]).map(n=>`#${n}`).join(', '));
+        setEl('eq-regime-strats', 'Todas Activas (Sizing Dinámico)');
     }
   }
 
@@ -1424,8 +1421,8 @@ async function loadEquitiesData() {
   const enabledStrats = regime?.enabled_strategies || [];
   const grid = document.getElementById('eq-strat-grid');
   grid.innerHTML = EQ_STRATEGIES.map(s => {
-    const isEnabled = enabledStrats.includes(s.strat);
-    const regiColor = s.regime === 'BULL' ? 'var(--green)' : s.regime === 'BEAR' ? 'var(--red)' : 'var(--yellow)';
+    const isEnabled = true;
+    const regiColor = 'var(--text-secondary)';
     
     const stratID = s.name.replace(/\s+/g, '');
     let pnl = 0;
@@ -1435,9 +1432,9 @@ async function loadEquitiesData() {
     <div class="strat-card">
       <div class="strat-top">
         <div class="strat-name">#${s.strat} ${s.name}</div>
-        <div class="strat-status ${isEnabled ? 'active' : 'standby'}" title="${isEnabled?'Habilitada en régimen actual':'Stand-by'}"></div>
+        <div class="strat-status active" title="Siempre Activa"></div>
       </div>
-      <div class="strat-regime" style="color:${regiColor}">${s.regime}</div>
+      <div class="strat-regime" style="color:var(--green)">Sizing Dinámico</div>
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px">
           <div class="strat-symbol">${s.symbols}</div>
           <div style="font-size:0.75rem; font-weight:700" class="${colorClass(pnl)}">${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}</div>
