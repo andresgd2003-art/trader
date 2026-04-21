@@ -48,7 +48,7 @@ class OrderManagerEquities:
     """
 
     MIN_DELAY_SECONDS = 0.5  # Acciones tienen más latencia que cripto
-    MAX_POSITION_USD = 100.0  # Micro-sizing: máximo $100 por trade
+    MAX_POSITION_USD = 200.0  # Micro-sizing ampliado: máximo $200 por trade
 
     def __init__(self):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
@@ -84,7 +84,7 @@ class OrderManagerEquities:
             account = self.client.get_account()
             # Fallback para Paper Trading - Settled Cash solo existe en Live
             settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
-            target_amount = settled_cash * 0.05
+            target_amount = settled_cash * 0.10
             return min(target_amount, self.MAX_POSITION_USD)
         except Exception as e:
             logger.error(f"[OrderManagerEquities] Error calculando notional: {e}")
