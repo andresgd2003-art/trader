@@ -28,10 +28,7 @@ from engine.portfolio_manager import PortfolioManager
 from engine.notifier import TelegramNotifier
 from strategies_equities import (
     VCPStrategy,
-    PEADStrategy,
     GammaSqueezeStrategy,
-    NLPSentimentStrategy,
-    InsiderFlowStrategy,
     SectorRotationStrategy,
 )
 
@@ -85,11 +82,8 @@ class EquitiesEngine:
     def _register_strategies(self) -> list:
         strats = [
             VCPStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),          # idx 0, strat 2
-            PEADStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),         # idx 1, strat 4
-            GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 2, strat 5
-            NLPSentimentStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 3, strat 8
-            InsiderFlowStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),  # idx 4, strat 9
-            SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 5, strat 10
+            GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 1, strat 5
+            SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 2, strat 10
         ]
         _EQ_ENGINE_STATUS["strategies"] = [s.name for s in strats]
         logger.info(f"[EquitiesEngine] {len(strats)} estrategias registradas.")
@@ -164,20 +158,7 @@ class EquitiesEngine:
             await asyncio.sleep(300)
             self.portfolio_manager.check()
 
-    async def _insider_cron(self):
-        """Cron job a las 18:00 EST para buscar Form 4 de EDGAR."""
-        # Buscar InsiderFlowStrategy por tipo (no por índice hardcodeado)
-        insider_strat = next(s for s in self.strategies if isinstance(s, InsiderFlowStrategy))
-        while True:
-            now = datetime.now()
-            # Esperar hasta las 18:00 EST
-            target = now.replace(hour=18, minute=0, second=0, microsecond=0)
-            if now >= target:
-                target = target.replace(day=target.day + 1)
-            wait_secs = (target - now).total_seconds()
-            await asyncio.sleep(wait_secs)
-            logger.info("[EquitiesEngine] Ejecutando cron de Insider Filings (18:00 EST)...")
-            await insider_strat.fetch_insider_filings()
+
 
     async def _market_close_routine(self):
         """A las 16:30 EST, cancelar órdenes pendientes."""
@@ -339,7 +320,6 @@ class EquitiesEngine:
             # Lanzar tareas concurrentes
             await asyncio.gather(
                 self._portfolio_monitor(),
-                self._insider_cron(),
                 self._market_close_routine(),
                 return_exceptions=False # Queremos que el try/except maneje errores graves
             )

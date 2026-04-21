@@ -8,9 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   <style>
     :root {
-      --bg-primary:    #060a12;
+      --bg-primary:    #04070d;
+      --glass-bg:      rgba(10, 16, 28, 0.7);
+      --glass-border:  rgba(255, 255, 255, 0.05);
       --bg-secondary:  #0a1120;
       --bg-card:       #0f1929;
       --bg-card-alt:   #0c1520;
@@ -48,11 +51,24 @@
       overflow-x: hidden;
     }
 
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: 
+        radial-gradient(ellipse at 15% 50%, rgba(0,212,255,0.04), transparent 50%),
+        radial-gradient(ellipse at 85% 20%, rgba(123,94,167,0.05), transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(0,230,118,0.02), transparent 40%);
+      pointer-events: none;
+      z-index: -1;
+      transform: translateZ(0);
+    }
+
     /* ── NAVBAR ── */
     .navbar {
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 28px; height: 64px;
-      background: var(--bg-secondary);
+      background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
       position: sticky; top: 0; z-index: 200;
     }
@@ -81,29 +97,30 @@
       letter-spacing: .8px; text-transform: uppercase;
     }
 
-    /* ── TABS ── */
+    /* ── TABS (Pill Style) ── */
     .tab-bar {
-      display: flex; align-items: center; gap: 0;
-      background: var(--bg-secondary); border-bottom: 1px solid var(--border);
-      padding: 0 24px; position: sticky; top: 64px; z-index: 150;
+      display: flex; align-items: center; gap: 10px;
+      background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border);
+      padding: 12px 24px; position: sticky; top: 64px; z-index: 150;
     }
     .tab-btn {
       display: flex; align-items: center; gap: 8px;
-      padding: 0 22px; height: 48px;
-      background: none; border: none; cursor: pointer;
+      padding: 8px 18px; border-radius: 20px;
+      background: rgba(255,255,255,0.03); border: 1px solid transparent; cursor: pointer;
       font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600;
-      color: var(--text-secondary); border-bottom: 2px solid transparent;
-      transition: all .25s ease; position: relative; top: 1px;
+      color: var(--text-secondary);
+      transition: all .25s ease;
       white-space: nowrap; letter-spacing: .3px;
     }
-    .tab-btn:hover { color: var(--text-primary); }
-    .tab-btn.active[data-tab="etf"]    { color: var(--etf-accent);    border-bottom-color: var(--etf-accent); }
-    .tab-btn.active[data-tab="crypto"] { color: var(--crypto-accent);  border-bottom-color: var(--crypto-accent); }
-    .tab-btn.active[data-tab="eq"]     { color: var(--eq-accent);     border-bottom-color: var(--eq-accent); }
+    .tab-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+    .tab-btn.active[data-tab="home"]   { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+    .tab-btn.active[data-tab="etf"]    { color: var(--etf-accent); border-color: var(--etf-accent); background: var(--etf-glow); }
+    .tab-btn.active[data-tab="crypto"] { color: var(--crypto-accent); border-color: var(--crypto-accent); background: var(--crypto-glow); }
+    .tab-btn.active[data-tab="eq"]     { color: var(--eq-accent); border-color: var(--eq-accent); background: var(--eq-glow); }
     .tab-icon { font-size: 1.1rem; }
     .tab-count {
       font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 10px;
-      background: var(--bg-card); color: var(--text-secondary);
+      background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); color: var(--text-secondary);
     }
 
     /* ── TAB PANELS ── */
@@ -118,7 +135,7 @@
       display: flex; align-items: center; gap: 16px;
       padding: 14px 20px; margin-bottom: 20px;
       border-radius: 12px; border: 1px solid var(--border);
-      background: var(--bg-card);
+      background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
       animation: fadeIn .4s ease;
     }
     .regime-badge {
@@ -138,21 +155,22 @@
       gap: 14px; margin-bottom: 20px;
     }
     .stat-card {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); border: 1px solid var(--border); border-radius: 14px;
       padding: 18px 20px; position: relative; overflow: hidden;
       transition: border-color .2s, transform .2s;
     }
     .stat-card:hover { border-color: var(--border-bright); transform: translateY(-2px); }
     .stat-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      border-radius: 14px 14px 0 0;
+      content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
+      border-radius: 14px 0 0 14px;
     }
-    .stat-card.etf::before    { background: linear-gradient(90deg, var(--etf-accent), transparent); }
-    .stat-card.crypto::before { background: linear-gradient(90deg, var(--crypto-accent), transparent); }
-    .stat-card.eq::before     { background: linear-gradient(90deg, var(--eq-accent), transparent); }
-    .stat-card.neutral::before { background: linear-gradient(90deg, var(--accent), transparent); }
-    .stat-label { font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 8px; }
-    .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 600; line-height: 1; }
+    .stat-card.etf::before    { background: var(--etf-accent); box-shadow: 0 0 10px var(--etf-glow); }
+    .stat-card.crypto::before { background: var(--crypto-accent); box-shadow: 0 0 10px var(--crypto-glow); }
+    .stat-card.eq::before     { background: var(--eq-accent); box-shadow: 0 0 10px var(--eq-glow); }
+    .stat-card.neutral::before { background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+    .stat-label { font-size: 0.68rem; opacity: 0.6; color: var(--text-secondary); font-weight: 500; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 8px; }
+    .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 2.2rem; letter-spacing: -1px; font-weight: 600; line-height: 1; }
+    .stat-value.gradient-text { background: linear-gradient(135deg, #00e676, #00d4ff); -webkit-background-clip: text; color: transparent; }
     .stat-value.green { color: var(--green); }
     .stat-value.red   { color: var(--red); }
     .stat-value.yellow{ color: var(--yellow); }
@@ -164,7 +182,7 @@
       display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;
     }
     .health-card {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+      background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); border: 1px solid var(--border); border-radius: 12px;
       padding: 16px; position: relative;
     }
     .health-card::before {
@@ -179,8 +197,8 @@
     .h-value { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
     .h-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; font-weight: 500;}
     
-    .progress-bg { height: 6px; background: var(--bg-card-alt); border-radius: 3px; overflow: hidden; }
-    .progress-fill { height: 100%; background: var(--yellow); border-radius: 3px; transition: width 0.6s ease; }
+    .progress-bg { height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
+    .progress-fill { height: 100%; background: var(--yellow); border-radius: 4px; transition: width 0.6s ease; box-shadow: inset 0 2px 2px rgba(255,255,255,0.15); }
     .progress-fill.blue { background: #3b82f6; }
     .progress-fill.green { background: var(--green); }
     .progress-fill.red { background: var(--red); }
@@ -199,7 +217,7 @@
 
     /* ── CARD ── */
     .card {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); border: 1px solid var(--border); border-radius: 14px;
       overflow: hidden;
     }
     .card-header {
@@ -224,7 +242,8 @@
       font-family: 'JetBrains Mono', monospace;
     }
     .data-table tr:last-child td { border-bottom: none; }
-    .data-table tr:hover td { background: var(--bg-card-alt); }
+        .data-table tr:hover td { background: var(--bg-card-alt); }
+    .data-table tbody tr:nth-child(even) td { background: rgba(15,25,41,0.3); }
     .badge-buy   { color: var(--green); font-weight: 600; }
     .badge-sell  { color: var(--red); font-weight: 600; }
     .badge-filled { color: var(--green); font-size: 0.65rem; }
@@ -236,7 +255,7 @@
       display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;
     }
     .strat-card {
-      background: var(--bg-card-alt); border: 1px solid var(--border); border-radius: 10px;
+      background: rgba(15, 25, 41, 0.4); backdrop-filter: blur(8px); border: 1px solid var(--glass-border); border-radius: 10px;
       padding: 14px 16px; position: relative; transition: border-color .2s;
     }
     .strat-card:hover { border-color: var(--border-bright); }
@@ -259,7 +278,7 @@
     .chip:hover { transform: scale(1.05); }
     .chip-gainer { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.2); }
     .chip-loser  { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,79,109,.2); }
-    .chip-neutral { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
+    .chip-neutral { background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); color: var(--text-secondary); border: 1px solid var(--border); }
 
     /* ── CIRCUIT BREAKER ── */
     .circuit-alert {
@@ -354,14 +373,14 @@
   <div class="health-dash">
       <!-- Clock Widget -->
       <div class="health-card clock">
-          <div class="h-title">⏰ Reloj de Wall Street</div>
+          <div class="h-title"><i data-lucide="clock" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Reloj de Wall Street</div>
           <div id="market-status-badge" class="badge-new" style="font-size: 1.2rem; margin-bottom: 8px; font-weight: 700;">Validando...</div>
           <div class="h-sub" id="market-time-sub">Consultando API de Alpaca</div>
       </div>
 
       <!-- Cash Settled Widget -->
       <div class="health-card pdt">
-          <div class="h-title">🛡️ FONDOS ASENTADOS (CASH ACCOUNT)</div>
+          <div class="h-title"><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> FONDOS ASENTADOS (CASH ACCOUNT)</div>
           <div class="h-value" id="dt-count-wrapper"><span id="dt-count">$0.00</span></div>
           <div class="progress-bg"><div class="progress-fill green" id="dt-bar" style="width:100%"></div></div>
           <div class="h-sub" id="pdt-status">Libre de PDT (Regla T+1)</div>
@@ -369,7 +388,7 @@
 
       <!-- Buying Power Widget -->
       <div class="health-card bp">
-          <div class="h-title">💵 Poder de Compra</div>
+          <div class="h-title"><i data-lucide="banknote" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Poder de Compra</div>
           <div class="h-value" id="bp-value">$0.00</div>
           <div class="progress-bg"><div class="progress-fill blue" id="bp-bar" style="width:0%"></div></div>
           <div class="h-sub" id="bp-sub">Capital Disponible Sano</div>
@@ -377,7 +396,7 @@
       
       <!-- Long vs Short Widget -->
       <div class="health-card exp">
-          <div class="h-title">⚖️ Exposición (Alza vs Baja)</div>
+          <div class="h-title"><i data-lucide="scale" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Exposición (Alza vs Baja)</div>
           <div class="exposure-bar" style="margin-top: 10px;">
               <div id="long-bar" class="exp-long" style="width:0%"></div>
               <div id="cash-bar" class="exp-cash" style="width:100%">100% Cash</div>
@@ -390,18 +409,18 @@
 <!-- ── TABS ── -->
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="home" onclick="switchTab('home')">
-    <span class="tab-icon">🏠</span> Home
+    <span class="tab-icon"><i data-lucide="home" style="width:16px;height:16px;"></i></span> Home
   </button>
   <button class="tab-btn" data-tab="etf" onclick="switchTab('etf')">
-    <span class="tab-icon">📈</span> ETF Stocks
+    <span class="tab-icon"><i data-lucide="trending-up" style="width:16px;height:16px;"></i></span> ETF Stocks
     <span class="tab-count" id="etf-pos-count">–</span>
   </button>
   <button class="tab-btn" data-tab="crypto" onclick="switchTab('crypto')">
-    <span class="tab-icon">₿</span> Crypto 24/7
+    <span class="tab-icon"><i data-lucide="bitcoin" style="width:16px;height:16px;"></i></span> Crypto 24/7
     <span class="tab-count" id="crypto-pos-count">–</span>
   </button>
   <button class="tab-btn" data-tab="eq" onclick="switchTab('eq')">
-    <span class="tab-icon">⚡</span> Equities
+    <span class="tab-icon"><i data-lucide="zap" style="width:16px;height:16px;"></i></span> Equities
     <span class="tab-count" id="eq-pos-count">–</span>
   </button>
 </div>
@@ -413,14 +432,14 @@
   <div class="page-content" style="max-width: 1000px; margin: 0 auto;">
     
     <div class="section-header" style="text-align: center; margin-bottom: 30px; margin-top: 20px;">
-      <h1 style="font-size: 1.6rem; color: var(--text-primary); margin-bottom: 8px;">🌐 Resumen Maestro del Portafolio</h1>
+      <h1 style="font-size: 2.2rem; letter-spacing: -1px; color: var(--text-primary); margin-bottom: 8px;"><i data-lucide="globe" style="width:20px;height:20px;display:inline-block;vertical-align:middle;"></i> Resumen Maestro del Portafolio</h1>
       <p style="color: var(--text-secondary); font-size: 0.9rem;">Evolución histórica integrada de tus 30 Bots Algorítmicos</p>
     </div>
 
     <!-- Chart Consolidado -->
     <div class="card" style="margin-bottom: 30px;">
         <div class="card-header" style="justify-content: space-between;">
-          <span class="card-title">🚀 Rendimiento Total Consolidado (Cuenta Completa)</span>
+          <span class="card-title"><i data-lucide="rocket" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Rendimiento Total Consolidado (Cuenta Completa)</span>
           <div class="time-filters">
             <button class="time-btn" onclick="updateChartPeriod('home', '1D')">1D</button>
             <button class="time-btn" onclick="updateChartPeriod('home', '1W')">1W</button>
@@ -441,17 +460,17 @@
         <div class="stat-sub" id="home-pnl-sub">P&amp;L del día</div>
       </div>
       <div class="stat-card" style="border-left: 3px solid #4caf50;">
-        <div class="stat-label">💵 Efectivo Disponible</div>
+        <div class="stat-label"><i data-lucide="banknote" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Efectivo Disponible</div>
         <div class="stat-value green" id="home-cash">—</div>
         <div class="stat-sub" id="home-cash-pct">Sin invertir</div>
       </div>
       <div class="stat-card" style="border-left: 3px solid #ff9800;">
-        <div class="stat-label">📊 Capital Invertido</div>
+        <div class="stat-label"><i data-lucide="bar-chart-2" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Capital Invertido</div>
         <div class="stat-value" id="home-invested">—</div>
         <div class="stat-sub" id="home-invested-pct">En posiciones abiertas</div>
       </div>
       <div class="stat-card crypto">
-        <div class="stat-label">⚡ Buying Power</div>
+        <div class="stat-label"><i data-lucide="zap" style="width:16px;height:16px;"></i> Buying Power</div>
         <div class="stat-value" id="home-bp">—</div>
         <div class="stat-sub">Con margen 2x disponible</div>
       </div>
@@ -461,7 +480,7 @@
     <div class="card" style="margin-bottom: 30px; border-left: 4px solid var(--etf-accent);" id="regime-card">
       <div class="card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
         <div style="display: flex; align-items: center; gap: 12px;">
-          <span id="regime-icon" style="font-size: 1.8rem;">🔄</span>
+          <span id="regime-icon" style="color:var(--text-primary);"><i data-lucide="refresh-cw" style="width:32px;height:32px;"></i></span>
           <div>
             <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;">Régimen de Mercado</div>
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -480,11 +499,11 @@
       <div class="card-body" style="padding: 16px 20px;">
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
           <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
-            <div style="font-size: 0.7rem; color: var(--etf-accent); font-weight: 700; margin-bottom: 6px; text-transform: uppercase;">📈 ETFs Activos</div>
+            <div style="font-size: 0.7rem; color: var(--etf-accent); font-weight: 700; margin-bottom: 6px; text-transform: uppercase;"><i data-lucide="trending-up" style="width:16px;height:16px;"></i> ETFs Activos</div>
             <div id="regime-etf-bots" style="font-size: 0.8rem; color: var(--text-secondary);">—</div>
           </div>
           <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
-            <div style="font-size: 0.7rem; color: var(--crypto-accent); font-weight: 700; margin-bottom: 6px; text-transform: uppercase;">₿ Crypto Activos</div>
+            <div style="font-size: 0.7rem; color: var(--crypto-accent); font-weight: 700; margin-bottom: 6px; text-transform: uppercase;"><i data-lucide="bitcoin" style="width:16px;height:16px;"></i> Crypto Activos</div>
             <div id="regime-crypto-bots" style="font-size: 0.8rem; color: var(--text-secondary);">—</div>
           </div>
           <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
@@ -500,7 +519,7 @@
       
       <!-- Card ETF -->
       <div class="card stat-card etf" style="cursor: pointer; text-align: center; padding: 40px 20px; transition: transform 0.2s;" onclick="switchTab('etf')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
-        <div style="font-size: 3.5rem; margin-bottom: 16px;">📈</div>
+        <div style="margin-bottom: 16px; color: var(--etf-accent);"><i data-lucide="trending-up" style="width:48px;height:48px;"></i></div>
         <h2 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">10 Bots ETF</h2>
         <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 30px; padding: 0 10px;">Enfocado en ETFs apalancados 3X, coberturas SPY y rotación sectorial.</p>
         <button style="background: rgba(0, 191, 165, 0.15); color: var(--etf-accent); border: 1px solid rgba(0, 191, 165, 0.4); padding: 10px 20px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer;">Entrar al Panel ETF</button>
@@ -508,7 +527,7 @@
 
       <!-- Card Crypto -->
       <div class="card stat-card crypto" style="cursor: pointer; text-align: center; padding: 40px 20px; transition: transform 0.2s;" onclick="switchTab('crypto')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
-        <div style="font-size: 3.5rem; margin-bottom: 16px;">₿</div>
+        <div style="margin-bottom: 16px; color: var(--crypto-accent);"><i data-lucide="bitcoin" style="width:48px;height:48px;"></i></div>
         <h2 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">10 Bots Cripto</h2>
         <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 30px; padding: 0 10px;">Motor sin descanso 24/7. Opera fracciones directas en base a Momentum y Ondas.</p>
         <button style="background: rgba(247, 147, 26, 0.15); color: var(--crypto-accent); border: 1px solid rgba(247, 147, 26, 0.4); padding: 10px 20px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer;">Entrar al Panel Cripto</button>
@@ -516,7 +535,7 @@
 
       <!-- Card Equities -->
       <div class="card stat-card eq" style="cursor: pointer; text-align: center; padding: 40px 20px; transition: transform 0.2s;" onclick="switchTab('eq')" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
-        <div style="font-size: 3.5rem; margin-bottom: 16px;">⚡</div>
+        <div style="margin-bottom: 16px; color: var(--eq-accent);"><i data-lucide="zap" style="width:48px;height:48px;"></i></div>
         <h2 style="color: var(--text-primary); margin-bottom: 8px; font-weight: 700;">10 Bots Acciones</h2>
         <p style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 30px; padding: 0 10px;">Acciones sumamente volátiles, intratiempo y detección de huecos de apertura (Gaps).</p>
         <button style="background: rgba(144, 202, 249, 0.15); color: var(--eq-accent); border: 1px solid rgba(144, 202, 249, 0.4); padding: 10px 20px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer;">Entrar a Equities</button>
@@ -560,7 +579,7 @@
     <!-- Chart Específico ETF -->
     <div class="card" style="margin-bottom: 20px;">
         <div class="card-header" style="justify-content: space-between;">
-          <span class="card-title">📉 Rendimiento Bot ETF</span>
+          <span class="card-title"><i data-lucide="trending-down" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Rendimiento Bot ETF</span>
           <div class="time-filters">
             <button class="time-btn" onclick="updateChartPeriod('etf', '1D')">1D</button>
             <button class="time-btn" onclick="updateChartPeriod('etf', '1W')">1W</button>
@@ -577,7 +596,7 @@
       <!-- Posiciones -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">📁 Posiciones Abiertas (ETF)</span>
+          <span class="card-title"><i data-lucide="folder-open" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Posiciones Abiertas (ETF)</span>
           <button class="refresh-btn" onclick="loadEtfData()">↻ Refresh</button>
         </div>
         <div class="card-body" style="padding:0">
@@ -593,7 +612,7 @@
       <!-- Órdenes recientes -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">🔄 Órdenes Recientes (ETF)</span>
+          <span class="card-title"><i data-lucide="refresh-cw" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Órdenes Recientes (ETF)</span>
           <span class="last-updated" id="etf-last-updated">–</span>
         </div>
         <div class="card-body" style="padding:0">
@@ -617,14 +636,14 @@
     </div>
 
     <!-- Estrategias ETF -->
-    <div class="section-header" style="margin-top:8px"><div class="section-title">🎯 Las 10 Estrategias ETF</div></div>
+    <div class="section-header" style="margin-top:8px"><div class="section-title"><i data-lucide="target" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Las 10 Estrategias ETF</div></div>
     <div class="strat-grid" id="etf-strat-grid" style="margin-bottom:20px;">
       <!-- generado por JS -->
     </div>
 
     <!-- Logs -->
     <div class="card">
-      <div class="card-header"><span class="card-title">📋 Engine Logs</span></div>
+      <div class="card-header"><span class="card-title"><i data-lucide="clipboard-list" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Engine Logs</span></div>
       <div class="card-body" style="padding:10px"><div class="log-box" id="etf-logs"></div></div>
     </div>
 
@@ -663,7 +682,7 @@
     <!-- Chart Específico Cripto -->
     <div class="card" style="margin-bottom: 20px;">
         <div class="card-header" style="justify-content: space-between;">
-          <span class="card-title">📉 Rendimiento Bot Criptomonedas</span>
+          <span class="card-title"><i data-lucide="trending-down" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Rendimiento Bot Criptomonedas</span>
           <div class="time-filters">
             <button class="time-btn" onclick="updateChartPeriod('crypto', '1D')">1D</button>
             <button class="time-btn" onclick="updateChartPeriod('crypto', '1W')">1W</button>
@@ -680,7 +699,7 @@
       <!-- Posiciones -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">₿ Posiciones Crypto</span>
+          <span class="card-title"><i data-lucide="bitcoin" style="width:16px;height:16px;"></i> Posiciones Crypto</span>
           <button class="refresh-btn" onclick="loadCryptoData()">↻ Refresh</button>
         </div>
         <div class="card-body" style="padding:0">
@@ -695,7 +714,7 @@
       
       <!-- Ordenes Crypto -->
       <div class="card">
-        <div class="card-header"><span class="card-title">🔄 Órdenes Crypto Recientes</span></div>
+        <div class="card-header"><span class="card-title"><i data-lucide="refresh-cw" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Órdenes Crypto Recientes</span></div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
             <thead><tr><th>Par</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Fill Price</th></tr></thead>
@@ -706,7 +725,7 @@
     </div>
 
     <!-- Estrategias Crypto -->
-    <div class="section-header" style="margin-top:20px"><div class="section-title">🎯 Estrategias Crypto (AssetArbiter)</div></div>
+    <div class="section-header" style="margin-top:20px"><div class="section-title"><i data-lucide="target" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Estrategias Crypto (AssetArbiter)</div></div>
     <div class="strat-grid" id="crypto-strat-grid">
       <!-- generado por JS -->
     </div>
@@ -722,7 +741,7 @@
 
     <!-- Circuit Breaker Alert -->
     <div class="circuit-alert" id="circuit-alert">
-      <div class="circuit-icon">🚨</div>
+      <div class="circuit-icon"><i data-lucide="alert-triangle" style="width:24px;height:24px;color:var(--red);"></i></div>
       <div class="circuit-text">
         <strong>CIRCUIT BREAKER ACTIVADO</strong>
         <p id="circuit-reason">Drawdown superó el 10% del ATH. Todas las posiciones liquidadas.</p>
@@ -769,7 +788,7 @@
     <!-- Chart Específico Equities -->
     <div class="card" style="margin-bottom: 20px;">
         <div class="card-header" style="justify-content: space-between;">
-          <span class="card-title">📉 Rendimiento Bot Equities</span>
+          <span class="card-title"><i data-lucide="trending-down" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Rendimiento Bot Equities</span>
           <div class="time-filters">
             <button class="time-btn" onclick="updateChartPeriod('eq', '1D')">1D</button>
             <button class="time-btn" onclick="updateChartPeriod('eq', '1W')">1W</button>
@@ -785,13 +804,13 @@
     <!-- Universo dinámico -->
     <div class="card" style="margin-bottom:20px">
       <div class="card-header">
-        <span class="card-title">🔍 Universo Dinámico del Día (PreMarket Screener)</span>
+        <span class="card-title"><i data-lucide="search" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Universo Dinámico del Día (PreMarket Screener)</span>
         <button class="refresh-btn" onclick="loadEquitiesData()">↻ Refresh</button>
       </div>
       <div class="card-body">
-        <div style="margin-bottom:10px;font-size:.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.6px;">📈 Gainers ($1-$25)</div>
+        <div style="margin-bottom:10px;font-size:.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.6px;"><i data-lucide="trending-up" style="width:16px;height:16px;"></i> Gainers ($1-$25)</div>
         <div class="ticker-chips" id="eq-gainers-chips"></div>
-        <div style="margin:14px 0 10px;font-size:.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.6px;">📉 Losers</div>
+        <div style="margin:14px 0 10px;font-size:.72rem;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.6px;"><i data-lucide="trending-down" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Losers</div>
         <div class="ticker-chips" id="eq-losers-chips"></div>
         <div style="margin-top:10px;font-size:.68rem;color:var(--text-dim)" id="eq-universe-updated">Última actualización: —</div>
       </div>
@@ -800,7 +819,7 @@
     <div class="two-col">
       <!-- Posiciones abiertas equities -->
       <div class="card">
-        <div class="card-header"><span class="card-title">📁 Posiciones Equities</span></div>
+        <div class="card-header"><span class="card-title"><i data-lucide="folder-open" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Posiciones Equities</span></div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
             <thead><tr><th>Símbolo</th><th>Qty</th><th>P&L $</th><th>Estrategia</th></tr></thead>
@@ -810,7 +829,7 @@
       </div>
       <!-- Órdenes equities -->
       <div class="card">
-        <div class="card-header"><span class="card-title">🔄 Órdenes Equities Hoy</span></div>
+        <div class="card-header"><span class="card-title"><i data-lucide="refresh-cw" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Órdenes Equities Hoy</span></div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
             <thead><tr><th>Símbolo</th><th>Lado</th><th>Qty</th><th>Estado</th><th>Fill Price</th><th>Estrategia</th></tr></thead>
@@ -822,7 +841,7 @@
 
     <!-- Estrategias Equities -->
     <div class="section-header">
-      <div class="section-title">🎯 Las 10 Estrategias Equities</div>
+      <div class="section-title"><i data-lucide="target" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Las 10 Estrategias Equities</div>
     </div>
     <div class="strat-grid" id="eq-strat-grid">
       <!-- generado por JS -->
@@ -831,7 +850,7 @@
     <!-- ── PERFORMANCE POR ESTRATEGIA (Palanca 2) ── -->
     <div class="card" style="margin-top: 30px;">
       <div class="card-header" style="justify-content: space-between;">
-        <span class="card-title">🏆 Ranking de Rendimiento por Estrategia</span>
+        <span class="card-title"><i data-lucide="trophy" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Ranking de Rendimiento por Estrategia</span>
         <button class="refresh-btn" onclick="loadStrategyRanking()">↻ Actualizar</button>
       </div>
       <div class="card-body">
@@ -840,7 +859,7 @@
         </div>
         
         <div style="display: flex; gap: 10px; margin-bottom: 16px; align-items: center;">
-            <button class="refresh-btn" onclick="compareSelectedStrategies()">📊 Comparar Seleccionadas</button>
+            <button class="refresh-btn" onclick="compareSelectedStrategies()"><i data-lucide="bar-chart-2" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Comparar Seleccionadas</button>
             <select id="compare-period" style="background: var(--bg-card-alt); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-family: 'Space Grotesk', sans-serif;">
                 <option value="1W">1 Semana</option>
                 <option value="1M" selected>1 Mes</option>
@@ -1042,11 +1061,18 @@ async function updateGlobalHealth(acct) {
   try {
     const regime = await fetchJSON('/api/market-regime');
     if (regime) {
-      const icon = { BULL: '🐂', BEAR: '🐻', CHOP: '🔄', UNKNOWN: '❓' }[regime.regime] || '❓';
+      const iconName = { BULL: 'trending-up', BEAR: 'trending-down', CHOP: 'refresh-cw', UNKNOWN: 'help-circle' }[regime.regime] || 'help-circle';
       const color = { BULL: '#4caf50', BEAR: '#f44336', CHOP: '#ff9800', UNKNOWN: '#90caf9' }[regime.regime] || '#fff';
       const regimeCard = document.getElementById('regime-card');
       if (regimeCard) regimeCard.style.borderLeftColor = color;
-      setEl('regime-icon', icon);
+      
+      const iconEl = document.getElementById('regime-icon');
+      if (iconEl) {
+        iconEl.innerHTML = `<i data-lucide="${iconName}" style="width:32px;height:32px;stroke-width:2.5px"></i>`;
+        iconEl.style.color = color;
+      }
+      
+      // setEl('regime-icon', icon); handled above
       setEl('regime-badge', regime.regime || '—');
       document.getElementById('regime-badge').style.color = color;
       setEl('regime-desc', regime.description || '');
@@ -1074,7 +1100,7 @@ async function updateGlobalHealth(acct) {
   const s = document.getElementById('market-time-sub');
   if (clock) {
     if (clock.is_open) {
-      b.textContent = 'MERCADO ABIERTO 🟢';
+      b.innerHTML = 'MERCADO ABIERTO <i data-lucide="check-circle-2" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i>';
       b.className = 'badge-filled';
       b.style.fontSize = '1rem';
       
@@ -1082,7 +1108,7 @@ async function updateGlobalHealth(acct) {
       const diffStr = formatTimeDiff(tc);
       s.textContent = `Cierra en ${diffStr}`;
     } else {
-      b.textContent = 'MERCADO CERRADO 🔴';
+      b.innerHTML = 'MERCADO CERRADO <i data-lucide="x-circle" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i>';
       b.className = 'badge-sell';
       b.style.fontSize = '1rem';
       
@@ -1520,6 +1546,7 @@ async function loadHomeData() {
 }
 
 function autoRefresh() {
+  setTimeout(() => lucide.createIcons(), 250);
   if (_currentTab === 'home')   loadHomeData();
   if (_currentTab === 'etf')    loadEtfData();
   if (_currentTab === 'crypto') loadCryptoData();
@@ -1593,7 +1620,7 @@ async function loadStrategyRanking(sortBy = null) {
         let html = '';
         if (topPF.length > 0) {
             html += `<div style="flex:1; background:var(--bg-card-alt); border:1px solid var(--border); border-radius:8px; padding:12px;">
-                <div style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">🏆 Top 3 Profit Factor</div>`;
+                <div style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;"><i data-lucide="trophy" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Top 3 Profit Factor</div>`;
             topPF.forEach(r => {
                 html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
                     <span style="color:var(--text-primary)">${r.strategy}</span>
@@ -1604,7 +1631,7 @@ async function loadStrategyRanking(sortBy = null) {
         }
         if (worstDD.length > 0) {
             html += `<div style="flex:1; background:var(--bg-card-alt); border:1px solid var(--border); border-radius:8px; padding:12px;">
-                <div style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">📉 Peores 3 Max Drawdown</div>`;
+                <div style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;"><i data-lucide="trending-down" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Peores 3 Max Drawdown</div>`;
             worstDD.forEach(r => {
                 html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
                     <span style="color:var(--text-primary)">${r.strategy}</span>
@@ -1694,6 +1721,8 @@ async function compareSelectedStrategies() {
 loadHomeData();
 loadEtfData();
 loadStrategyRanking();
+
+setTimeout(() => lucide.createIcons(), 100);
 </script>
 </body>
 </html>
