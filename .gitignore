@@ -4,6 +4,14 @@
 *.key
 trader_vps
 trader_vps.pub
+# Scripts locales con credenciales SSH hardcoded
+check_logs.py
+check_sol_logs.py
+_vps_check.py
+vps_*.py
+logs.txt
+contexto_anterior.md
+documentacion_trader.txt
 
 # Datos generados en runtime
 data/
