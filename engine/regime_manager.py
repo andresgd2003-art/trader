@@ -52,12 +52,12 @@ REGIME_ETF_MAP = {
     Regime.UNKNOWN: list(range(1, 11)),
 }
 
-# Mapa de estrategias — Motor Crypto (Todas las 10 activas)
+# Mapa de estrategias — Motor Crypto (Todas las 11 activas)
 REGIME_CRYPTO_MAP = {
-    Regime.BULL:  list(range(1, 11)),
-    Regime.BEAR:  list(range(1, 11)),
-    Regime.CHOP:  list(range(1, 11)),
-    Regime.UNKNOWN: list(range(1, 11)),
+    Regime.BULL:  list(range(1, 12)),
+    Regime.BEAR:  list(range(1, 12)),
+    Regime.CHOP:  list(range(1, 12)),
+    Regime.UNKNOWN: list(range(1, 12)),
 }
 
 # Mapa de estrategias — Motor Equities (Todas las activas)
