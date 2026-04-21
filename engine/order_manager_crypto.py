@@ -61,6 +61,7 @@ class OrderManagerCrypto:
 
         self._queue: asyncio.Queue = asyncio.Queue()
         self._running = False
+        self.ignore_orders = False   # Flag de prefetch: bloquea órdenes durante inyección histórica
         self.notifier = TelegramNotifier()
         
         # Árbitro centralizado de activos (inyectado desde main_crypto)
@@ -138,6 +139,8 @@ class OrderManagerCrypto:
             self.arbiter.release(symbol, strategy_name)
 
     async def buy(self, symbol: str, notional_usd: float, current_price: float, limit_price: float = None, strategy_name: str = "", precision: int = 4):
+        if self.ignore_orders:
+            return
         qty = self._calculate_crypto_qty(notional_usd, current_price, precision)
         if qty <= 0: return
 
@@ -155,6 +158,8 @@ class OrderManagerCrypto:
         """
         Vende una cantidad exacta que ya posees en el balance.
         """
+        if self.ignore_orders:
+            return
         if exact_qty <= 0: return
 
         order = {
@@ -180,6 +185,14 @@ class OrderManagerCrypto:
                 logger.error(f"[OrderManagerCrypto] Error procesando orden: {e}")
 
     async def _execute_order(self, order: dict):
+        # Última línea de defensa: si ignore_orders sigue True (por un edge case),
+        # descartar la orden antes de tocar Alpaca.
+        if self.ignore_orders:
+            logger.debug(
+                f"[OrderManagerCrypto] ignore_orders=True, descartando "
+                f"{order.get('side')} {order.get('symbol')} de {order.get('strategy')}"
+            )
+            return
         symbol = order["symbol"]
         qty = order["qty"]
         side = OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL

@@ -127,6 +127,17 @@ class CryptoTradingEngine:
                 except: break
 
             for strat in self.strategies:
+                # Reset contadores de entrada escalonada acumulados durante prefetch
+                if hasattr(strat, '_bullets_fired'):
+                    strat._bullets_fired = 0
+                    strat._bullet_qty_total = 0.0
+                    logger.debug(f"[CryptoEngine] Reset _bullets_fired para {strat.name}")
+                if hasattr(strat, '_tranches'):
+                    strat._tranches = []
+                    logger.debug(f"[CryptoEngine] Reset _tranches para {strat.name}")
+                if hasattr(strat, '_cooldown_until'):
+                    strat._cooldown_until = None
+
                 for sym in strat.symbols:
                     pos = strat.sync_position_from_alpaca(sym) > 0
                     if hasattr(strat, "_has_position") and isinstance(strat._has_position, dict):
