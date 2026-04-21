@@ -70,3 +70,136 @@ def parse_order_meta(raw: Optional[str]) -> dict:
         "mode":   mode,
         "uuid":   uuid_part,
     }
+
+def compute_trade_pnls(orders: list, target_engine: str = None) -> list:
+    """
+    Replay FIFO sobre órdenes filled → lista de trades cerrados
+    con {strategy, symbol, pnl, pct_return, closed_at}.
+    """
+    tracker = {}
+    trades = []
+
+    for o in orders:
+        status = o.status.value if hasattr(o, "status") and hasattr(o.status, "value") else getattr(o, "status", None)
+        if status != "filled":
+            continue
+
+        cid = str(getattr(o, "client_order_id", ""))
+        if not cid.startswith("strat_") and not cid.startswith("cry_") and not cid.startswith("eq_"):
+            continue
+
+        meta = parse_order_meta(cid)
+        engine = meta["engine"]
+        if target_engine and engine != target_engine and engine != "unknown":
+            continue
+
+        strat_name = meta["name"]
+        sym = getattr(o, "symbol", "unknown")
+        tracker_key = f"{strat_name}_{sym}"
+        
+        if tracker_key not in tracker:
+            tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
+
+        qty = float(getattr(o, "filled_qty", 0) or 0)
+        price = float(getattr(o, "filled_avg_price", 0) or 0)
+        vol = qty * price
+        
+        side = getattr(o, "side", None)
+        side_val = side.value if hasattr(side, "value") else str(side)
+
+        pos = tracker[tracker_key]["pos"]
+        avg = tracker[tracker_key]["avg"]
+
+        if side_val == "buy":
+            new_cost = (pos * avg) + vol
+            pos += qty
+            avg = new_cost / pos if pos > 0 else 0
+            tracker[tracker_key] = {"pos": pos, "avg": avg}
+        elif side_val == "sell":
+            realized = (price - avg) * qty
+            pct_return = (price / avg - 1) * 100 if avg > 0 else 0.0
+            pos -= qty
+            if pos <= 0:
+                pos = 0.0
+                avg = 0.0
+            tracker[tracker_key] = {"pos": pos, "avg": avg}
+            
+            dt = getattr(o, "filled_at", getattr(o, "created_at", None))
+            trades.append({
+                "strategy": strat_name,
+                "engine": engine,
+                "symbol": sym,
+                "pnl": realized,
+                "pct_return": pct_return,
+                "closed_at": dt.isoformat() if hasattr(dt, "isoformat") else str(dt)
+            })
+
+    return trades
+
+def compute_metrics(trade_pnls: list) -> dict:
+    """
+    Agrega métricas: wins, losses, win_rate, profit_factor,
+    avg_win, avg_loss, sharpe, max_drawdown, trade_count_closed.
+    Trades <10 → sharpe=None (evita ruido estadístico).
+    """
+    wins = 0
+    losses = 0
+    sum_win = 0.0
+    sum_loss = 0.0
+    pct_returns = []
+    
+    cumulative_pnl = 0.0
+    peak = 0.0
+    max_dd = 0.0
+
+    for t in trade_pnls:
+        pnl = t["pnl"]
+        pct_returns.append(t["pct_return"])
+        
+        if pnl > 0:
+            wins += 1
+            sum_win += pnl
+        elif pnl < 0:
+            losses += 1
+            sum_loss += abs(pnl)
+            
+        cumulative_pnl += pnl
+        if cumulative_pnl > peak:
+            peak = cumulative_pnl
+        else:
+            dd = peak - cumulative_pnl
+            if dd > max_dd:
+                max_dd = dd
+
+    trade_count_closed = wins + losses
+    win_rate = (wins / trade_count_closed) if trade_count_closed > 0 else None
+    profit_factor = (sum_win / sum_loss) if sum_loss > 0 else (None if sum_win == 0 else float('inf'))
+    
+    avg_win = (sum_win / wins) if wins > 0 else 0.0
+    avg_loss = (sum_loss / losses) if losses > 0 else 0.0
+    
+    sharpe_trade = None
+    if len(pct_returns) >= 10:
+        mean_ret = sum(pct_returns) / len(pct_returns)
+        variance = sum((x - mean_ret) ** 2 for x in pct_returns) / len(pct_returns)
+        if variance > 0:
+            import math
+            std_ret = math.sqrt(variance)
+            sharpe_trade = mean_ret / std_ret
+
+    if profit_factor == float('inf'):
+        profit_factor = None
+            
+    return {
+        "wins": wins,
+        "losses": losses,
+        "win_rate": win_rate,
+        "profit_factor": profit_factor,
+        "avg_win": avg_win,
+        "avg_loss": avg_loss,
+        "sharpe": sharpe_trade,
+        "max_drawdown": max_dd,
+        "trade_count_closed": trade_count_closed,
+        "sample_size_flag": trade_count_closed < 10
+    }
+

@@ -828,6 +828,54 @@
       <!-- generado por JS -->
     </div>
 
+    <!-- ── PERFORMANCE POR ESTRATEGIA (Palanca 2) ── -->
+    <div class="card" style="margin-top: 30px;">
+      <div class="card-header" style="justify-content: space-between;">
+        <span class="card-title">🏆 Ranking de Rendimiento por Estrategia</span>
+        <button class="refresh-btn" onclick="loadStrategyRanking()">↻ Actualizar</button>
+      </div>
+      <div class="card-body">
+        <div style="display: flex; gap: 16px; margin-bottom: 20px;" id="ranking-top-cards">
+           <!-- Top 3 PF, Peores 3 MaxDD -->
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 16px; align-items: center;">
+            <button class="refresh-btn" onclick="compareSelectedStrategies()">📊 Comparar Seleccionadas</button>
+            <select id="compare-period" style="background: var(--bg-card-alt); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-family: 'Space Grotesk', sans-serif;">
+                <option value="1W">1 Semana</option>
+                <option value="1M" selected>1 Mes</option>
+                <option value="1A">1 Año</option>
+            </select>
+            <span style="font-size: 0.7rem; color: var(--text-secondary); margin-left: 10px;">Selecciona checkboxes en la tabla para comparar curvas PnL</span>
+        </div>
+        
+        <div class="chart-wrap" id="compare-chart-container" style="height: 300px; display: none; margin-bottom: 20px;">
+            <canvas id="compare-chart"></canvas>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="data-table" id="ranking-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">Sel.</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('strategy')">Estrategia ↕</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('engine')">Motor ↕</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('trades')">Trades ↕</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('win_rate')">Win% ↕</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('profit_factor')">PF ↕</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('sharpe')">Sharpe ↕</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('max_drawdown')">Max DD ↕</th>
+                <th style="cursor: pointer;" onclick="loadStrategyRanking('realized_pnl')">PnL Realizado ↕</th>
+              </tr>
+            </thead>
+            <tbody id="ranking-body">
+              <tr><td colspan="9" class="empty-msg">Cargando ranking...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1479,9 +1527,173 @@ function autoRefresh() {
 }
 setInterval(autoRefresh, 15000);
 
+// ── PALANCA 2: PERFORMANCE POR ESTRATEGIA ──
+let currentRankingSort = 'profit_factor';
+let currentRankingDesc = true;
+let compareChartInstance = null;
+
+async function loadStrategyRanking(sortBy = null) {
+    if (sortBy) {
+        if (currentRankingSort === sortBy) {
+            currentRankingDesc = !currentRankingDesc;
+        } else {
+            currentRankingSort = sortBy;
+            currentRankingDesc = true;
+        }
+    }
+    
+    const ranking = await fetchJSON(`/api/strategy/ranking?sort_by=${currentRankingSort}&desc=${currentRankingDesc}`);
+    if (!ranking) return;
+    
+    const tbody = document.getElementById('ranking-body');
+    if (!tbody) return;
+    
+    if (ranking.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-msg">No hay datos de estrategias</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = ranking.map(r => {
+        const pf = r.profit_factor;
+        let pfColor = 'var(--text-secondary)';
+        if (pf !== null) {
+            if (pf > 1.5) pfColor = 'var(--green)';
+            else if (pf >= 1.0) pfColor = 'var(--yellow)';
+            else pfColor = 'var(--red)';
+        }
+        
+        const wr = r.win_rate !== null ? (r.win_rate * 100).toFixed(1) + '%' : '—';
+        const pfStr = pf !== null ? pf.toFixed(2) : '—';
+        const sharpe = r.sharpe !== null ? r.sharpe.toFixed(2) : '—';
+        const maxDd = r.max_drawdown !== null ? fmtMoney(-r.max_drawdown) : '—';
+        const pnl = r.realized_pnl !== null ? fmtMoney(r.realized_pnl) : '—';
+        const lowSample = r.sample_size_flag ? `<span style="font-size:0.6rem; background:var(--yellow-dim); color:var(--yellow); padding:2px 4px; border-radius:4px; margin-left:6px;">⚠ Low Sample</span>` : '';
+        
+        return `<tr>
+            <td><input type="checkbox" class="strat-checkbox" value="${r.strategy}"></td>
+            <td style="font-weight:600; color:var(--text-primary)">${r.strategy} ${lowSample}</td>
+            <td style="text-transform:uppercase; font-size:0.7rem; color:var(--text-dim)">${r.engine}</td>
+            <td>${r.trade_count_closed !== undefined ? r.trade_count_closed : r.trades}</td>
+            <td>${wr}</td>
+            <td style="color:${pfColor}; font-weight:600;">${pfStr}</td>
+            <td>${sharpe}</td>
+            <td style="color:var(--red)">${maxDd}</td>
+            <td class="${colorClass(r.realized_pnl)}">${r.realized_pnl >= 0 ? '+' : ''}${pnl}</td>
+        </tr>`;
+    }).join('');
+    
+    const sortedByPF = [...ranking].filter(r => r.profit_factor !== null).sort((a,b) => b.profit_factor - a.profit_factor);
+    const sortedByDD = [...ranking].filter(r => r.max_drawdown !== null).sort((a,b) => b.max_drawdown - a.max_drawdown);
+    
+    const topPF = sortedByPF.slice(0, 3);
+    const worstDD = sortedByDD.slice(0, 3);
+    
+    const summaryContainer = document.getElementById('ranking-top-cards');
+    if (summaryContainer) {
+        let html = '';
+        if (topPF.length > 0) {
+            html += `<div style="flex:1; background:var(--bg-card-alt); border:1px solid var(--border); border-radius:8px; padding:12px;">
+                <div style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">🏆 Top 3 Profit Factor</div>`;
+            topPF.forEach(r => {
+                html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
+                    <span style="color:var(--text-primary)">${r.strategy}</span>
+                    <span style="color:var(--green); font-weight:600;">${r.profit_factor.toFixed(2)}</span>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+        if (worstDD.length > 0) {
+            html += `<div style="flex:1; background:var(--bg-card-alt); border:1px solid var(--border); border-radius:8px; padding:12px;">
+                <div style="font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px;">📉 Peores 3 Max Drawdown</div>`;
+            worstDD.forEach(r => {
+                html += `<div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
+                    <span style="color:var(--text-primary)">${r.strategy}</span>
+                    <span style="color:var(--red); font-weight:600;">-${fmtMoney(r.max_drawdown)}</span>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+        summaryContainer.innerHTML = html;
+    }
+}
+
+const STRAT_COLORS = ['#00d4ff', '#00e676', '#ffd740', '#ff4f6d', '#a020f0'];
+
+async function compareSelectedStrategies() {
+    const checkboxes = document.querySelectorAll('.strat-checkbox:checked');
+    const selected = Array.from(checkboxes).map(c => c.value);
+    
+    if (selected.length === 0) {
+        alert("Selecciona al menos una estrategia para comparar.");
+        return;
+    }
+    if (selected.length > 5) {
+        alert("Selecciona un máximo de 5 estrategias para comparar.");
+        return;
+    }
+    
+    const period = document.getElementById('compare-period').value;
+    const data = await fetchJSON(`/api/strategy/compare?strategies=${selected.join(',')}&period=${period}`);
+    
+    if (!data || Object.keys(data).length === 0) return;
+    
+    const container = document.getElementById('compare-chart-container');
+    container.style.display = 'block';
+    
+    const ctx = document.getElementById('compare-chart').getContext('2d');
+    if (compareChartInstance) {
+        compareChartInstance.destroy();
+    }
+    
+    const datasets = [];
+    let idx = 0;
+    let mainLabels = [];
+    
+    for (const [stratName, stratData] of Object.entries(data)) {
+        if (stratData.labels.length > mainLabels.length) {
+            mainLabels = stratData.labels;
+        }
+        datasets.push({
+            label: stratName,
+            data: stratData.equity_curve,
+            borderColor: STRAT_COLORS[idx % STRAT_COLORS.length],
+            borderWidth: 2,
+            tension: 0.1,
+            pointRadius: 0,
+            fill: false
+        });
+        idx++;
+    }
+    
+    compareChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels: mainLabels, datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: true, labels: { color: '#e8eaf6' } },
+                tooltip: {
+                    backgroundColor: 'rgba(15,25,41,0.9)',
+                    titleColor: '#e8eaf6',
+                    bodyColor: '#e8eaf6',
+                    borderColor: '#243d60',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: { grid: { color: 'rgba(26,45,71,0.5)' }, ticks: { color: '#7986cb', maxTicksLimit: 8 } },
+                y: { grid: { color: 'rgba(26,45,71,0.5)' }, ticks: { color: '#7986cb' } }
+            }
+        }
+    });
+}
+
 // ── INITIAL LOAD ──
 loadHomeData();
 loadEtfData();
+loadStrategyRanking();
 </script>
 </body>
 </html>

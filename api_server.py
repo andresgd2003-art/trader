@@ -138,6 +138,7 @@ async def _build_charts_task():
                     vol = qty * price
                     
                     # Fase 17+: usar parse_order_meta para engine correcto
+                    from engine.order_meta import parse_order_meta, compute_trade_pnls, compute_metrics
                     meta = parse_order_meta(o.client_order_id)
                     strat_name = meta["name"]
                     tracker_key = f"{strat_name}_{o.symbol}"
@@ -771,6 +772,7 @@ async def get_strategy_stats(period: str = "today"):
                 if (o.filled_at or o.created_at or datetime.min.replace(tzinfo=timezone.utc)) >= threshold
             ]
 
+        from engine.order_meta import parse_order_meta, compute_trade_pnls, compute_metrics
         for o in valid_orders:
             # Fase 17: usar parser robusto en vez de parts[1]
             meta = parse_order_meta(o.client_order_id)
@@ -818,6 +820,16 @@ async def get_strategy_stats(period: str = "today"):
                         avg = 0.0
                     tracker[tracker_key] = {"pos": pos, "avg": avg}
 
+        # Calcular métricas avanzadas (Palanca 2)
+        all_trade_pnls = compute_trade_pnls(valid_orders)
+        trades_by_strat = {}
+        for t in all_trade_pnls:
+            trades_by_strat.setdefault(t["strategy"], []).append(t)
+
+        for strat_name, s in stats.items():
+            metrics = compute_metrics(trades_by_strat.get(strat_name, []))
+            s.update(metrics)
+
         # Redondear P&L
         for s in stats.values():
             s["realized_pnl"] = round(s["realized_pnl"], 4)
@@ -826,6 +838,192 @@ async def get_strategy_stats(period: str = "today"):
         return stats
     except Exception as e:
         logger.error(f"[API] Error obteniendo stats de estrategias: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+_RANKING_CACHE = {"data": [], "ts": 0}
+
+@app.get("/api/strategy/ranking")
+async def get_strategy_ranking(sort_by: str = "profit_factor", desc: bool = True):
+    """
+    Retorna el ranking de estrategias con TTL de 60s
+    """
+    import time
+    global _RANKING_CACHE
+    
+    try:
+        from engine.order_meta import parse_order_meta, compute_trade_pnls, compute_metrics
+        
+        # Check cache
+        if time.time() - _RANKING_CACHE["ts"] < 60 and _RANKING_CACHE["data"]:
+            ranking_list = list(_RANKING_CACHE["data"])
+        else:
+            orders = STATE_CACHE.get("orders_full") or []
+            if not orders:
+                return []
+
+            valid_orders = [
+                o for o in orders
+                if o.client_order_id and any(
+                    str(o.client_order_id).startswith(p)
+                    for p in ("strat_", "cry_", "eq_")
+                )
+            ]
+            valid_orders.sort(
+                key=lambda x: (x.filled_at or x.created_at or datetime.min.replace(tzinfo=__import__('datetime').timezone.utc))
+            )
+            
+            # Calcular Realized PNL base
+            stats = {}
+            tracker = {}
+            for o in valid_orders:
+                meta = parse_order_meta(o.client_order_id)
+                strat_name = meta["name"]
+                engine = meta["engine"]
+                if strat_name not in stats:
+                    stats[strat_name] = {
+                        "strategy": strat_name,
+                        "engine": engine,
+                        "symbol_focus": o.symbol,
+                        "trades": 0,
+                        "realized_pnl": 0.0
+                    }
+                stats[strat_name]["trades"] += 1
+                if o.status.value == "filled":
+                    qty = float(o.filled_qty) if o.filled_qty else 0
+                    price = float(o.filled_avg_price) if o.filled_avg_price else 0
+                    tracker_key = f"{strat_name}_{o.symbol}"
+                    if tracker_key not in tracker: tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
+                    pos = tracker[tracker_key]["pos"]
+                    avg = tracker[tracker_key]["avg"]
+                    if o.side.value == "buy":
+                        new_cost = (pos * avg) + (qty * price)
+                        pos += qty
+                        avg = new_cost / pos if pos > 0 else 0
+                        tracker[tracker_key] = {"pos": pos, "avg": avg}
+                    else:
+                        realized = (price - avg) * qty
+                        stats[strat_name]["realized_pnl"] += realized
+                        pos -= qty
+                        if pos <= 0:
+                            pos = 0.0; avg = 0.0
+                        tracker[tracker_key] = {"pos": pos, "avg": avg}
+
+            all_trade_pnls = compute_trade_pnls(valid_orders)
+            trades_by_strat = {}
+            for t in all_trade_pnls:
+                trades_by_strat.setdefault(t["strategy"], []).append(t)
+
+            ranking_list = []
+            for strat_name, s in stats.items():
+                metrics = compute_metrics(trades_by_strat.get(strat_name, []))
+                s.update(metrics)
+                s["realized_pnl"] = round(s["realized_pnl"], 4)
+                ranking_list.append(s)
+                
+            _RANKING_CACHE = {"data": ranking_list, "ts": time.time()}
+
+        # Sort the ranking list
+        def get_sort_key(item):
+            val = item.get(sort_by)
+            if val is None:
+                return float('-inf') if desc else float('inf')
+            return val
+
+        ranking_list.sort(key=get_sort_key, reverse=desc)
+        return ranking_list
+    except Exception as e:
+        logger.error(f"[API] Error en /api/strategy/ranking: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/strategy/compare")
+async def get_strategy_compare(strategies: str, period: str = "1W"):
+    """
+    Retorna PnL normalizado para overlay de multiples estrategias
+    """
+    try:
+        from engine.order_meta import parse_order_meta
+        from datetime import timezone, timedelta
+        
+        strat_list = [s.strip() for s in strategies.split(",") if s.strip()]
+        if not strat_list:
+            return {}
+
+        orders = STATE_CACHE.get("orders_full") or []
+        
+        now = datetime.now(timezone.utc)
+        if period == "1D":
+            threshold = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == "1W":
+            threshold = now - timedelta(days=7)
+        elif period == "1M":
+            threshold = now - timedelta(days=30)
+        elif period == "1A":
+            threshold = now - timedelta(days=365)
+        else:
+            threshold = None
+            
+        valid_orders = [
+            o for o in orders
+            if o.client_order_id and o.status.value == "filled"
+        ]
+        valid_orders.sort(
+            key=lambda x: (x.filled_at or x.created_at or datetime.min.replace(tzinfo=timezone.utc))
+        )
+        
+        if threshold:
+            valid_orders = [
+                o for o in valid_orders
+                if (o.filled_at or o.created_at or datetime.min.replace(tzinfo=timezone.utc)) >= threshold
+            ]
+            
+        result = {}
+        for s_name in strat_list:
+            result[s_name] = {"labels": [], "equity_curve": []}
+            
+        tracker = {}
+        cum_pnls = {s: 0.0 for s in strat_list}
+        
+        for o in valid_orders:
+            meta = parse_order_meta(o.client_order_id)
+            strat_name = meta["name"]
+            
+            if strat_name not in strat_list:
+                continue
+                
+            qty = float(o.filled_qty) if o.filled_qty else 0
+            price = float(o.filled_avg_price) if o.filled_avg_price else 0
+            
+            tracker_key = f"{strat_name}_{o.symbol}"
+            if tracker_key not in tracker:
+                tracker[tracker_key] = {"pos": 0.0, "avg": 0.0}
+
+            pos = tracker[tracker_key]["pos"]
+            avg = tracker[tracker_key]["avg"]
+
+            if o.side.value == "buy":
+                new_cost = (pos * avg) + (qty * price)
+                pos += qty
+                avg = new_cost / pos if pos > 0 else 0
+                tracker[tracker_key] = {"pos": pos, "avg": avg}
+            else:
+                realized = (price - avg) * qty
+                cum_pnls[strat_name] += realized
+                pos -= qty
+                if pos <= 0:
+                    pos = 0.0
+                    avg = 0.0
+                tracker[tracker_key] = {"pos": pos, "avg": avg}
+                
+                dt = o.filled_at or o.created_at
+                dt_str = dt.strftime("%Y-%m-%d %H:%M") if hasattr(dt, "strftime") else str(dt)
+                
+                if realized != 0:
+                    result[strat_name]["labels"].append(dt_str)
+                    result[strat_name]["equity_curve"].append(round(cum_pnls[strat_name], 2))
+                    
+        return result
+    except Exception as e:
+        logger.error(f"[API] Error en /api/strategy/compare: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reports")
