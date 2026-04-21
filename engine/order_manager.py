@@ -130,10 +130,10 @@ class OrderManager:
             
             # Escala de riesgo por régimen
             REGIME_NOTIONAL_PCT = {
-                "BULL":    0.04,   # 4% — máximo agresividad, mercado favorable
-                "CHOP":    0.03,   # 3% — moderado, mercado lateral
-                "BEAR":    0.02,   # 2% — conservador, mercado bajista
-                "UNKNOWN": 0.02,   # 2% — seguro por defecto si no hay datos
+                "BULL":    0.08,   # 8% — agresividad aumentada ($40)
+                "CHOP":    0.05,   # 5% — moderado ($25)
+                "BEAR":    0.03,   # 3% — conservador ($15)
+                "UNKNOWN": 0.03,   # 3% — seguro por defecto
             }
             pct = REGIME_NOTIONAL_PCT.get(regime_str, 0.02)
             

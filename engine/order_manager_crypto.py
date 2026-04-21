@@ -40,10 +40,10 @@ class OrderManagerCrypto:
     """
     MIN_DELAY_SECONDS = 0.4
 
-    # Caps y reservas para el modo noche
-    DAY_CAP_USD       = 15.0    # Cap durante horas de mercado
-    NIGHT_CAP_MAX_USD = 40.0    # Tope absoluto nocturno
-    NIGHT_CAP_PCT     = 0.20    # % del capital disponible nocturno por posición
+    # Caps y reservas para el modo noche (Cuenta simulada de $200)
+    DAY_CAP_USD       = 25.0    # Cap durante horas de mercado
+    NIGHT_CAP_MAX_USD = 50.0    # Tope absoluto nocturno
+    NIGHT_CAP_PCT     = 0.30    # % del capital disponible nocturno por posición
     NIGHT_RESERVE_PCT = 0.40    # % de settled_cash siempre reservado para apertura
     MIN_EQUITY_EXPAND = 80.0    # No expandir si equity total < $80
 
