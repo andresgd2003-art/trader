@@ -45,7 +45,7 @@ class CryptoTradingEngine:
         from strategies_crypto.strat_08_ema_ribbon import CryptoEMARibbonStrategy
         from strategies_crypto.strat_09_vwap_touch import CryptoVWAPTouchStrategy
         from strategies_crypto.strat_10_sentiment import CryptoSentimentStrategy
-        from strategies_crypto.strat_11_vwap_sol_micro import CryptoMicroVWAPSolStrategy
+        # strat_11_vwap_sol_micro ELIMINADA — deadlock con Grid Spot en SOL/USD
 
         rm = self.regime_manager  # alias corto
         return [
@@ -59,7 +59,6 @@ class CryptoTradingEngine:
             CryptoEMARibbonStrategy(self.order_manager,     regime_manager=rm),
             CryptoVWAPTouchStrategy(self.order_manager,     regime_manager=rm),
             CryptoSentimentStrategy(self.order_manager,     regime_manager=rm),
-            CryptoMicroVWAPSolStrategy(self.order_manager,  regime_manager=rm),
         ]
 
     async def _on_crypto_bar(self, bar):

@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class DonchianBreakoutStrategy(BaseStrategy):
 
     SYMBOL = "IWM"
-    HIGH_PERIOD = 390  # Era 20 — ahora = 1 día completo de trading (390 barras de 1min)
-    LOW_PERIOD  = 195  # Era 10 — ahora = media sesión para el canal inferior
+    HIGH_PERIOD = 120  # 2 horas de barras de 1min — breakout intraday
+    LOW_PERIOD  = 60   # 1 hora para el canal inferior
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(

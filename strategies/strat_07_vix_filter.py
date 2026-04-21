@@ -20,8 +20,8 @@ class VIXFilteredReversionStrategy(BaseStrategy):
 
     SYMBOL      = "SPY"
     RSI_PERIOD  = 14
-    RSI_BUY     = 30
-    RSI_SELL    = 70
+    RSI_BUY     = 35    # Ajustado para barras de 1min (30 era inalcanzable)
+    RSI_SELL    = 65    # Salida más ágil en timeframe intraday
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(

@@ -41,8 +41,8 @@ class GridTradingStrategy(BaseStrategy):
         self._grid_active = False
         self._last_log_time = 0
         self._client = TradingClient(
-            api_key=os.environ.get("ALPACA_API_KEY", ""),
-            secret_key=os.environ.get("ALPACA_SECRET_KEY", ""),
+            api_key=os.environ.get("APCA_API_KEY_ID") or os.environ.get("ALPACA_API_KEY", ""),
+            secret_key=os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SECRET_KEY", ""),
             paper=True
         )
 

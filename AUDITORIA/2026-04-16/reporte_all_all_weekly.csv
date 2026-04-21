@@ -1,0 +1,168 @@
+Fecha (UTC),Estrategia,Motor,Modo (A/B/C),Propuesta Activa,Clase de Activo,Simbolo,Lado,Cantidad,Precio ($),Volumen ($),P&L Realizado ($),ID Orden
+10/04/2026 17:21,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.46,1424.6,-,25ee8985-6f72-4bb7-a804-cba86f82ec3c
+10/04/2026 17:22,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.49,1424.9,0.3,5aadae03-1a92-44f0-90e6-2f4bcad92577
+10/04/2026 17:22,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.111,6101.11,-,d5d2bafd-0a9c-4334-a7c9-b0121707a49f
+10/04/2026 17:23,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.39,1423.9,1423.9,71ba4a10-de5c-4457-a8cf-f90397723975
+10/04/2026 17:23,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,609.828,6098.28,-,203efd8d-d0ea-4032-8d79-beae6493cd6f
+10/04/2026 17:24,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.07,6100.7,1.005,36e09f7f-a74c-4f04-b80c-ebfffa7604ad
+10/04/2026 17:24,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.47,1424.7,-,7dd85bd6-2c00-49ce-8054-6f88b48eb399
+10/04/2026 17:27,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.53,1425.3,0.6,ad3d6f9b-c015-4efa-a865-e6918406ed94
+10/04/2026 17:27,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.22,6102.2,-,6ce5745f-4191-4dfc-901f-398bb23fe767
+10/04/2026 17:29,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,609.87,6098.7,-2.2475,25bf3606-8194-4706-ad51-00cae3ce89fd
+10/04/2026 17:29,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.461,1424.61,-,e14a3f39-c9aa-443c-b1b5-30a78c3fc7fa
+10/04/2026 17:35,VWAPBounce,etf,LEGACY,Legado (sin modo registrado),us_equity,SMH,BUY,20,438.0715,8761.43,-,5f354a63-dd5e-48e6-968c-fb33e672ccdd
+10/04/2026 17:46,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.71,1427.1,2.49,4a32dc72-a63d-4cf4-aab6-5b47c456a6ca
+10/04/2026 17:46,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.39,6103.9,-,b3fb51ed-61b1-4709-9b5d-a9facbee654f
+10/04/2026 17:52,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.57,6105.7,3.2763,f65ae9c3-abb8-4972-acd2-b08a1c0e516b
+10/04/2026 17:52,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.76,1427.6,-,466ecb3c-eab1-43a5-ac7f-918561b605d4
+10/04/2026 17:58,VWAPBounce,etf,LEGACY,Legado (sin modo registrado),us_equity,SMH,BUY,20,439.2795,8785.59,-,5a79cfaa-d00f-44fb-8b88-168a5cd71bf4
+10/04/2026 18:20,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3544,83.67,196.99,-,1f2751bd-b4a4-49b6-82e4-121805aa9630
+10/04/2026 18:20,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3562,83.61,197,-,d445c4e3-04cd-41ec-be32-7bc75ca24350
+10/04/2026 18:20,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3562,83.55,196.86,-,86c5cb85-66f9-4188-b048-5f06cafa46c0
+10/04/2026 18:42,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.19,6101.9,-0.5237,de635271-0455-4356-a4b4-f199d892e08e
+10/04/2026 18:42,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.62,1426.2,-,5f89f56b-93d9-4b8a-bf6a-3468c39cc172
+10/04/2026 18:43,RSIBuytheDip,etf,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,BUY,5,48.96,244.8,-,c0945b7a-84e4-47c4-9a37-8b5baf2bd4aa
+10/04/2026 18:44,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.17,6101.7,6101.7,5037645e-7723-44e9-9f3c-5da03cdee70d
+10/04/2026 18:44,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.59,1425.9,-,5844c4b0-4c5c-4eb5-b08e-24c7d4007808
+10/04/2026 18:47,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.19,6101.9,-,82a23600-716f-4ee7-8a82-dd3542f3f31d
+10/04/2026 18:47,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.61,1426.1,-0.4667,a5d7a779-9f8f-406d-a659-ab66d7eaadee
+10/04/2026 18:53,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.34,6103.4,-,9d3d95bd-7d80-4172-9acf-b0bf79414cfc
+10/04/2026 18:53,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.7,1427,0.4333,92bed7e5-4290-463d-adc3-07b9c780e1ed
+10/04/2026 18:56,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.35,6103.5,0.85,1d4a07a3-416f-41d0-aa70-f2d7543e65e3
+10/04/2026 18:56,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.72,1427.2,-,5d09623a-560e-4782-b677-131f4b3d2539
+10/04/2026 19:01,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.72,6107.2,-,382ed5ce-2719-42e6-afa1-895d78b47cbb
+10/04/2026 19:01,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.83,1428.3,1.4167,efa663a2-e12d-4c3c-b219-d16d68e852a8
+10/04/2026 19:03,VWAPBounce,etf,LEGACY,Legado (sin modo registrado),us_equity,SMH,BUY,20,438.75,8775,-,cee52770-5575-477c-b21b-3bf54f81b60b
+10/04/2026 19:28,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,143,1430,-,94ed2510-4171-49ee-968a-a8602932f630
+10/04/2026 19:28,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,611.26,6112.6,7.675,42ddcd3c-52a9-4af5-a641-22a8c1b1ae09
+10/04/2026 19:30,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3444,84.03,197,-,50a5c61e-e145-4f5d-938f-6d00a93f637a
+10/04/2026 19:31,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,611.01,6110.1,-,a4ad681a-88be-44c7-8985-fd5f2ab4ef07
+10/04/2026 19:31,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.89,1428.9,0.4583,edfe1e5e-8e9a-4ffa-a042-a4795aec06d1
+10/04/2026 19:31,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3447,84.02,197,-,5dbfa401-d270-43de-888a-f8a981312c76
+10/04/2026 19:31,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3439,83.99,196.86,-,a7a14496-4c39-40f1-9a78-531cc3f533a0
+10/04/2026 19:31,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3499,83.84,197.02,-,62a57a0c-f9b8-4239-bf04-339a7dcf90a4
+10/04/2026 19:31,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3502,83.82,196.99,-,ce361d7f-714c-4dac-8035-048ed1c6bae1
+10/04/2026 19:31,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3597,83.48,196.99,-,662dc198-7f2b-4e4d-833a-f2a938a34f1f
+10/04/2026 19:38,RSI+VIXFilter,etf,LEGACY,Legado (sin modo registrado),us_equity,SPY,BUY,8,679.13375,5433.07,-,aa165b3a-40cc-4c73-8761-101af644f89e
+10/04/2026 19:41,RSIBuytheDip,etf,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,BUY,5,49.07,245.35,-,717af68a-43bd-467b-90e2-4012d7234985
+10/04/2026 19:41,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.591,6105.91,-1.6025,15d5e5bb-8e91-496a-aa1f-bbac09ada5d3
+10/04/2026 19:41,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.66,1426.6,-,1709b973-5e9b-4a7f-8e47-1e2b9a572e90
+10/04/2026 19:41,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.606,6106.06,-1.4525,3b08f663-50ca-40de-a10c-1b196e0ab954
+10/04/2026 19:41,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.66,1426.6,-,a1bdb8bd-409b-4aac-8f0f-f541bc339529
+10/04/2026 19:47,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.74,6107.4,-,dde3ac2b-a9f9-4bc0-97ad-6561de81e859
+10/04/2026 19:47,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.628,1426.28,-0.9339,a465d0e6-b002-414d-a97e-4ce0d63f1a1d
+10/04/2026 19:51,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.681,1426.81,-0.4039,57ba6153-f1db-473a-83ce-c893c51d80fc
+10/04/2026 19:51,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.858001,6108.58,-,aa75c0bd-bba6-4b04-87ef-7170fdb96169
+10/04/2026 19:53,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.59,1425.9,-,20e95e53-49f8-49b8-8c11-018aa04dcb07
+10/04/2026 19:53,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.656,6106.56,-1.43,c0a98627-d9fd-44f0-8bf4-6ac85e311e0b
+10/04/2026 19:56,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,BUY,10,610.654,6106.54,-,51715e19-15e0-4063-8b51-0a4f984f14cb
+10/04/2026 19:56,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,SELL,10,142.513,1425.13,-1.4269,dfad22b6-4043-4c99-8be3-2b6097c839fe
+10/04/2026 19:58,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,QQQ,SELL,10,610.91,6109.1,1.835,1afcbed6-5ac8-492a-83a6-d022f476c4ed
+10/04/2026 19:58,PairsTrading,etf,LEGACY,Legado (sin modo registrado),us_equity,XLK,BUY,10,142.551,1425.51,-,1fb1d48f-e53d-46a8-8e0a-29d0d69f620a
+10/04/2026 21:15,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3428,84.08,196.98,-,5a3839d2-988c-4c72-8caf-f993ed429662
+10/04/2026 21:15,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.348,83.84,196.86,-,636ecd70-2135-4088-9752-c8b7d71f104e
+10/04/2026 22:14,VolumeAnomaly,crypto,LEGACY,Legado (sin modo registrado),crypto,LINK/USD,BUY,10.9541,9.1426,100.15,-,7e03da12-1808-470b-9cbb-979136d56c59
+10/04/2026 23:23,EMATrendCrossover,crypto,LEGACY,Legado (sin modo registrado),crypto,BTC/USD,BUY,0.0137,72965,999.62,-,bfa4273d-1e4e-422f-8d47-7ddc2abe205a
+10/04/2026 23:46,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3519,83.76,197,-,66b58bc2-6d3c-4c74-a0e4-2cf89209d1d8
+10/04/2026 23:46,DynamicSpotGrid,crypto,LEGACY,Legado (sin modo registrado),crypto,SOL/USD,BUY,2.3512,83.74,196.89,-,45b46550-a1c3-4602-bebb-bfef9b933cdc
+11/04/2026 00:11,SmartTWAPAccum,crypto,LEGACY,Legado (sin modo registrado),crypto,BTC/USD,BUY,0.0007,72909.8,51.04,-,5811a7a7-0f91-4a33-ae15-5d144a66f018
+11/04/2026 06:31,VolumeAnomaly,crypto,LEGACY,Legado (sin modo registrado),crypto,LINK/USD,BUY,11.115,9.00363,100.08,-,dceb70d1-c0f2-42c3-af24-1df6b5234da7
+12/04/2026 01:33,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3376,84.34,197.15,-,3b2bc4d1-b714-49be-b071-118f17163291
+12/04/2026 01:35,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3423,84.12,197.03,-,992d9492-f366-455f-8b53-fdab0f392615
+12/04/2026 01:38,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3376,83.05,194.14,-,f8a268cb-2bba-4a49-9c5b-ac94b23a9a01
+12/04/2026 01:39,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3423,82.84,194.04,-,cbffcdf2-0132-47fd-90cb-8090c3a6f4b5
+12/04/2026 01:42,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3376,81.77,191.15,-,7108dfcc-7d17-4abc-874e-78a074c05504
+12/04/2026 01:45,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3423,81.55,191.01,-,5e9908c6-0f66-4754-a489-5b9c07cf455c
+12/04/2026 02:03,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3376,80.48,188.13,-,5fd28d1c-d4e7-4cdf-afca-e9ccd8aa3265
+12/04/2026 16:17,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,2.3423,80.27,188.02,-,ff10e4c8-0acf-4b67-b115-8ae123c2e250
+13/04/2026 13:45,PairsTrading,etf,A,market-environment-analysis (Régimen),us_equity,XLK,SELL,10,142.327,1423.27,-2.7635,b6960bf3-c9c5-40fa-b9a5-0c694aaefb43
+13/04/2026 14:08,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.3909,82.4,197.01,-,b3f97835-f234-47fa-a318-b21fbbc824e5
+13/04/2026 14:08,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.3963,82.21,197,-,c3524a4b-ed11-49dd-b1ec-d9398b36789a
+13/04/2026 14:08,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.4005,82.08,197.03,-,793f7320-40a6-4151-b7c0-b595e3239728
+13/04/2026 14:08,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.4063,81.87,197,-,c28c8748-0f31-408d-954c-041e1f601e72
+13/04/2026 15:16,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.4022,82.05,197.1,-,9a50bdf5-5f41-41c7-ac07-e62dcb9d04de
+13/04/2026 15:16,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.4029,81.98,196.99,-,8bb9100a-e8de-46ae-901a-3d20b2680143
+13/04/2026 15:16,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.4035,81.97,197.01,-,3131e22d-e79e-4278-bb8e-a26f774bb9ad
+13/04/2026 15:22,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.4217,81.33,196.96,-,f04e32fb-fc34-4d76-a6d0-b4a67f56e94c
+13/04/2026 17:57,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.3889,82.45,196.96,-,e8e23ca8-2a2b-4d6f-97ff-aa49e6d89a99
+13/04/2026 17:57,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.3918,82.36,196.99,-,26811f45-1f57-428f-aa89-4a527cca9f29
+13/04/2026 17:57,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,2.4001,82.08,197,-,60427719-20e8-4df7-b07f-9e5b6f85da27
+13/04/2026 19:26,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,0.1797,82.25,14.78,-,42607fda-6a8e-4066-9596-ae26501858e5
+13/04/2026 21:55,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,0.1784,82.8,14.77,-,be4171bb-e0a1-4489-978e-b0a2cc338656
+13/04/2026 21:55,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,0.1786,82.74,14.78,-,dc7fb42f-1f7a-4b16-9ac0-a660f21b12c5
+14/04/2026 03:26,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,0.1742,84.81,14.77,-,4d52c266-4fc7-4ea4-9c5c-514da5071985
+14/04/2026 10:40,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74481.29,14.9,-,d3932301-674d-4a88-9056-fb9efe43c3c9
+14/04/2026 14:31,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.00134,75968.839,101.8,1.9682,4ff3396c-ecbd-49b5-86cc-3b00d0531438
+14/04/2026 14:48,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,75433.1,15.09,-,e7cbc1b5-ba60-433e-ba39-23ec79b4cdab
+14/04/2026 14:48,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.00139,75344.5,104.73,-0.1466,ca6be7b3-9c2d-4426-b3a8-5b3bd944a78f
+14/04/2026 15:09,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74790.062,14.96,-,ee873cb5-c4d1-4978-a2a6-b1b7709592aa
+14/04/2026 16:53,DynamicSpotGrid,crypto,A,market-environment-analysis (Régimen),crypto,SOL/USD,BUY,0.1742,83.52,14.55,-,c75a8192-0db7-427b-8e7c-9adc3d103bfd
+14/04/2026 16:56,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74796.5,14.96,-,4c251e48-3e0f-49a0-8bd1-ba580fdfadb7
+14/04/2026 16:56,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.00139,74747.1,103.9,-0.0735,da26ff72-e66a-4794-abe0-5b9a96f59a2f
+14/04/2026 17:48,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74692.033,14.94,-,5616908d-3f3f-4df8-8733-fa03e8d0d360
+14/04/2026 17:48,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.00138,74584.61,102.93,-0.1592,644c4992-ba75-4ae5-a0ad-a3b4a1da5a28
+14/04/2026 17:55,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74756.8,14.95,-,98539d63-f620-4f90-9c4e-a198fe62b628
+14/04/2026 17:55,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.00138,74697.76,103.08,-0.0721,d92e1b8f-a65a-4208-926e-33a359c5806d
+14/04/2026 18:00,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74874.29,14.97,-,cc8f720f-203d-4949-aaa4-fc13d9727e7d
+14/04/2026 18:00,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.00138,74789.38,103.21,-0.0837,78943440-6805-4713-ace7-686a59f9764b
+14/04/2026 18:13,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.0075005,74636.6,559.81,559.8118,cca94525-4ed1-45d5-8835-605af6e01673
+14/04/2026 18:13,VWAPTouch-and-Go,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74721.1,14.94,-,8a00b105-ea06-4071-8a7a-f303fad77aa7
+14/04/2026 18:32,BollingerVolatilityBreak,crypto,B,market-news-analyst (Filtro Noticias),crypto,ETH/USD,BUY,0.0068,2339.7,15.91,-,cfc5b06f-2c81-4107-a139-037c5365d531
+14/04/2026 18:33,SmartTWAPAccum,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74546.02,14.91,-,17a354a8-1a51-4cd0-bd0b-1524158bec9c
+14/04/2026 18:33,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.0001995,74507.7,14.86,0.3078,59d92cc5-ce07-4c71-9b6a-3578e4875ba7
+14/04/2026 18:45,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,0.1776,83.19,14.77,-,3f86f066-ec5e-436a-be38-839d04543d63
+14/04/2026 19:01,DynamicSpotGrid,crypto,B,market-news-analyst (Filtro Noticias),crypto,SOL/USD,BUY,0.1784,82.8,14.77,-,d869f831-6391-431b-90cc-d3d7475c42e8
+14/04/2026 21:37,BollingerVolatilityBreak,crypto,B,market-news-analyst (Filtro Noticias),crypto,ETH/USD,SELL,0.006783,2319.64,15.73,-0.1361,fe6884fc-a6f1-4107-92b1-2024437aadfe
+14/04/2026 21:37,BollingerVolatilityBreak,crypto,B,market-news-analyst (Filtro Noticias),crypto,ETH/USD,BUY,0.0068,2321.9,15.79,-,44415081-ae0c-4f04-8b14-16c3e37f1b04
+14/04/2026 21:37,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.0001995,74103.53,14.78,0.2271,668531ee-76ec-4258-80a1-a30d59cfb388
+14/04/2026 21:37,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74152.14,14.83,-,1430ce4c-fe08-4c1a-ba55-4ad1fdbfc9b8
+14/04/2026 21:43,BollingerVolatilityBreak,crypto,B,market-news-analyst (Filtro Noticias),crypto,ETH/USD,SELL,0.006783,2318.303,15.73,-0.0258,e7345c38-d04c-454b-9409-feb018045f44
+14/04/2026 21:43,BollingerVolatilityBreak,crypto,B,market-news-analyst (Filtro Noticias),crypto,ETH/USD,BUY,0.0068,2320.7,15.78,-,ac3f4cee-9e59-4dee-bfec-e9a263c822e4
+14/04/2026 21:43,EMARibbonPullback,crypto,B,market-news-analyst (Filtro Noticias),crypto,BCH/USD,BUY,0.0342,436.643,14.93,-,fda2dc13-5555-4d36-b080-cc1304cdb62a
+14/04/2026 21:43,SmartTWAPAccum,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74081.134,14.82,-,5926e34f-b486-4cb1-810c-b4f6d6e2e6a1
+14/04/2026 21:43,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,SELL,0.0001995,74013.53,14.77,0.2057,a169c564-16cb-4f3c-bd8e-2953b7b3f1fd
+14/04/2026 21:47,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74076.667,14.82,-,9c651d34-d1df-4030-add1-a8f932d9e4c0
+14/04/2026 21:47,BollingerVolatilityBreak,crypto,B,market-news-analyst (Filtro Noticias),crypto,ETH/USD,BUY,0.0068,2320.574,15.78,-,3ac73b1e-45ea-47c8-931d-be5b3833c9aa
+14/04/2026 21:54,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74250,14.85,-,f01f5059-5cb1-47b1-82cf-d141f7a11b5b
+14/04/2026 22:54,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74149.46,14.83,-,f4583c28-a26b-45a0-8888-a43dd3d96bad
+15/04/2026 00:01,EMATrendCrossover,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74300.9,14.86,-,2fa6b47c-6009-4e07-88eb-9819359184d5
+15/04/2026 00:56,SmartTWAPAccum,crypto,B,market-news-analyst (Filtro Noticias),crypto,BTC/USD,BUY,0.0002,74548.7,14.91,-,5c319e60-6580-49c6-a55f-da7fcc9b57f6
+15/04/2026 15:32,SmartTWAPAccum,crypto,C,us-stock-analysis (Scoring Dinámico),crypto,BTC/USD,BUY,0.0002,73754.674,14.75,-,ed8ff11f-c1af-46a9-941e-810a3d30871a
+16/04/2026 03:12,SmartTWAPAccum,crypto,C,us-stock-analysis (Scoring Dinámico),crypto,BTC/USD,BUY,0.0002,75025.11,15.01,-,57a9ed73-23ea-45ca-aa4f-715d83b7262b
+16/04/2026 03:53,EMATrendCrossover,crypto,C,us-stock-analysis (Scoring Dinámico),crypto,BTC/USD,BUY,0.0002,74920.367,14.98,-,88914b68-ff4b-4d5f-b6e3-20cf4bf271b3
+16/04/2026 04:01,SmartTWAPAccum,crypto,C,us-stock-analysis (Scoring Dinámico),crypto,BTC/USD,BUY,0.0002,74915.81,14.98,-,8d20d0e4-e439-44f5-a1eb-94a05ce54938
+16/04/2026 13:00,EMATrendCrossover,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,74666.1,14.93,-,5bd2e02d-fd2d-460d-beb7-434c38cd97c5
+16/04/2026 13:08,EMATrendCrossover,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,74776.6,14.96,-,c829df98-bc77-405f-9169-bcbed477068b
+16/04/2026 13:32,MACDTrend_mA_844e46,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,BUY,4.137677881,486.487846,2012.93,-,9cfca20e-324b-441f-bffa-88066d90e623
+16/04/2026 13:35,271add3c-92dc-41cf-8eb4-1dad38d3be1c,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,SELL,4.137677881,485.88,2010.41,2010.4149,d48274ad-bdfb-4514-89b8-c9853d58298d
+16/04/2026 14:03,GoldenCros_mA_5f61b6,unknown,LEGACY,Legado (sin modo registrado),us_equity,XLC,BUY,17.05499068,118.02,2012.83,-,f09f56cd-3790-4c50-a4d6-65dc3763b5ba
+16/04/2026 14:09,MACDTrend_mA_4c60d4,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,BUY,3.989635166,484.332507,1932.31,-,e08772f1-7544-436a-950f-87c3b5d83acd
+16/04/2026 14:24,cb4358f8-7e08-4f3a-89ef-f5ef56b7d967,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,SELL,3.989635166,483.73,1929.91,1929.9062,45587fc2-4160-4db8-9f81-f12f8717e8f0
+16/04/2026 14:30,MACDTrend_mA_d4c986,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,BUY,3.994253229,483.75,1932.22,-,1c6a1aab-cf2a-4e50-8237-713629ebb2db
+16/04/2026 14:34,EMATrendCrossover,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,73936.9,14.79,-,24572df3-4c15-4300-a432-d7334b5bf65c
+16/04/2026 14:46,30f62248-0fe1-4505-a28d-b893553ff975,unknown,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,SELL,15,55.929333,838.94,838.94,9842c075-b6f6-47a5-be69-57daa9996af0
+16/04/2026 15:23,56678671-04e5-4841-b15f-deeee342921f,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,SELL,3.994253229,485.17,1937.89,1937.8918,77e414b3-c9a3-418f-82ff-20ce11fc0a88
+16/04/2026 15:30,RSIBuytheD_mA_7f231c,unknown,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,BUY,34.95304997,56.23,1965.41,-,4c0ff08e-c21a-4703-b09a-9a6a41c3b874
+16/04/2026 15:37,7d68b875-05eb-4169-8894-961937a27cc7,unknown,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,SELL,34.95304997,56.619428,1979.02,1979.0217,e70fe45a-51e9-416d-9fd3-7af6a619ff4f
+16/04/2026 15:39,MACDTrend_mA_920081,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,BUY,4.052335408,485.14,1965.95,-,2f8010c0-a020-4dcc-a0a2-ba0a5a5f20df
+16/04/2026 15:50,RSIBuytheD_mA_a88f78,unknown,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,BUY,33.4453305,56.43,1887.32,-,2a2e1f10-f24b-485a-8f12-db87b09a2377
+16/04/2026 15:59,010464b0-de49-4faf-b154-bebfb99e8a51,unknown,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,SELL,33.4453305,56.73,1897.35,1897.3536,451ea1fe-b6c0-439d-a80b-e9913b617cf9
+16/04/2026 16:17,f2ab5539-f46e-4413-9cce-d20806927ca4,unknown,LEGACY,Legado (sin modo registrado),us_equity,DIA,SELL,4.052335408,485.7,1968.22,1968.2193,4e680f87-a13e-4e95-a0ea-0c54693a7f60
+16/04/2026 16:24,RSIBuytheD_mA_1a7756,unknown,LEGACY,Legado (sin modo registrado),us_equity,TQQQ,BUY,34.68165785,56.7,1966.45,-,e63214cf-d77c-40ba-a600-1c72739aa91b
+16/04/2026 16:31,SmartTWAPAccum,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,74626.75,14.93,-,53e553cb-ca85-4c82-b954-5ec28d7cdbbd
+16/04/2026 16:41,SmartTWAPAccum,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,74460.28,14.89,-,fcab0c3c-0949-4211-8fbe-1e5e56219469
+16/04/2026 16:45,EMATrendCrossover,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,74438.8,14.89,-,4755fa85-9897-4921-91d2-095c16e9c7cd
+16/04/2026 16:45,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,SNDL,BUY,72,1.53,110.16,-,5aa401e2-4a77-4aad-820a-b31133f56b6a
+16/04/2026 16:45,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,TLRY,BUY,15,6.86,102.9,-,29b7d82e-6d3b-4d2f-a796-b29ae6e7cf5a
+16/04/2026 16:45,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,CLOV,BUY,52,2.18,113.36,-,717c36b1-7089-4695-be48-4e2377ef5890
+16/04/2026 16:45,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,MVIS,BUY,165,0.6496,107.18,-,1e6ae3cd-0095-4405-b35f-b7290796e893
+16/04/2026 16:45,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,RIVN,BUY,6,16.99,101.94,-,98590898-ab5d-41c8-bef8-a0af076c77ed
+16/04/2026 16:46,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,ATER,BUY,148,0.7006,103.69,-,28fc0377-b085-4f13-916d-111502559ae4
+16/04/2026 16:46,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,GME,BUY,4,25.29,101.16,-,21db020a-a588-4922-a8df-7fef43146ed9
+16/04/2026 16:46,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,BBBY,BUY,21,5.24,110.04,-,c54ceccb-1ea3-4e45-a502-04af47ffa913
+16/04/2026 16:46,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,AMC,BUY,73,1.59,116.07,-,adf221ba-bec6-4bbb-8bec-d189374063fd
+16/04/2026 16:46,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,WKHS,BUY,38,2.78,105.64,-,a8319739-d8bd-4a0d-9004-6d3faf2dd91b
+16/04/2026 16:48,EMATrendCrossover,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,74397.29,14.88,-,4d7e6d29-d425-4723-adef-5aefe7868058
+16/04/2026 16:49,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,LCID,BUY,13.03780965,7.67,100,-,c336809c-9e99-4671-8afb-cddd8eac135e
+16/04/2026 16:49,GammaSqueeze,equities,A,market-environment-analysis (Régimen),us_equity,SPCE,BUY,35.0877193,2.85,100,-,a042659a-5b88-451f-b2d5-933ffb1ad4c0
+16/04/2026 16:54,SmartTWAPAccum,crypto,A,market-environment-analysis (Régimen),crypto,BTC/USD,BUY,0.0002,74125.11,14.83,-,8b5b9197-b74f-4fb9-80d6-1249445e0f3d

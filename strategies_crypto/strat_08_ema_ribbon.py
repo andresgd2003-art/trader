@@ -82,21 +82,19 @@ class CryptoEMARibbonStrategy(BaseStrategy):
 
             closes_s = pd.Series(list(self._closes))
             
-            # Solo procesamos si hay datos suficientes
+            # Solo procesamos si hay datos suficientes (55 periodos para EMA más largo)
             if len(self._closes) >= 55:
                 e8 = EMAIndicator(closes_s, window=8).ema_indicator().iloc[-1]
-                e13 = EMAIndicator(closes_s, window=13).ema_indicator().iloc[-1]
                 e21 = EMAIndicator(closes_s, window=21).ema_indicator().iloc[-1]
-                e34 = EMAIndicator(closes_s, window=34).ema_indicator().iloc[-1]
                 e55 = EMAIndicator(closes_s, window=55).ema_indicator().iloc[-1]
                 
-                # Para facilitar entrada intradía, usamos los ultimos
-                is_aligned = e8 > e13 and e13 > e21 and e21 > e34 and e34 > e55
+                # Simplificado: 3 EMAs en vez de 5 → señal más alcanzable
+                is_aligned = e8 > e21 and e21 > e55
                 self._save_close(bar.close, is_aligned)
 
                 if self.in_position:
-                    if e8 < e34:
-                        logger.info(f"[{self.name}] EMA8 cruzó EMA34 hacia abajo. Fin de Ribbon. Vendiendo.")
+                    if e8 < e55:  # EMA rápida cruza la lenta → fin de tendencia
+                        logger.info(f"[{self.name}] EMA8 cruzó EMA55 hacia abajo. Fin de Ribbon. Vendiendo.")
                         # Usar qty REAL de Alpaca, no el tracking interno
                         real_qty = self.sync_position_from_alpaca(bar.symbol)
                         if real_qty > 0:
@@ -116,7 +114,7 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                         if not granted:
                             logger.debug(f"[{self.name}] Árbitro denegó compra BCH. Ribbon omitido.")
                         else:
-                            logger.info(f"[{self.name}] Full Bullish Alignment + Pullback al EMA21. Comprando!")
+                            logger.info(f"[{self.name}] Bullish Alignment (3-EMA) + Pullback al EMA21. Comprando!")
                             self.in_position = True
                             # Calcular qty basándose en el cap REAL del OrderManager
                             cap = self.order_manager._get_dynamic_cap()

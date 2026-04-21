@@ -1,0 +1,354 @@
+===============================================================
+ AUDITORIA VPS - FASES 0 + 1 + 3
+ Timestamp: 2026-04-15 13:00:06
+ VPS: root@148.230.82.14  (/opt/trader)
+ Servicio: alpacatrader.service
+===============================================================
+
+
+--- F0.1 Git log VPS (ultimos 10 commits) ---
+$ cd /opt/trader && git log --oneline -10 2>&1
+6adcf6a Fix Crypto floating point rounding error for Market Sells using client.close_position()
+09decd8 [Fases 2-4] Fix Grid Limit Qtys, VCP Daily SMA200 y Portfolio Budget Lock
+ed60be3 [Fase 1] Max price a 3000 y VIX real via yfinance
+9f7430f Fix historical backfill logic triggering thousands of duplicate ghost orders on start
+94162cc Fix UI Duplicate IDs and sync Regime globally across Engines
+fda5c91 Dashboard: Update positions & orders categorizer to use dynamic ETF whitelist + order meta-parsing for Equities tab support
+89ca5c3 Fix duplicate orders on restart: Sync live Alpaca positions on startup and before deploying bracket/grid orders
+d759453 Fix Grid duplicate orders on restart + lower GoldenCross spread to 0.2%
+0a858b8 Lower Golden Cross trend-active spread threshold to 0.2%
+8c71f4e Adjust BULL regime strategies for high vol market
+
+--- F0.2 Git status VPS (archivos modificados) ---
+$ cd /opt/trader && git status --short 2>&1
+?? check_orders.py
+?? check_orders2.py
+?? fix_orders.py
+?? fix_orders2.py
+?? "que dice activating o restarting"
+?? test_concurrency.py
+?? test_crypto.py
+?? test_crypto_run.py
+?? test_crypto_s.py
+?? test_firewall.py
+?? test_firewall_v2.py
+?? test_firewall_v3.py
+?? test_risk.py
+?? test_sqlite_stress.py
+?? test_sqlite_stress_v2.py
+
+--- F0.3 Rama actual VPS ---
+$ cd /opt/trader && git rev-parse --abbrev-ref HEAD && git rev-parse HEAD
+main
+6adcf6abc1a66141fc364c0c2496f22f878eeaed
+
+--- F0.4 Estado del servicio systemd ---
+$ systemctl status alpacatrader.service --no-pager -l 2>&1 | head -20
+● alpacatrader.service - Alpaca Trader Core Engine
+     Loaded: loaded (/etc/systemd/system/alpacatrader.service; enabled; preset: enabled)
+     Active: active (running) since Wed 2026-04-15 15:30:12 UTC; 3h 30min ago
+   Main PID: 74851 (python3)
+      Tasks: 5 (limit: 4652)
+     Memory: 374.7M (peak: 402.3M)
+        CPU: 2min 4.239s
+     CGroup: /system.slice/alpacatrader.service
+             └─74851 /opt/trader/venv/bin/python3 /opt/trader/main.py
+
+Apr 15 18:55:48 srv925516 alpacatrader[74851]: [2026-04-15 14:55:48] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:56:00 srv925516 alpacatrader[74851]: [2026-04-15 14:56:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74365.76 EMA26=74338.81
+Apr 15 18:56:51 srv925516 alpacatrader[74851]: [2026-04-15 14:56:51] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:57:00 srv925516 alpacatrader[74851]: [2026-04-15 14:57:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74370.63 EMA26=74343.67
+Apr 15 18:57:52 srv925516 alpacatrader[74851]: [2026-04-15 14:57:52] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:58:00 srv925516 alpacatrader[74851]: [2026-04-15 14:58:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74374.84 EMA26=74347.41
+Apr 15 18:58:54 srv925516 alpacatrader[74851]: [2026-04-15 14:58:54] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:59:00 srv925516 alpacatrader[74851]: [2026-04-15 14:59:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74381.31 EMA26=74351.95
+Apr 15 18:59:58 srv925516 alpacatrader[74851]: [2026-04-15 14:59:58] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 19:00:00 srv925516 alpacatrader[74851]: [2026-04-15 15:00:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74385.67 EMA26=74356.67
+
+--- F0.5 Uptime del servicio ---
+$ systemctl show alpacatrader.service --property=ActiveEnterTimestamp,ActiveState,SubState 2>&1
+ActiveState=active
+SubState=running
+ActiveEnterTimestamp=Wed 2026-04-15 15:30:12 UTC
+
+--- F0.6 Procesos Python activos ---
+$ ps aux | grep -i python | grep -v grep
+root       74851  0.9  9.5 737872 384424 ?       Ssl  15:30   2:04 /opt/trader/venv/bin/python3 /opt/trader/main.py
+
+--- F1.1 Memoria libre (free -h) ---
+$ free -h
+               total        used        free      shared  buff/cache   available
+Mem:           3.8Gi       1.9Gi       119Mi        30Mi       2.2Gi       2.0Gi
+Swap:             0B          0B          0B
+
+--- F1.2 Disco libre (df -h /) ---
+$ df -h /
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        48G   26G   22G  55% /
+
+--- F1.3 Top 5 procesos por CPU ---
+$ ps aux --sort=-%cpu | head -6
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root       79662  100  0.1  12884  5348 ?        R    19:00   0:00 ps aux --sort=-%cpu
+root       79397  1.8  0.2  20596 11488 ?        Ss   19:00   0:00 /usr/lib/systemd/systemd --user
+root         688  1.3  0.7 1310116 32024 ?       SNsl Apr13  37:07 /usr/bin/monarx-agent
+root       74851  0.9  9.5 737872 384424 ?       Ssl  15:30   2:04 /opt/trader/venv/bin/python3 /opt/trader/main.py
+root         801  0.5  2.9 2186936 119064 ?      Ssl  Apr13  15:04 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+
+--- F1.4 Top 5 procesos por memoria ---
+$ ps aux --sort=-%mem | head -6
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root       74851  0.9  9.5 737872 384424 ?       Ssl  15:30   2:04 /opt/trader/venv/bin/python3 /opt/trader/main.py
+ubuntu      4364  0.2  9.2 27149116 371548 ?     Sl   Apr13   6:45 node /usr/local/bin/n8n
+root        5172  0.0  3.2 1245744 129380 ?      Sl   Apr13   0:43 node dist/main
+root         801  0.5  2.9 2186936 119064 ?      Ssl  Apr13  15:04 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+root        4891  0.0  2.2 21393972 90580 ?      Sl   Apr13   0:27 node backend.js start
+
+--- F1.5 Uptime del VPS ---
+$ uptime
+ 19:00:23 up 1 day, 23:03,  1 user,  load average: 0.27, 0.08, 0.08
+
+--- F1.6 Puertos escuchando ---
+$ ss -tlnp 2>&1 | grep -E ':8000|:22|python' | head -10
+LISTEN 0      2048         0.0.0.0:8000       0.0.0.0:*    users:(("python3",pid=74851,fd=11))                    
+LISTEN 0      4096         0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=5426,fd=3),("systemd",pid=1,fd=245))
+LISTEN 0      4096            [::]:22            [::]:*    users:(("sshd",pid=5426,fd=4),("systemd",pid=1,fd=250))
+
+--- F1.7 Config systemd (ExecStart/EnvironmentFile) ---
+$ cat /etc/systemd/system/alpacatrader.service 2>&1 || cat /lib/systemd/system/alpacatrader.service 2>&1
+[Unit]
+Description=Alpaca Trader Core Engine
+After=network.target chrony.service
+
+[Service]
+User=root
+WorkingDirectory=/opt/trader
+EnvironmentFile=/opt/trader/.env
+ExecStart=/opt/trader/venv/bin/python3 /opt/trader/main.py
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=alpacatrader
+
+[Install]
+WantedBy=multi-user.target
+
+
+--- F1.8 Variables definidas en .env (solo nombres) ---
+$ grep -oE '^[A-Z_]+' /opt/trader/.env 2>&1 | sort -u
+ALPACA_API_KEY
+ALPACA_SECRET_KEY
+APCA_API_KEY_ID
+APCA_API_SECRET_KEY
+LOG_PATH
+PAPER_TRADING
+TELEGRAM_BOT_TOKEN
+TELEGRAM_CHAT_ID
+
+--- F1.9 TELEGRAM vars presentes en .env? ---
+$ grep -c 'TELEGRAM_BOT_TOKEN\|TELEGRAM_CHAT_ID' /opt/trader/.env 2>&1
+2
+
+--- F1.10 Errores CRITICAL/ERROR ultimas 24h ---
+$ journalctl -u alpacatrader.service --since '24 hours ago' --no-pager 2>&1 | grep -E 'ERROR|CRITICAL' | tail -30
+Apr 14 21:37:30 srv925516 alpacatrader[51192]: [2026-04-14 17:37:30] ERROR [engine.order_manager_crypto]: [Bollinger Volatility Breakout] ERROR al enviar orden ETH/USD: {"available":"0.006783","balance":"0.006783","code":40310000,"message":"insufficient balance for ETH (requested: 0.0068, available: 0.006783)","symbol":"USD"}
+Apr 14 21:37:38 srv925516 alpacatrader[51192]: [2026-04-14 17:37:38] ERROR [engine.order_manager_crypto]: [EMA Trend Crossover] ERROR al enviar orden BTC/USD: {"available":"0.0001995","balance":"0.0001995","code":40310000,"message":"insufficient balance for BTC (requested: 0.0002, available: 0.0001995)","symbol":"USD"}
+Apr 14 21:43:36 srv925516 alpacatrader[51554]: [2026-04-14 17:43:36] ERROR [engine.order_manager_crypto]: [Bollinger Volatility Breakout] ERROR al enviar orden ETH/USD: {"available":"0.006783","balance":"0.006783","code":40310000,"message":"insufficient balance for ETH (requested: 0.0068, available: 0.006783)","symbol":"USD"}
+Apr 14 21:43:44 srv925516 alpacatrader[51554]: [2026-04-14 17:43:44] ERROR [engine.order_manager_crypto]: [EMA Ribbon Pullback] ERROR al enviar orden BCH/USD: {"available":"0.0341145","balance":"0.0341145","code":40310000,"message":"insufficient balance for BCH (requested: 0.22812, available: 0.0341145)","symbol":"USD"}
+Apr 14 21:47:51 srv925516 alpacatrader[52108]: [2026-04-14 17:47:51] ERROR [engine.order_manager_crypto]: [EMA Trend Crossover] Error cerrando posición completa de BTC/USD: Not Found
+Apr 14 21:47:52 srv925516 alpacatrader[52108]: [2026-04-14 17:47:52] ERROR [engine.order_manager_crypto]: [EMA Trend Crossover] Error cerrando posición completa de BTC/USD: Not Found
+Apr 14 21:47:58 srv925516 alpacatrader[52108]: [2026-04-14 17:47:58] ERROR [engine.order_manager_crypto]: [Bollinger Volatility Breakout] Error cerrando posición completa de ETH/USD: Not Found
+Apr 14 21:47:59 srv925516 alpacatrader[52108]: [2026-04-14 17:47:59] ERROR [engine.order_manager_crypto]: [Bollinger Volatility Breakout] Error cerrando posición completa de ETH/USD: Not Found
+Apr 14 21:48:02 srv925516 alpacatrader[52108]: [2026-04-14 17:48:02] ERROR [engine.order_manager_crypto]: [EMA Ribbon Pullback] Error cerrando posición completa de BCH/USD: Not Found
+Apr 14 22:21:00 srv925516 alpacatrader[52108]: [2026-04-14 18:21:00] ERROR [engine.order_manager_crypto]: [EMA Trend Crossover] Error cerrando posición completa de BTC/USD: Not Found
+Apr 14 23:39:00 srv925516 alpacatrader[52108]: [2026-04-14 19:39:00] ERROR [engine.order_manager_crypto]: [EMA Trend Crossover] Error cerrando posición completa de BTC/USD: Not Found
+Apr 15 00:50:00 srv925516 alpacatrader[52108]: [2026-04-14 20:50:00] ERROR [engine.order_manager_crypto]: [EMA Trend Crossover] Error cerrando posición completa de BTC/USD: Not Found
+Apr 15 14:58:40 srv925516 alpacatrader[52108]: [2026-04-15 10:58:40] ERROR [api_server]: [API] Error actualizando history cache: HTTPSConnectionPool(host='paper-api.alpaca.markets', port=443): Max retries exceeded with url: /v2/account/portfolio/history?period=1W&timeframe=15Min&extended_hours=false (Caused by ConnectTimeoutError(<HTTPSConnection(host='paper-api.alpaca.markets', port=443) at 0x7fb14a26f7a0>, 'Connection to paper-api.alpaca.markets timed out. (connect timeout=10)'))
+Apr 15 15:31:59 srv925516 alpacatrader[74851]: [2026-04-15 11:31:59] ERROR [engine.order_manager_crypto]: [EMA Ribbon Pullback] Error cerrando posición completa de BCH/USD: Not Found
+Apr 15 15:32:02 srv925516 alpacatrader[74851]: [2026-04-15 11:32:02] ERROR [engine.order_manager_crypto]: [EMA Trend Crossover] Error cerrando posición completa de BTC/USD: Not Found
+Apr 15 15:32:12 srv925516 alpacatrader[74851]: [2026-04-15 11:32:12] ERROR [engine.order_manager_crypto]: [Bollinger Volatility Breakout] Error cerrando posición completa de ETH/USD: Not Found
+
+--- F1.11 Cuenta de errores HTTP 429 ultima hora ---
+$ journalctl -u alpacatrader.service --since '1 hour ago' --no-pager 2>&1 | grep -c '429'
+9
+
+--- F1.12 Cuenta de errores HTTP 400/422 ultima hora ---
+$ journalctl -u alpacatrader.service --since '1 hour ago' --no-pager 2>&1 | grep -cE '400|422'
+3
+
+--- F1.13 Dashboard /api/account (primeros 200 chars) ---
+$ curl -s --max-time 5 http://localhost:8000/api/account 2>&1 | head -c 400
+{"equity":101458.08,"cash":50398.01,"buying_power":306178.2,"portfolio_value":101458.08,"settled_cash":0.0,"pnl_day":44.09764538628224,"pnl_day_pct":0.04,"status":"ACTIVE","currency":"USD"}
+
+--- F1.14 Dashboard /api/positions (primeros 200 chars) ---
+$ curl -s --max-time 5 http://localhost:8000/api/positions 2>&1 | head -c 400
+{"crypto":[{"symbol":"BCHUSD","qty":0.0341145,"side":"long","avg_entry":436.643,"current_price":437.8,"unrealized_pl":0.03947,"unrealized_plpc":0.265,"asset_class":"crypto"},{"symbol":"BTCUSD","qty":0.0013965,"side":"long","avg_entry":74166.016895811,"current_price":74463.72,"unrealized_pl":0.415742,"unrealized_plpc":0.40099999999999997,"asset_class":"crypto"},{"symbol":"ETHUSD","qty":0.013566,"si
+
+--- F1.15 Dashboard /api/orders (primeros 200 chars) ---
+$ curl -s --max-time 5 http://localhost:8000/api/orders 2>&1 | head -c 400
+{"crypto":[{"id":"ed8ff11f-c1af-46a9-941e-810a3d30871a","symbol":"BTC/USD","side":"buy","type":"market","qty":0.0002,"filled_qty":0.0002,"status":"filled","limit_price":null,"filled_avg_price":73754.674,"created_at":"2026-04-15T15:32:00.571125+00:00","client_id":"cry_SmartTWAPAccum_mC_e7edb307"},{"id":"5c319e60-6580-49c6-a55f-da7fcc9b57f6","symbol":"BTC/USD","side":"buy","type":"market","qty":0.00
+
+--- F3.1 Ultimas 30 lineas del log (sin DEBUG) ---
+$ journalctl -u alpacatrader.service -n 30 --no-pager 2>&1 | grep -v DEBUG | tail -30
+Apr 15 18:45:23 srv925516 alpacatrader[74851]: [2026-04-15 14:45:23] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:46:00 srv925516 alpacatrader[74851]: [2026-04-15 14:46:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74299.36 EMA26=74288.28
+Apr 15 18:46:29 srv925516 alpacatrader[74851]: [2026-04-15 14:46:29] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:47:00 srv925516 alpacatrader[74851]: [2026-04-15 14:47:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74306.70 EMA26=74293.44
+Apr 15 18:47:30 srv925516 alpacatrader[74851]: [2026-04-15 14:47:30] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:48:00 srv925516 alpacatrader[74851]: [2026-04-15 14:48:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74312.99 EMA26=74296.91
+Apr 15 18:48:35 srv925516 alpacatrader[74851]: [2026-04-15 14:48:35] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:49:00 srv925516 alpacatrader[74851]: [2026-04-15 14:49:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74320.14 EMA26=74301.24
+Apr 15 18:49:37 srv925516 alpacatrader[74851]: [2026-04-15 14:49:37] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:50:00 srv925516 alpacatrader[74851]: [2026-04-15 14:50:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74326.96 EMA26=74305.69
+Apr 15 18:50:39 srv925516 alpacatrader[74851]: [2026-04-15 14:50:39] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:51:00 srv925516 alpacatrader[74851]: [2026-04-15 14:51:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74335.58 EMA26=74311.87
+Apr 15 18:51:39 srv925516 alpacatrader[74851]: [2026-04-15 14:51:39] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:52:00 srv925516 alpacatrader[74851]: [2026-04-15 14:52:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74344.85 EMA26=74317.32
+Apr 15 18:52:43 srv925516 alpacatrader[74851]: [2026-04-15 14:52:43] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:53:00 srv925516 alpacatrader[74851]: [2026-04-15 14:53:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74355.81 EMA26=74324.77
+Apr 15 18:53:44 srv925516 alpacatrader[74851]: [2026-04-15 14:53:44] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:54:00 srv925516 alpacatrader[74851]: [2026-04-15 14:54:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74360.35 EMA26=74331.23
+Apr 15 18:54:46 srv925516 alpacatrader[74851]: [2026-04-15 14:54:46] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:55:00 srv925516 alpacatrader[74851]: [2026-04-15 14:55:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74365.10 EMA26=74336.45
+Apr 15 18:55:48 srv925516 alpacatrader[74851]: [2026-04-15 14:55:48] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:56:00 srv925516 alpacatrader[74851]: [2026-04-15 14:56:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74365.76 EMA26=74338.81
+Apr 15 18:56:51 srv925516 alpacatrader[74851]: [2026-04-15 14:56:51] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:57:00 srv925516 alpacatrader[74851]: [2026-04-15 14:57:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74370.63 EMA26=74343.67
+Apr 15 18:57:52 srv925516 alpacatrader[74851]: [2026-04-15 14:57:52] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:58:00 srv925516 alpacatrader[74851]: [2026-04-15 14:58:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74374.84 EMA26=74347.41
+Apr 15 18:58:54 srv925516 alpacatrader[74851]: [2026-04-15 14:58:54] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 18:59:00 srv925516 alpacatrader[74851]: [2026-04-15 14:59:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74381.31 EMA26=74351.95
+Apr 15 18:59:58 srv925516 alpacatrader[74851]: [2026-04-15 14:59:58] INFO [api_server]: [Charts] Home: 5 puntos de portfolio history de Alpaca
+Apr 15 19:00:00 srv925516 alpacatrader[74851]: [2026-04-15 15:00:00] INFO [strategies_crypto.strat_01_ema_cross]: [EMA Trend Crossover] BTC/USD EMA12=74385.67 EMA26=74356.67
+
+--- F3.2 Senales BUY/SELL/SIGNAL en las ultimas 24h ---
+$ journalctl -u alpacatrader.service --since '24 hours ago' --no-pager 2>&1 | grep -iE 'SIGNAL|BUY|SELL|ORDER FILLED' | tail -20
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=54.1 Precio=54.38
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=62.1 Precio=54.48
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=64.4 Precio=54.51
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=61.8 Precio=54.49
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=58.2 Precio=54.46
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=58.1 Precio=54.46
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=51.3 Precio=54.40
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=41.4 Precio=54.29
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] 🟢 RSI=41.4 < 45 → COMPRANDO TQQQ
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=43.8 Precio=54.31
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=48.2 Precio=54.35
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=52.2 Precio=54.40
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=54.0 Precio=54.42
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=60.6 Precio=54.51
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=61.4 Precio=54.52
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=64.2 Precio=54.56
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=64.5 Precio=54.56
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] TQQQ RSI=66.1 Precio=54.59
+Apr 15 15:32:32 srv925516 alpacatrader[74851]: [2026-04-15 11:32:32] INFO [strategies.strat_05_rsi_dip]: [RSI Buy the Dip] 🔴 RSI=66.1 > 65 → VENDIENDO TQQQ
+Apr 15 15:32:34 srv925516 alpacatrader[74851]: [2026-04-15 11:32:34] INFO [engine.base_strategy]: [RSI Buy the Dip] 🔄 Posición sincronizada desde Alpaca: TQQQ qty=15.00000
+
+--- F3.3 Regimen detectado en logs ---
+$ journalctl -u alpacatrader.service --since '24 hours ago' --no-pager 2>&1 | grep -iE 'regime|BULL|BEAR|CHOP|VIX' | tail -15
+Apr 14 21:44:07 srv925516 alpacatrader[51554]: [2026-04-14 17:44:07] INFO [engine.base_strategy]: [RSI + VIX Filter] 🔄 Posición sincronizada desde Alpaca: SPY qty=16.00000
+Apr 14 21:47:38 srv925516 alpacatrader[52108]: [2026-04-14 17:47:38] INFO [engine.regime_manager]: [Regime] 📊 Régimen: BULL | SPY=694.46 vs SMA200=665.17 | VIX~18.36 | Estrategias activas: [1, 2, 4, 5, 8]
+Apr 14 21:47:38 srv925516 alpacatrader[52108]: [2026-04-14 17:47:38] INFO [engine.base_strategy]: [RSI + VIX Filter] Estrategia inicializada. Activos: ['SPY']
+Apr 14 21:47:38 srv925516 alpacatrader[52108]: [2026-04-14 17:47:38] INFO [engine.base_strategy]: [RSI + VIX Filter] 🔄 Posición sincronizada desde Alpaca: SPY qty=16.00000
+Apr 14 21:47:38 srv925516 alpacatrader[52108]: [2026-04-14 17:47:38] INFO [main_crypto]: [CryptoEngine] RegimeManager inyectado en bots crypto ✅
+Apr 14 21:47:43 srv925516 alpacatrader[52108]: [2026-04-14 17:47:43] INFO [engine.regime_manager]: [Regime] 📊 Régimen: BULL | SPY=694.46 vs SMA200=665.17 | VIX~18.36 | Estrategias activas: [1, 2, 4, 5, 8]
+Apr 14 21:47:43 srv925516 alpacatrader[52108]: [2026-04-14 17:47:43] INFO [EquitiesEngine]: [EquitiesEngine] Régimen del día: BULL
+Apr 14 21:48:12 srv925516 alpacatrader[52108]: [2026-04-14 17:48:12] INFO [engine.base_strategy]: [RSI + VIX Filter] 🔄 Posición sincronizada desde Alpaca: SPY qty=16.00000
+Apr 15 15:30:41 srv925516 alpacatrader[74851]: [2026-04-15 11:30:41] INFO [engine.regime_manager]: [Regime] 📊 Régimen: BULL | SPY=697.37 vs SMA200=665.58 | VIX~17.95 | Estrategias activas: [1, 2, 4, 5, 8]
+Apr 15 15:30:43 srv925516 alpacatrader[74851]: [2026-04-15 11:30:43] INFO [engine.base_strategy]: [RSI + VIX Filter] Estrategia inicializada. Activos: ['SPY']
+Apr 15 15:30:43 srv925516 alpacatrader[74851]: [2026-04-15 11:30:43] INFO [engine.base_strategy]: [RSI + VIX Filter] 🔄 Posición sincronizada desde Alpaca: SPY qty=16.00000
+Apr 15 15:30:43 srv925516 alpacatrader[74851]: [2026-04-15 11:30:43] INFO [main_crypto]: [CryptoEngine] RegimeManager inyectado en bots crypto ✅
+Apr 15 15:31:29 srv925516 alpacatrader[74851]: [2026-04-15 11:31:29] INFO [engine.regime_manager]: [Regime] 📊 Régimen: BULL | SPY=697.03 vs SMA200=665.58 | VIX~17.94 | Estrategias activas: [1, 2, 4, 5, 8]
+Apr 15 15:31:29 srv925516 alpacatrader[74851]: [2026-04-15 11:31:29] INFO [EquitiesEngine]: [EquitiesEngine] Régimen del día: BULL
+Apr 15 15:32:34 srv925516 alpacatrader[74851]: [2026-04-15 11:32:34] INFO [engine.base_strategy]: [RSI + VIX Filter] 🔄 Posición sincronizada desde Alpaca: SPY qty=16.00000
+
+--- F3.4 WebSocket estado ---
+$ journalctl -u alpacatrader.service --since '24 hours ago' --no-pager 2>&1 | grep -iE 'websocket|connected|disconnected|subscribed' | tail -15
+Apr 14 21:47:00 srv925516 alpacatrader[51554]: [2026-04-14 17:47:00] INFO [alpaca.data.live.websocket]: connecting to wss://stream.data.alpaca.markets/v1beta3/crypto/us
+Apr 14 21:47:00 srv925516 alpacatrader[51554]: [2026-04-14 17:47:00] INFO [alpaca.data.live.websocket]: connected to wss://stream.data.alpaca.markets/v1beta3/crypto/us
+Apr 14 21:47:00 srv925516 alpacatrader[51554]: [2026-04-14 17:47:00] INFO [alpaca.data.live.websocket]: subscribed to bars: ['LINK/USD', 'BTC/USD', 'ETH/USD', 'BCH/USD', 'SOL/USD']
+Apr 14 21:48:02 srv925516 alpacatrader[52108]: [2026-04-14 17:48:02] INFO [main_crypto]: [CryptoEngine] Conexión Crypto WebSocket (V1Beta3) Activa.
+Apr 14 21:48:02 srv925516 alpacatrader[52108]: [2026-04-14 17:48:02] INFO [alpaca.data.live.websocket]: started data stream
+Apr 14 21:48:02 srv925516 alpacatrader[52108]: [2026-04-14 17:48:02] INFO [alpaca.data.live.websocket]: starting data websocket connection
+Apr 14 21:48:02 srv925516 alpacatrader[52108]: [2026-04-14 17:48:02] INFO [alpaca.data.live.websocket]: connecting to wss://stream.data.alpaca.markets/v1beta3/crypto/us
+Apr 14 21:48:03 srv925516 alpacatrader[52108]: [2026-04-14 17:48:03] INFO [alpaca.data.live.websocket]: connected to wss://stream.data.alpaca.markets/v1beta3/crypto/us
+Apr 14 21:48:03 srv925516 alpacatrader[52108]: [2026-04-14 17:48:03] INFO [alpaca.data.live.websocket]: subscribed to bars: ['LINK/USD', 'SOL/USD', 'BCH/USD', 'BTC/USD', 'ETH/USD']
+Apr 15 15:32:24 srv925516 alpacatrader[74851]: [2026-04-15 11:32:24] INFO [alpaca.data.live.websocket]: started data stream
+Apr 15 15:32:24 srv925516 alpacatrader[74851]: [2026-04-15 11:32:24] INFO [main_crypto]: [CryptoEngine] Conexión Crypto WebSocket (V1Beta3) Activa.
+Apr 15 15:32:24 srv925516 alpacatrader[74851]: [2026-04-15 11:32:24] INFO [alpaca.data.live.websocket]: starting data websocket connection
+Apr 15 15:32:24 srv925516 alpacatrader[74851]: [2026-04-15 11:32:24] INFO [alpaca.data.live.websocket]: connecting to wss://stream.data.alpaca.markets/v1beta3/crypto/us
+Apr 15 15:32:26 srv925516 alpacatrader[74851]: [2026-04-15 11:32:26] INFO [alpaca.data.live.websocket]: connected to wss://stream.data.alpaca.markets/v1beta3/crypto/us
+Apr 15 15:32:26 srv925516 alpacatrader[74851]: [2026-04-15 11:32:26] INFO [alpaca.data.live.websocket]: subscribed to bars: ['ETH/USD', 'BCH/USD', 'BTC/USD', 'SOL/USD', 'LINK/USD']
+
+--- F3.5 Screener equities runs ---
+$ journalctl -u alpacatrader.service --since '24 hours ago' --no-pager 2>&1 | grep -iE 'screener|scored|universe' | tail -15
+Apr 14 21:37:18 srv925516 alpacatrader[51192]: [2026-04-14 17:37:18] INFO [engine.screener]: [Screener] Ejecutando PreMarket scan de top movers...
+Apr 14 21:37:18 srv925516 alpacatrader[51192]: [2026-04-14 17:37:18] INFO [engine.screener]: [Screener] ✅ Universo del día: 17 tickers | Gainers: ['SNAL', 'ARAI', 'AVNS', 'AHMA', 'AFJKU', 'MGRT', 'BEX', 'BEG', 'ROLR', 'BTFL'] | Losers: ['BEZ', 'IONZ', 'QBTZ', 'APLZ', 'LUD', 'ALLO', 'FCHL']
+Apr 14 21:43:26 srv925516 alpacatrader[51554]: [2026-04-14 17:43:26] INFO [engine.screener]: [Screener] Ejecutando PreMarket scan de top movers...
+Apr 14 21:43:26 srv925516 alpacatrader[51554]: [2026-04-14 17:43:26] INFO [engine.screener]: [Screener] ✅ Universo del día: 17 tickers | Gainers: ['SNAL', 'ARAI', 'AVNS', 'AHMA', 'AFJKU', 'MGRT', 'BEX', 'BEG', 'ROLR', 'BTFL'] | Losers: ['BEZ', 'IONZ', 'QBTZ', 'APLZ', 'LUD', 'ALLO', 'FCHL']
+Apr 14 21:47:42 srv925516 alpacatrader[52108]: [2026-04-14 17:47:42] INFO [engine.screener]: [Screener] Ejecutando PreMarket scan de top movers...
+Apr 14 21:47:42 srv925516 alpacatrader[52108]: [2026-04-14 17:47:42] INFO [engine.screener]: [Screener] ✅ Universo del día: 17 tickers | Gainers: ['SNAL', 'ARAI', 'AVNS', 'AHMA', 'AFJKU', 'MGRT', 'BEX', 'BEG', 'ROLR', 'BTFL'] | Losers: ['BEZ', 'IONZ', 'QBTZ', 'APLZ', 'LUD', 'ALLO', 'FCHL']
+Apr 15 15:31:23 srv925516 alpacatrader[74851]: [2026-04-15 11:31:23] INFO [engine.screener]: [Screener] Ejecutando PreMarket scan de top movers...
+Apr 15 15:31:28 srv925516 alpacatrader[74851]: [2026-04-15 11:31:28] INFO [engine.screener]: [Screener] ✅ Universo del día: 16 tickers | Gainers: ['BIRD', 'VSA', 'QBTX', 'XNDU', 'WATT', 'IONL', 'IONX', 'MNTS'] | Losers: ['QBTZ', 'SNAL', 'ARAI', 'IONZ', 'DOO', 'SMZ', 'RECT', 'KIDZ']
+
+--- F3.6 Reconexiones WebSocket (loop de reconnect?) ---
+$ journalctl -u alpacatrader.service --since '2 hours ago' --no-pager 2>&1 | grep -ciE 'reconnect|reconnecting'
+0
+
+--- V.1 regime_manager VIX_BULL_THRESHOLD ---
+$ grep -n 'VIX_BULL_THRESHOLD\|yfinance\|\^VIX' /opt/trader/engine/regime_manager.py 2>&1 | head -10
+90:    VIX_BULL_THRESHOLD = 30.0
+142:                import yfinance as yf
+143:                vix_ticker = yf.Ticker("^VIX")
+150:                logger.warning(f"[Regime] Falló obtención de ^VIX via yfinance: {e}")
+153:            # Como usamos ^VIX real, los threshold originales de VIX (20 y 30) son correctos
+155:            if spy_price > spy_sma200 and vix_proxy < self.VIX_BULL_THRESHOLD:
+
+--- V.2 screener MAX_PRICE ---
+$ grep -n 'MAX_PRICE\|MIN_PRICE' /opt/trader/engine/screener.py 2>&1 | head -5
+48:    MIN_PRICE = 1.0
+49:    MAX_PRICE = 3000.0
+82:                if self.MIN_PRICE <= m.price <= self.MAX_PRICE
+88:                if self.MIN_PRICE <= m.price <= self.MAX_PRICE
+
+--- V.3 strat_10_grid: notional vs qty ---
+$ grep -n 'notional\|qty=' /opt/trader/strategies/strat_10_grid.py 2>&1 | head -10
+84:            notional_per_level = round(cash_ref * 0.04, 2)
+86:            if notional_per_level < 1.0: notional_per_level = 10.0 # Mínimo seguridad
+88:            notional_per_level = 10.0
+94:                qty_calculated = round(notional_per_level / buy_price, 4)
+97:                    qty=qty_calculated,
+103:                logger.info(f"[{self.name}] Grid BUY colocada @ ${buy_price:.2f} (Monto: ${notional_per_level})")
+
+--- V.4 order_manager settled_cash fallback ---
+$ grep -n 'settled_cash\|buying_power\|paper' /opt/trader/engine/order_manager.py 2>&1 | head -10
+8:2. Cálculo automático de notional (4% del settled_cash).
+36:        self.paper = os.environ.get("PAPER_TRADING", "True").lower() == "true"
+41:            paper=self.paper
+48:        logger.info(f"[OrderManager] Dinámico Inicializado. Modo: {'Paper' if self.paper else 'Live'}")
+98:            # En Paper Trading no existe settled_cash, usamos cash como fallback
+99:            settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
+121:            dynamic_notional = round(settled_cash * 0.04, 2)
+151:            return {"portfolio_value": float(acc.portfolio_value), "cash": float(acc.cash), "settled_cash": float(getattr(acc, 'settled_cash', 0.0))}
+
+--- V.5 strat_02_vcp SMA200 daily ---
+$ grep -n 'sma_200\|SMA200\|yfinance\|TimeFrame.Day' /opt/trader/strategies_equities/strat_02_vcp.py 2>&1 | head -10
+8:  1. Stock debe estar por encima de SMA50, SMA150, SMA200 (tendencia alcista)
+40:    SMA200_PERIOD = 200
+87:        logger.info(f"[{self.name}] Calculando SMA200 diarias para {len(new_symbols)} símbolos...")
+90:            import yfinance as yf
+
+--- V.6 strat_10_grid _grid_active flag ---
+$ grep -n '_grid_active\|_grid_deployed' /opt/trader/strategies/strat_10_grid.py 2>&1 | head -10
+43:        self._grid_active = False
+65:                self._grid_active = True  # Grid ya activa desde sesión anterior
+109:        self._grid_active = True
+
+--- DB.1 Archivo de DB existe? ---
+$ ls -la /opt/trader/data/*.db 2>&1 /app/data/*.db 2>&1 | head -5
+-rw-r--r-- 1 root   root   28672 Apr 14 19:31 /app/data/stock_scores.db
+-rw-r--r-- 1 ubuntu ubuntu 16384 Apr 15 16:02 /app/data/trades.db
+-rw-r--r-- 1 ubuntu ubuntu 28672 Apr 13 19:05 /opt/trader/data/stock_scores.db
+-rw-r--r-- 1 ubuntu ubuntu 16384 Apr 13 17:32 /opt/trader/data/trades.db
+

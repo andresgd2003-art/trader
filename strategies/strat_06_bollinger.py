@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class BollingerReversionStrategy(BaseStrategy):
 
-    SYMBOL  = "SRVR"
+    SYMBOL  = "QQQ"    # Era SRVR — sin volumen en IEX free feed
     PERIOD  = 20
     STD_DEV = 2.0
 

@@ -35,6 +35,7 @@ class CryptoGridSpotStrategy(BaseStrategy):
     VWAP_WINDOW      = 60      # Ventana VWAP (60 barras = 1 hora)
     EVAL_EVERY_N     = 5       # Evaluar cada N barras (5 min)
     LOG_INTERVAL     = 300     # Loguear cada 5 minutos
+    MAX_HOLD_SECS    = 86400   # 24h — forzar venta si tranche no cierra en este tiempo
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -116,18 +117,27 @@ class CryptoGridSpotStrategy(BaseStrategy):
             )
             self._last_log_time = now
 
-        # ── LÓGICA DE VENTA (Take Profit / Stop Loss) ──
+        # ── LÓGICA DE VENTA (Take Profit / Stop Loss / Timeout) ──
         tranches_to_close = []
         for i, tranche in enumerate(self._tranches):
             entry = tranche["entry_price"]
             if entry <= 0:
-                # Tranche restaurada sin precio de entrada — usar VWAP como referencia
-                entry = vwap
+                # Tranche restaurada sin precio de entrada — usar PRECIO ACTUAL (no VWAP)
+                entry = close
                 tranche["entry_price"] = entry
+                logger.info(f"[{self.name}] Tranche #{i+1} entry_price restaurado a ${entry:.2f}")
             
             pct_change = (close - entry) / entry
             
-            if pct_change >= self.TAKE_PROFIT_PCT:
+            # Timeout: forzar venta si la tranche tiene más de 24h
+            age_secs = time.time() - tranche.get("timestamp", time.time())
+            if age_secs >= self.MAX_HOLD_SECS:
+                logger.info(
+                    f"[{self.name}] ⏰ TIMEOUT tranche #{i+1}: "
+                    f"{age_secs/3600:.1f}h > 24h. Forzando venta."
+                )
+                tranches_to_close.append(i)
+            elif pct_change >= self.TAKE_PROFIT_PCT:
                 logger.info(
                     f"[{self.name}] 💰 TAKE PROFIT tranche #{i+1}: "
                     f"SOL ${close:.2f} (+{pct_change*100:.1f}% desde ${entry:.2f})"
