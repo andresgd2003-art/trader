@@ -78,7 +78,7 @@ SECRET_KEY = os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SEC
 PAPER      = True if API_KEY and API_KEY.startswith("PK") else False
 
 # Todos los símbolos que necesitamos recibir en el WebSocket
-ALL_SYMBOLS = ["QQQ", "SMH", "PSQ", "SRVR", "SPY", "SOXX", "TQQQ", "XLC", "IWM", "DIA"]
+ALL_SYMBOLS = ["QQQ", "SMH", "PSQ", "SPY", "SOXX", "TQQQ", "XLC", "IWM", "DIA"]
 
 
 # ============================================================

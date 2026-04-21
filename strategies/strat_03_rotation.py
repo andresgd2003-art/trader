@@ -37,8 +37,8 @@ class MomentumRotationStrategy(BaseStrategy):
         self.regime_manager = regime_manager
         self._current_holding = None
         self._data_client = StockHistoricalDataClient(
-            api_key=os.environ.get("ALPACA_API_KEY", ""),
-            secret_key=os.environ.get("ALPACA_SECRET_KEY", "")
+            api_key=os.environ.get("APCA_API_KEY_ID") or os.environ.get("ALPACA_API_KEY", ""),
+            secret_key=os.environ.get("APCA_API_SECRET_KEY") or os.environ.get("ALPACA_SECRET_KEY", "")
         )
         self._loop_started = False  # Se inicia en el primer on_bar
 

@@ -1,0 +1,10 @@
+﻿import paramiko, time
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh.connect('148.230.82.14', port=22, username='root', password='VPS_PASSWORD_REDACTED', timeout=5)
+
+time.sleep(25)
+_, stdout, _ = ssh.exec_command('journalctl -u alpacatrader.service -b -n 50 --no-pager | cat')
+log = stdout.read().decode('utf-8', errors='ignore')
+print(log.encode('ascii', 'ignore').decode('ascii'))
+ssh.close()

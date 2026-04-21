@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile engine/portfolio_manager.py api_server.py main.py static/index.html)"
+    ]
+  }
+}

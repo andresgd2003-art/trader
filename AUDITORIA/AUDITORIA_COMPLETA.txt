@@ -1,0 +1,78 @@
+# AUDITORÍA TÉCNICA Y PLAN DE SOLUCIONES: AlpacaNode Trading Engine (50 Fases)
+**Objetivo:** Diagnóstico profundo y propuestas de corrección para inactividad en Equities/ETFs.
+**Contexto:** Cuenta CASH, Presupuesto $100 USD, VPS Hostinger, Alpaca Free Tier (IEX).
+**Estado:** SOLO LECTURA. Análisis basado en 50 fases de investigación real.
+
+---
+
+## BLOQUE I: INVESTIGACIÓN DE LA ARQUITECTURA CORE (Fases 1-10)
+
+**Fases 1-5: Diagnóstico de Conectividad y Servicio**
+*   **Problema:** Un solo WebSocket para todos los motores. Si `main.py` se satura, Equities muere.
+*   **Propuesta de Solución 1:** Implementar `asyncio.Queue` para desacoplar la recepción de datos del procesamiento de estrategias.
+*   **Propuesta de Solución 2:** Separar los WebSockets usando una segunda API Key (si es posible) o rotando la conexión entre procesos.
+
+**Fases 6-10: Sincronización y Arbitraje**
+*   **Problema:** Cripto tiene un `AssetArbiter` exitoso; Equities no tiene nada y colisiona.
+*   **Propuesta de Solución 1:** Portar `AssetArbiter` a Equities para gestionar el cash de $100 entre los 20 tickers del Screener.
+*   **Propuesta de Solución 2:** Implementar un "Budget Lock" global en el Portfolio Manager.
+
+---
+
+## BLOQUE II: GESTIÓN DE RIESGO Y FONDOS DE $100 (Fases 11-20)
+
+**Fases 11-13: El Bug del Cash y PDT**
+*   **Problema:** `settled_cash` devuelve 0.0 en Paper Trading, bloqueando el sizing del 4% ($4).
+*   **Propuesta de Solución 1:** Modificar `order_manager.py` para usar `buying_power` como fallback si `is_paper=True`.
+*   **Propuesta de Solución 2:** Eliminar el chequeo de PDT en cuentas detectadas como "Cash Account" (Alpaca no lo exige).
+
+**Fases 14-17: Órdenes Fraccionarias y Límites**
+*   **Problema:** `strat_10_grid` usa `notional` en órdenes LIMIT. Alpaca arroja Error 400.
+*   **Propuesta de Solución 1:** Calcular `qty = notional / current_price` localmente y enviar la orden LIMIT con el parámetro `qty`.
+*   **Propuesta de Solución 2:** Cambiar a órdenes Market solo para la entrada inicial y Límite para la salida.
+
+---
+
+## BLOQUE III: INVESTIGACIÓN DEL UNIVERSO Y FILTROS (Fases 21-30)
+
+**Fases 21-23: El "Filtro Suicida" de Precio**
+*   **Problema:** El Screener borra todo lo que valga > $25. El Scorer solo elige lo que valga > $150.
+*   **Propuesta de Solución 1:** Subir `MAX_PRICE` a $3000. Alpaca permite comprar $4.00 de una acción de $1000 sin problemas.
+*   **Propuesta de Solución 2:** Eliminar el Screener de precio y filtrar solo por "Relative Volume" para asegurar liquidez en IEX.
+
+**Fases 24-27: Inconsistencia del "Daily Mode"**
+*   **Problema:** Rotar A/B/C rompe el seguimiento de tendencias.
+*   **Propuesta de Solución 1:** Convertir A, B y C en un pipeline de filtros: `if (Regime OK) and (News OK) and (Score OK) -> BUY`.
+*   **Propuesta de Solución 2:** Permitir que cada estrategia decida qué filtros usar (ej: VCP usa News, pero Macross usa solo Régimen).
+
+---
+
+## BLOQUE IV: DESINCRO TEMPORAL (1min vs Daily) (Fases 31-40)
+
+**Fases 31-34: La Paradoja de los 200 Minutos**
+*   **Problema:** SMA200 calculada con 200 minutos de datos en lugar de 200 días. El bot opera en ruido aleatorio.
+*   **Propuesta de Solución 1:** Al inicializar cada estrategia, usar `StockHistoricalDataClient` para pedir barras diarias (`TimeFrame.Day`) y guardar el valor de la SMA actual como una constante diaria.
+*   **Propuesta de Solución 2:** Usar un `deque` de 78,000 elementos (inviable) o implementar un agregador de barras que guarde el cierre diario cada vez que pase el tiempo de mercado.
+
+**Fases 35-38: Inyección de Historial Errónea**
+*   **Problema:** `PseudoBar` inyecta 5 días en 1 segundo, arruinando indicadores de volumen y momentum.
+*   **Propuesta de Solución 1:** Limitar la inyección a solo el precio. Los indicadores de volumen deben usar datos REST históricos reales.
+*   **Propuesta de Solución 2:** Desactivar el volumen en la evaluación de los primeros 15 minutos tras el arranque.
+
+---
+
+## BLOQUE V: RÉGIMEN Y VERDICTO FINAL (Fases 41-50)
+
+**Fases 41-45: El Error de VIXY (Umbral 30)**
+*   **Problema:** VIXY está a $29.45. El bot lo compara con un umbral de $30 diseñado para el índice VIX (que está en 18). El bot cree que hay un pánico constante.
+*   **Propuesta de Solución 1 (Rápida):** Subir `VIX_BULL_THRESHOLD` a 50.0 en `regime_manager.py`.
+*   **Propuesta de Solución 2 (Robusta):** Integrar `yfinance` o el endpoint de índices de Alpaca para leer el ticker `^VIX` directamente.
+
+**Fases 46-50: Hoja de Ruta Sugerida**
+1.  **Día 1:** Corregir umbral de VIXY y límite de precio de $25. El bot empezará a comprar.
+2.  **Día 2:** Reparar el cálculo de SMA200 (Day vs Min) descargando el valor real al inicio.
+3.  **Día 3:** Eliminar `notional` de las órdenes LIMIT de la Grid y corregir el bug de `settled_cash` para Paper Trading.
+4.  **Día 4:** Unificar los modos A/B/C en un solo validador de riesgo.
+
+---
+**Conclusión de la Auditoría:** El bot no está comprando porque vive en un estado de "Pánico Artificial" (VIXY) y busca acciones en un rango de precio desierto ($1-$25), intentando además usar parámetros prohibidos (`notional` en Limit) para una cuenta de solo $100.
