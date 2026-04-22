@@ -331,18 +331,25 @@ async def update_cache_task():
                 "QID", "SH", "PSQ", "VIXY", "BND", "AGG", "SHY"
             }
 
-            # Pre-build symbol→strategy map from recent filled equities orders
+            # Pre-build symbol→strategy map from all cached filled equities orders
+            # Uses STATE_CACHE["orders_full"] (up to 1000 orders) to avoid a redundant
+            # Alpaca call and to cover positions opened before the 100-order window.
             symbol_to_strategy: dict = {}
             try:
-                from alpaca.trading.requests import GetOrdersRequest
-                from alpaca.trading.enums import QueryOrderStatus
-                _strat_orders = client.get_orders(filter=GetOrdersRequest(status=QueryOrderStatus.ALL, limit=100))
-                for _o in _strat_orders:
+                _all_orders = STATE_CACHE.get("orders_full") or []
+                # Sort newest-first so the most recent strategy assignment wins
+                _all_orders_sorted = sorted(
+                    _all_orders,
+                    key=lambda x: x.filled_at or x.created_at or datetime.min.replace(tzinfo=__import__('datetime').timezone.utc),
+                    reverse=True
+                )
+                for _o in _all_orders_sorted:
                     _cid = str(_o.client_order_id or "")
                     if _cid.startswith("eq_") and _o.filled_qty and float(_o.filled_qty) > 0:
                         _meta = parse_order_meta(_cid)
                         _name = _meta.get("name", "")
-                        if _name and _o.symbol not in symbol_to_strategy:
+                        if _name:
+                            # Most-recent assignment wins (overwrite older ones)
                             symbol_to_strategy[_o.symbol] = _name
             except Exception:
                 pass
