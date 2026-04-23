@@ -897,6 +897,12 @@ async def get_strategy_ranking(sort_by: str = "profit_factor", desc: bool = True
                 key=lambda x: (x.filled_at or x.created_at or datetime.min.replace(tzinfo=__import__('datetime').timezone.utc))
             )
             
+            # Filtro de Paper Trading: ignorar órdenes de más de 14 días
+            from datetime import timedelta
+            now_utc = datetime.now(__import__('datetime').timezone.utc)
+            cutoff = now_utc - timedelta(days=14)
+            valid_orders = [o for o in valid_orders if (o.filled_at or o.created_at or datetime.min.replace(tzinfo=__import__('datetime').timezone.utc)) >= cutoff]
+            
             # Calcular Realized PNL base
             stats = {}
             tracker = {}

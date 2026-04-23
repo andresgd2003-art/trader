@@ -205,7 +205,7 @@ class OrderManagerCrypto:
         side = OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL
         strategy = order.get("strategy", "Unknown")
 
-        safe_strat_name = strategy.replace(" ", "")[:24]
+        safe_strat_name = strategy.replace(" ", "")
         client_id = f"cry_{safe_strat_name}_{uuid.uuid4().hex[:8]}"
 
         try:
