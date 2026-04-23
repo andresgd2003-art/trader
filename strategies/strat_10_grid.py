@@ -18,6 +18,7 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 import os
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,8 @@ class GridTradingStrategy(BaseStrategy):
                     qty=qty_calculated,
                     side=OrderSide.BUY,
                     time_in_force=TimeInForce.DAY,
-                    limit_price=buy_price
+                    limit_price=buy_price,
+                    client_order_id=f"strat_{self.name.replace(' ','')}_{uuid.uuid4().hex[:8]}"
                 )
                 self._client.submit_order(buy_req)
                 logger.info(f"[{self.name}] Grid BUY @ ${buy_price:.2f} (${notional_per_level})")

@@ -59,7 +59,9 @@ class MomentumRotationStrategy(BaseStrategy):
             if now_utc.weekday() == 4 and now_utc.hour == 20 and now_utc.minute >= 30:
                 logger.info(f"[{self.name}] Ejecutando rotación semanal...")
                 await self._rotate()
-            await asyncio.sleep(3600)  # Revisar cada hora
+                await asyncio.sleep(3600)  # Evitar doble ejecución el mismo día
+            else:
+                await asyncio.sleep(60)  # Revisar cada minuto
 
     async def _rotate(self):
         """Calcula el mejor ETF y rota el portafolio."""
