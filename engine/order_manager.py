@@ -71,6 +71,17 @@ class OrderManager:
         await self._queue.put(order)
         logger.info(f"[OrderManager] VENTA encolada para {symbol} ({strategy_name})")
 
+    async def sell_exact(self, symbol: str, exact_qty: float, strategy_name: str = ""):
+        """
+        Encola una orden de VENTA para liquidar una cantidad exacta (fraccionaria permitida).
+        """
+        if getattr(self, 'ignore_orders', False):
+            return
+        if exact_qty <= 0: return
+        order = {"side": "sell", "symbol": symbol, "qty": exact_qty, "strategy": strategy_name}
+        await self._queue.put(order)
+        logger.info(f"[OrderManager] VENTA EXACTA encolada para {exact_qty} {symbol} ({strategy_name})")
+
     async def _process_queue(self):
         while self._running:
             try:
@@ -94,14 +105,19 @@ class OrderManager:
             # En Paper Trading no existe settled_cash, usamos cash como fallback
             settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
             
-            # 2. Lógica de Venta (Liquidar todo)
+            # 2. Lógica de Venta (Liquidar todo o exacto)
             if side == OrderSide.SELL:
+                qty_to_sell = order.get("qty")
                 try:
                     pos = self.client.get_open_position(symbol)
-                    qty_to_sell = float(pos.qty)
-                    if qty_to_sell <= 0:
+                    available_qty = float(pos.qty)
+                    if available_qty <= 0:
                         logger.warning(f"[{strategy}] Sin qty disponible para vender {symbol}. Ignorado.")
                         return
+                    if qty_to_sell is not None:
+                        qty_to_sell = min(qty_to_sell, available_qty)
+                    else:
+                        qty_to_sell = available_qty
                 except Exception:
                     # Posición no existe — probablemente ya cerrada por bracket/stop de Alpaca
                     logger.warning(f"[{strategy}] VENTA ignorada: {symbol} no tiene posición abierta (ya cerrada por Alpaca).")
