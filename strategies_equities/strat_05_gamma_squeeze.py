@@ -37,6 +37,7 @@ class GammaSqueezeStrategy(BaseStrategy):
     VOL_MULTIPLIER = 3.0    # 300% del promedio
     STOP_LOSS_PCT = 0.05    # Tight: 5%
     TAKE_PROFIT_PCT = 0.30  # Upside explosivo: 30%
+    MIN_PRICE = 1.05        # Evita penny stocks (rutina _adopt_orphan_positions liquida <$1 al reiniciar)
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -64,6 +65,10 @@ class GammaSqueezeStrategy(BaseStrategy):
         self._volumes[sym].append(vol)
 
         if len(self._closes[sym]) < self.SMA_PERIOD:
+            return
+
+        # Filtro anti-penny: evita compras <$1.05 que serían liquidadas al reiniciar
+        if close < self.MIN_PRICE:
             return
 
         closes = pd.Series(list(self._closes[sym]))
