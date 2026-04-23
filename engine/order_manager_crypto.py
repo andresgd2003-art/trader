@@ -85,8 +85,15 @@ class OrderManagerCrypto:
         Fuera de mercado: hasta 20% del capital disponible (máx $40),
         reservando siempre un 40% del settled_cash para la apertura.
         """
+        from engine.regime_manager import get_current_regime
+        regime_mult = {"BULL": 1.0, "CHOP": 0.6, "BEAR": 0.4, "UNKNOWN": 0.4}
+        _rg = get_current_regime().get("regime", "UNKNOWN")
+        mult = regime_mult.get(_rg, 0.4)
+        day_cap_effective = self.DAY_CAP_USD * mult
+        night_cap_effective_max = self.NIGHT_CAP_MAX_USD * mult
+
         if _us_market_is_open():
-            return self.DAY_CAP_USD
+            return day_cap_effective
 
         # Modo noche: calcular cap dinámico
         try:
@@ -97,21 +104,21 @@ class OrderManagerCrypto:
             # No expandir si la cuenta está muy baja
             if equity < self.MIN_EQUITY_EXPAND:
                 logger.debug(f"[OrderManagerCrypto] Equity ${equity:.2f} < ${self.MIN_EQUITY_EXPAND} → modo conservador nocturno.")
-                return self.DAY_CAP_USD
+                return day_cap_effective
 
             reserve    = settled * self.NIGHT_RESERVE_PCT
             available  = max(settled - reserve, 0.0)
-            night_cap  = min(available * self.NIGHT_CAP_PCT, self.NIGHT_CAP_MAX_USD)
+            night_cap  = min(available * self.NIGHT_CAP_PCT, night_cap_effective_max)
 
-            if night_cap > self.DAY_CAP_USD:
+            if night_cap > day_cap_effective:
                 logger.info(f"[OrderManagerCrypto] 🌙 Modo noche: cap ${night_cap:.2f} (equity ${equity:.2f}, disponible ${available:.2f}, reserva ${reserve:.2f})")
             else:
-                logger.info(f"[OrderManagerCrypto] 🌙 Modo noche activo pero cap=${night_cap:.2f} ≤ cap diurno ${self.DAY_CAP_USD} (equity ${equity:.2f} — cuenta pequeña)")
-            return max(night_cap, self.DAY_CAP_USD)   # Nunca menos que el cap diurno
+                logger.info(f"[OrderManagerCrypto] 🌙 Modo noche activo pero cap=${night_cap:.2f} ≤ cap diurno ${day_cap_effective} (equity ${equity:.2f} — cuenta pequeña)")
+            return max(night_cap, day_cap_effective)   # Nunca menos que el cap diurno
 
         except Exception as e:
             logger.warning(f"[OrderManagerCrypto] Error calculando cap nocturno: {e}. Usando cap diurno.")
-            return self.DAY_CAP_USD
+            return day_cap_effective
 
     def _calculate_crypto_qty(self, notional_usd: float, current_price: float, precision: int = 4) -> float:
         """

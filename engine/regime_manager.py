@@ -44,29 +44,26 @@ _CURRENT_REGIME: dict = {
     "enabled_strategies": [],
 }
 
-# Mapa de estrategias habilitadas por régimen — Motor ETF (Todas las 10 activas)
 REGIME_ETF_MAP = {
-    Regime.BULL:  list(range(1, 11)),
-    Regime.BEAR:  list(range(1, 11)),
-    Regime.CHOP:  list(range(1, 11)),
-    Regime.UNKNOWN: list(range(1, 11)),
+    Regime.BULL:    [1, 2, 4, 5, 8],
+    Regime.BEAR:    [3, 6, 9],
+    Regime.CHOP:    [7, 10],
+    Regime.UNKNOWN: [7, 10],
 }
-
-# Mapa de estrategias — Motor Crypto (Todas las 11 activas)
 REGIME_CRYPTO_MAP = {
-    Regime.BULL:  list(range(1, 12)),
-    Regime.BEAR:  list(range(1, 12)),
-    Regime.CHOP:  list(range(1, 12)),
-    Regime.UNKNOWN: list(range(1, 12)),
+    Regime.BULL:    [1, 2, 4, 8, 9, 11],
+    Regime.BEAR:    [5, 6, 10],
+    Regime.CHOP:    [3, 7, 11],
+    Regime.UNKNOWN: [3, 7, 11],
+}
+REGIME_EQUITIES_MAP = {
+    Regime.BULL:    [2, 4, 5, 8, 9],
+    Regime.BEAR:    [10],
+    Regime.CHOP:    [10],
+    Regime.UNKNOWN: [10],
 }
 
-# Mapa de estrategias — Motor Equities (Todas las activas)
-REGIME_EQUITIES_MAP = {
-    Regime.BULL:  [2, 4, 5, 8, 9, 10],
-    Regime.BEAR:  [2, 4, 5, 8, 9, 10],
-    Regime.CHOP:  [2, 4, 5, 8, 9, 10],
-    Regime.UNKNOWN: [2, 4, 5, 8, 9, 10],
-}
+SIZING_BY_REGIME = {"BULL": 0.08, "CHOP": 0.05, "BEAR": 0.03, "UNKNOWN": 0.03}
 
 # Compatibilidad hacia atrás — se mantiene el mapa original
 REGIME_STRATEGY_MAP = REGIME_ETF_MAP
@@ -87,7 +84,7 @@ class RegimeManager:
     """
 
     VIX_BEAR_THRESHOLD = 25.0
-    VIX_BULL_THRESHOLD = 30.0
+    VIX_BULL_THRESHOLD = 20.0
     SMA_PERIOD = 200
 
     def __init__(self):
@@ -140,15 +137,30 @@ class RegimeManager:
 
             try:
                 import yfinance as yf
-                vix_ticker = yf.Ticker("^VIX")
-                vix_hist = vix_ticker.history(period="5d")
-                if not vix_hist.empty:
-                    vix_proxy = float(vix_hist["Close"].iloc[-1])
-                else:
-                    vix_proxy = 20.0
+                vix_hist = yf.Ticker("^VIX").history(period="5d")
+                vix_proxy = float(vix_hist["Close"].iloc[-1]) if not vix_hist.empty else None
             except Exception as e:
-                logger.warning(f"[Regime] Falló obtención de ^VIX via yfinance: {e}")
-                vix_proxy = 20.0
+                logger.warning(f"[Regime] yfinance falló: {e}")
+                vix_proxy = None
+
+            if vix_proxy is None:
+                # Fallback: VIXY de Alpaca como proxy direccional
+                try:
+                    vixy_df = vix_bars.df.reset_index()
+                    vixy_closes = vixy_df[vixy_df["symbol"] == "VIXY"]["close"].values
+                    if len(vixy_closes) >= 2:
+                        change = (vixy_closes[-1] - vixy_closes[0]) / vixy_closes[0]
+                        if change > 0.05:   vix_proxy = 27.0
+                        elif change < -0.05: vix_proxy = 17.0
+                        else:                vix_proxy = 22.0
+                        logger.info(f"[Regime] VIX proxy desde VIXY change {change*100:+.1f}% → {vix_proxy}")
+                except Exception as e2:
+                    logger.error(f"[Regime] VIXY fallback también falló: {e2}")
+
+            if vix_proxy is None:
+                logger.error("[Regime] Sin VIX disponible. Retornando UNKNOWN.")
+                _CURRENT_REGIME.update({"regime": "UNKNOWN", "last_assessed": datetime.now().isoformat()})
+                return Regime.UNKNOWN
 
             # Como usamos ^VIX real, los threshold originales de VIX (20 y 30) son correctos
             # Determinar régimen
@@ -170,6 +182,7 @@ class RegimeManager:
                 "vix_price": round(vix_proxy, 2),
                 "last_assessed": datetime.now().isoformat(),
                 "enabled_strategies": enabled,
+                "suggested_sizing": SIZING_BY_REGIME[regime.value],
             })
 
             sizing = "4%" if regime == Regime.BULL else "3%" if regime == Regime.CHOP else "2%"

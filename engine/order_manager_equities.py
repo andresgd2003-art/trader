@@ -84,7 +84,9 @@ class OrderManagerEquities:
             account = self.client.get_account()
             # Fallback para Paper Trading - Settled Cash solo existe en Live
             settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
-            target_amount = settled_cash * 0.10
+            from engine.regime_manager import get_current_regime
+            pct = get_current_regime().get("suggested_sizing", 0.03)
+            target_amount = settled_cash * pct
             return min(target_amount, self.MAX_POSITION_USD)
         except Exception as e:
             logger.error(f"[OrderManagerEquities] Error calculando notional: {e}")
