@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class GoldenCrossStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 1
     SYMBOL = "XLC"
     SMA_FAST = 50   # días
     SMA_SLOW = 200  # días
@@ -41,6 +42,9 @@ class GoldenCrossStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         # Agregar el precio de cierre al histórico

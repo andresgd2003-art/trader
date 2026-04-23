@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class MomentumRotationStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 3
     UNIVERSE = ["XLY", "XLF", "XLV", "XLE"]
     LOOKBACK_DAYS = 30
 
@@ -43,6 +44,8 @@ class MomentumRotationStrategy(BaseStrategy):
         self._loop_started = False  # Se inicia en el primer on_bar
 
     async def on_bar(self, bar) -> None:
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
+            return
         # Iniciar el loop semanal la primera vez que llegue una barra
         if not self._loop_started:
             asyncio.create_task(self._weekly_rotation_loop())

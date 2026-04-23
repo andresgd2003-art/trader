@@ -16,6 +16,7 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
     Usa el RSI(14) para modular el tamaño de la compra (DCA).
     Se usa DB SQLite para evitar operaciones repetidas en la misma ventana de 4H tras reinicios.
     """
+    STRAT_NUMBER = 4
     RSI_PERIOD = 14
     BASE_ALLOCATION = 50.0
 
@@ -63,6 +64,11 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
             logger.error(f"[{self.name}] DB Update Error: {e}")
 
     async def on_bar(self, bar):
+        if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
+            return
 
         self._closes.append(bar.close)
 

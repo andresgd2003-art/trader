@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class PairsTradingStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 9
     SYMBOL_LONG  = "QQQ"   # Activo principal
     SYMBOL_HEDGE = "PSQ"   # ETF Inverso -1x de QQQ (compra = short sintético)
     LOOKBACK     = 20      # Períodos para Z-Score (20 x 5min = 100 min de historia)
@@ -71,6 +72,9 @@ class PairsTradingStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         # Solo procesamos barras de QQQ para el cálculo del Z-Score

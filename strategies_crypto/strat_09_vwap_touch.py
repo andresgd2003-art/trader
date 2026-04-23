@@ -4,6 +4,7 @@ from engine.base_strategy import BaseStrategy
 logger = logging.getLogger(__name__)
 
 class CryptoVWAPTouchStrategy(BaseStrategy):
+    STRAT_NUMBER = 9
     """
     09 - Intraday VWAP Touch-and-Go
     Asset: BTC/USD
@@ -27,6 +28,11 @@ class CryptoVWAPTouchStrategy(BaseStrategy):
         self.current_qty = qty
 
     async def on_bar(self, bar):
+        if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
+            return
 
         dt = bar.timestamp
         # Reset VWAP a la medianoche UTC

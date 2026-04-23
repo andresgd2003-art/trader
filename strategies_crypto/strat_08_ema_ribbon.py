@@ -9,6 +9,7 @@ from engine.base_strategy import BaseStrategy
 logger = logging.getLogger(__name__)
 
 class CryptoEMARibbonStrategy(BaseStrategy):
+    STRAT_NUMBER = 8
     """
     08 - Multiple EMA Ribbon Pullback
     Asset: BCH/USD
@@ -70,6 +71,11 @@ class CryptoEMARibbonStrategy(BaseStrategy):
             logger.error(f"[{self.name}] DB Load Error: {e}")
 
     async def on_bar(self, bar):
+        if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
+            return
 
         dt = bar.timestamp
         # Evaluamos solo 1 vez cada 4 horas

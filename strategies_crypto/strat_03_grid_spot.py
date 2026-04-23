@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 class CryptoGridSpotStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 3
     SYMBOL = "SOL/USD"
-    
+
     # Grid Parameters
     DIP_ENTRY_PCT    = 0.015   # Compra cuando el precio baja 1.5% del VWAP
     TAKE_PROFIT_PCT  = 0.025   # Vende cuando sube 2.5% desde la entrada
@@ -80,6 +81,9 @@ class CryptoGridSpotStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
             return
 
         close = float(bar.close)

@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class BollingerReversionStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 6
     SYMBOL  = "QQQ"    # Era SRVR — sin volumen en IEX free feed
     PERIOD  = 20
     STD_DEV = 2.0
@@ -31,6 +32,9 @@ class BollingerReversionStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         self._closes.append(float(bar.close))

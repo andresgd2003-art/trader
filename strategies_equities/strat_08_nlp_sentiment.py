@@ -137,6 +137,8 @@ class NLPSentimentStrategy(BaseStrategy):
         """Confirma la señal de news con volumen 3x en la siguiente vela de 1min."""
         if not self.should_process(bar.symbol):
             return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"):
+            return
 
         sym = bar.symbol
         vol = float(bar.volume)

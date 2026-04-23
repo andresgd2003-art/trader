@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class VWAPBounceStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 8
     SYMBOL      = "SMH"
     VOL_BARS    = 15    # Promedio de volumen de las últimas N barras
     CLOSE_HOUR  = 20    # 20:50 UTC = 15:50 EST
@@ -55,6 +56,9 @@ class VWAPBounceStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         # Iniciar EOD close loop la primera vez que llegue una barra
