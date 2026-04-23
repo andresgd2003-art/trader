@@ -124,7 +124,7 @@ class OrderManager:
                     return
 
                 try:
-                    client_id = f"strat_{strategy.replace(' ','')[:10]}_{uuid.uuid4().hex[:8]}"
+                    client_id = f"strat_{strategy.replace(' ','')}_{uuid.uuid4().hex[:8]}"
                     req = MarketOrderRequest(
                         symbol=symbol,
                         qty=qty_to_sell,
@@ -161,7 +161,7 @@ class OrderManager:
                 return
 
             # 4. Generar ID único y enviar orden Notional
-            client_id = f"strat_{strategy.replace(' ','')[:10]}_{uuid.uuid4().hex[:8]}"
+            client_id = f"strat_{strategy.replace(' ','')}_{uuid.uuid4().hex[:8]}"
 
             request = MarketOrderRequest(
                 symbol=symbol,

@@ -63,6 +63,21 @@ def parse_order_meta(raw: Optional[str]) -> dict:
 
     name = "_".join(name_parts) if name_parts else "unknown"
 
+    LEGACY_NAME_MAP = {
+        "RSI+VIXFil": "RSI + VIX Filter",
+        "PairsTradi": "Pairs Trading",
+        "RSIBuytheD": "RSI Buy the Dip",
+        "MACDTrend": "MACD Trend",
+        "BollingerR": "Bollinger Reversion",
+        "GoldenCros": "Golden Cross",
+        "DonchianBr": "Donchian Breakout",
+        "MomentumRo": "Momentum Rotation",
+        "GridTradin": "Grid Trading",
+        "VWAPBounce": "VWAP Bounce"
+    }
+    if name in LEGACY_NAME_MAP:
+        name = LEGACY_NAME_MAP[name]
+
     return {
         "prefix": prefix,
         "engine": engine,

@@ -93,7 +93,7 @@ class OrderManagerEquities:
             return 0.0
 
     def _client_id(self, strategy: str) -> str:
-        safe = strategy.replace(" ", "")[:18]
+        safe = strategy.replace(" ", "")
         return f"eq_{safe}_{uuid.uuid4().hex[:8]}"
 
     async def buy_bracket(
