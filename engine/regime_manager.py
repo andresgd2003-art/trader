@@ -38,6 +38,7 @@ class Regime(str, Enum):
 _CURRENT_REGIME: dict = {
     "regime": Regime.UNKNOWN,
     "spy_price": 0.0,
+    "spy_sma50": 0.0,
     "spy_sma200": 0.0,
     "vix_price": 0.0,
     "last_assessed": None,
@@ -86,6 +87,7 @@ class RegimeManager:
     VIX_BEAR_THRESHOLD = 25.0
     VIX_BULL_THRESHOLD = 20.0
     SMA_PERIOD = 200
+    SMA_FAST_PERIOD = 50
 
     def __init__(self):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
@@ -134,6 +136,7 @@ class RegimeManager:
 
             spy_price = spy_close_prices[-1]
             spy_sma200 = float(pd.Series(spy_close_prices).rolling(self.SMA_PERIOD).mean().iloc[-1])
+            spy_sma50 = float(pd.Series(spy_close_prices).rolling(self.SMA_FAST_PERIOD).mean().iloc[-1])
 
             try:
                 import yfinance as yf
@@ -163,10 +166,10 @@ class RegimeManager:
                 return Regime.UNKNOWN
 
             # Como usamos ^VIX real, los threshold originales de VIX (20 y 30) son correctos
-            # Determinar régimen
-            if spy_price > spy_sma200 and vix_proxy < self.VIX_BULL_THRESHOLD:
+            # Determinar régimen dual (SMA50 y SMA200)
+            if spy_price > spy_sma50 and spy_price > spy_sma200 and vix_proxy < self.VIX_BULL_THRESHOLD:
                 regime = Regime.BULL
-            elif spy_price < spy_sma200 and vix_proxy > self.VIX_BEAR_THRESHOLD:
+            elif spy_price < spy_sma50 and spy_price < spy_sma200 and vix_proxy > self.VIX_BEAR_THRESHOLD:
                 regime = Regime.BEAR
             else:
                 regime = Regime.CHOP
@@ -178,6 +181,7 @@ class RegimeManager:
             _CURRENT_REGIME.update({
                 "regime": regime.value,
                 "spy_price": round(spy_price, 2),
+                "spy_sma50": round(spy_sma50, 2),
                 "spy_sma200": round(spy_sma200, 2),
                 "vix_price": round(vix_proxy, 2),
                 "last_assessed": datetime.now().isoformat(),
@@ -188,7 +192,7 @@ class RegimeManager:
             sizing = "4%" if regime == Regime.BULL else "3%" if regime == Regime.CHOP else "2%"
             logger.info(
                 f"[Regime] 📊 Régimen: {regime.value} | "
-                f"SPY={spy_price:.2f} vs SMA200={spy_sma200:.2f} | "
+                f"SPY={spy_price:.2f} vs SMA50={spy_sma50:.2f} vs SMA200={spy_sma200:.2f} | "
                 f"VIX~{vix_proxy:.2f} | Sizing activo: {sizing} | Todas activas!"
             )
 
