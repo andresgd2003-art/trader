@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 class CryptoBBBreakoutStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 2
     SYMBOL = "ETH/USD"
     BB_PERIOD = 20
     BB_STD = 2.0
@@ -33,6 +34,9 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
             return
 
         current_close = float(bar.close)

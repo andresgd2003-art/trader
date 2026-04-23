@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class DonchianBreakoutStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 2
     SYMBOL = "IWM"
     HIGH_PERIOD = 120  # 2 horas de barras de 1min — breakout intraday
     LOW_PERIOD  = 60   # 1 hora para el canal inferior
@@ -39,6 +40,9 @@ class DonchianBreakoutStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         self._highs.append(float(bar.high))

@@ -12,6 +12,7 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
     06 - Volume Anomaly / Pump Catcher
     Busca picos anormales de volumen en 1 minuto en High Beta Altcoins (LINK/USD).
     """
+    STRAT_NUMBER = 6
     SMA_VOL_PERIOD = 20
 
     def __init__(self, order_manager, regime_manager=None):
@@ -26,6 +27,11 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
         self.current_qty = qty
 
     async def on_bar(self, bar):
+        if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
+            return
 
         self._volumes.append(bar.volume)
 

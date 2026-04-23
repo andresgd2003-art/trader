@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class GridTradingStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 10
     SYMBOL      = "SOXX"
     GRID_STEP   = 0.03    # 3% entre cada nivel
     GRID_LEVELS = 5       # Niveles de grid
@@ -48,6 +49,9 @@ class GridTradingStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         current_price = float(bar.close)

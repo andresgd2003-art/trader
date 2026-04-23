@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class VIXFilteredReversionStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 7
     SYMBOL      = "SPY"
     RSI_PERIOD  = 14
     RSI_BUY     = 35    # Ajustado para barras de 1min (30 era inalcanzable)
@@ -37,6 +38,9 @@ class VIXFilteredReversionStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         self._closes.append(float(bar.close))

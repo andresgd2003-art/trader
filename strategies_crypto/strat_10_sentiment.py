@@ -16,6 +16,7 @@ class CryptoSentimentStrategy(BaseStrategy):
     API externa: Alternative.me
     Usa SQLite para mantener la serie de cierres diarios.
     """
+    STRAT_NUMBER = 10
     RSI_PERIOD = 14
 
     def __init__(self, order_manager, regime_manager=None):
@@ -73,6 +74,12 @@ class CryptoSentimentStrategy(BaseStrategy):
         return 50 # neutral en caso de error
 
     async def on_bar(self, bar):
+        if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
+            return
+
         dt = bar.timestamp
         # Detectar cierre de día (aprox medianoche o nueva barra dia)
         # Evaluamos F&G a las 00:05 UTC para dejar que el mercado abra nuevo dia

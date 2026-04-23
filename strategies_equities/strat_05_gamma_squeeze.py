@@ -54,6 +54,8 @@ class GammaSqueezeStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"):
+            return
         if bar.symbol in self._traded_today:
             return
 

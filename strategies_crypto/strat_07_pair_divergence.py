@@ -11,6 +11,7 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
     Timeframe 15m. Mide el ratio ETH/BTC. 
     Si ETH se vuelve demasiado 'barato' en términos de BTC (SMA 50 - 2 STD), compra ETH.
     """
+    STRAT_NUMBER = 7
     SMA_PERIOD = 50
 
     def __init__(self, order_manager, regime_manager=None):
@@ -25,6 +26,11 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
         self.last_minute = -1
 
     async def on_bar(self, bar):
+        if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
+            return
 
         # Timeframe control de 15m
         minute = bar.timestamp.minute

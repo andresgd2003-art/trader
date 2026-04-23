@@ -6,6 +6,7 @@ from engine.base_strategy import BaseStrategy
 logger = logging.getLogger(__name__)
 
 class CryptoFundingSqueezeStrategy(BaseStrategy):
+    STRAT_NUMBER = 5
     """
     05 - Funding Rate Short-Squeeze Proxy
     Chequea en intervalos de 5 minutos la tasa de funding de futuros perpetuos Binance.
@@ -36,6 +37,11 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
         return 0.0
 
     async def on_bar(self, bar):
+        if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
+            return
 
         # Update trailing params
         if self.in_position:

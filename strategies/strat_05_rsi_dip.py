@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class RSIDipStrategy(BaseStrategy):
 
+    STRAT_NUMBER = 5
     SYMBOL     = "TQQQ"
     RSI_PERIOD = 14
     RSI_BUY    = 45   # Era 30 — sube para capturar correcciones moderadas en rally
@@ -32,6 +33,9 @@ class RSIDipStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
+
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         self._closes.append(float(bar.close))
