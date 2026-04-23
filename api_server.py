@@ -351,6 +351,24 @@ async def update_cache_task():
                         if _name:
                             # Most-recent assignment wins (overwrite older ones)
                             symbol_to_strategy[_o.symbol] = _name
+                # Orphan universe fallback: symbols in strategy universes
+                # but without eq_ order history (pre-eq_ legacy positions).
+                _SHORT_SQUEEZE_UNIVERSE = {
+                    "GME","AMC","BBBY","MVIS","CLOV","WKHS","NKLA","RIDE","GOEV",
+                    "LCID","RIVN","SPCE","SNDL","TLRY","ATER","CEI","PROG"
+                }
+                _HIGH_BETA_UNIVERSE = {
+                    "NVDA","AMD","MARA","RIOT","TSLA","PLTR","SOFI","RIVN","LCID",
+                    "MVIS","GME","AMC","BBBY","SNDL","ATER","CLOV","WKHS","NKLA","IDEX","CEI"
+                }
+                for p in raw_positions:
+                    _sym = p.symbol
+                    if _sym in symbol_to_strategy:
+                        continue
+                    if _sym in _SHORT_SQUEEZE_UNIVERSE:
+                        symbol_to_strategy[_sym] = "GammaSqueeze (orphan)"
+                    elif _sym in _HIGH_BETA_UNIVERSE:
+                        symbol_to_strategy[_sym] = "VCP (orphan)"
             except Exception:
                 pass
 
