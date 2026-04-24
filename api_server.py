@@ -492,6 +492,131 @@ def _get_or_create_regime_manager():
             pass
     return _regime_manager_instance
 
+
+# ============================================================
+# HELPER: Nombres de estrategias ACTUALMENTE registradas por motor
+# ============================================================
+_ACTIVE_STRATEGY_NAMES_CACHE: dict | None = None
+
+def _extract_strategy_name_from_source(source: str) -> str | None:
+    """Extrae el primer valor de `name=...` o primer literal pasado a super().__init__(...)."""
+    import re as _re2
+    # Caso 1: super().__init__(name="Foo", ...)
+    m = _re2.search(r'super\(\)\.__init__\s*\([^)]*?name\s*=\s*["\']([^"\']+)["\']', source, _re2.DOTALL)
+    if m:
+        return m.group(1)
+    # Caso 2: super().__init__("Foo", ...)
+    m = _re2.search(r'super\(\)\.__init__\s*\(\s*["\']([^"\']+)["\']', source)
+    if m:
+        return m.group(1)
+    return None
+
+def _collect_names_from_engine(main_module_name: str, import_line_regex: str, strategies_package_dir: str) -> set:
+    """
+    Dado el módulo main (main.py / main_equities.py / main_crypto.py),
+    extrae las clases importadas del paquete de estrategias y lee el `name` de cada archivo.
+    """
+    import re as _re2
+    names: set = set()
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    main_path = os.path.join(base_dir, main_module_name)
+    pkg_dir = os.path.join(base_dir, strategies_package_dir)
+
+    try:
+        with open(main_path, "r", encoding="utf-8") as f:
+            main_src = f.read()
+    except Exception as e:
+        logger.warning(f"[ActiveStrats] No pude leer {main_module_name}: {e}")
+        return names
+
+    # Extraer nombres de clase importados
+    imported_classes: set = set()
+    for m in _re2.finditer(import_line_regex, main_src, _re2.DOTALL):
+        block = m.group(1)
+        for cls in _re2.findall(r'([A-Z][A-Za-z0-9_]+)', block):
+            imported_classes.add(cls)
+
+    if not os.path.isdir(pkg_dir):
+        return names
+
+    # Para cada archivo strat_*.py en el pkg_dir, si define una clase importada, extraer name
+    for fname in os.listdir(pkg_dir):
+        if not fname.startswith("strat_") or not fname.endswith(".py"):
+            continue
+        fpath = os.path.join(pkg_dir, fname)
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                src = f.read()
+        except Exception:
+            continue
+        classes_in_file = set(_re2.findall(r'^class\s+([A-Za-z0-9_]+)\s*[\(:]', src, _re2.MULTILINE))
+        if not (classes_in_file & imported_classes):
+            continue
+        name = _extract_strategy_name_from_source(src)
+        if name:
+            names.add(name)
+    return names
+
+
+def _get_active_strategy_names() -> dict:
+    """
+    Retorna dict {engine: set(names)} con las estrategias ACTUALMENTE registradas
+    en main.py / main_equities.py / main_crypto.py. Cacheado a nivel de módulo.
+    """
+    global _ACTIVE_STRATEGY_NAMES_CACHE
+    if _ACTIVE_STRATEGY_NAMES_CACHE is not None:
+        return _ACTIVE_STRATEGY_NAMES_CACHE
+
+    # ETF — main.py: from strategies import (...)
+    etf = _collect_names_from_engine(
+        "main.py",
+        r'from\s+strategies\s+import\s+\(([^)]+)\)',
+        "strategies",
+    )
+    # Equities — main_equities.py: from strategies_equities import (...)
+    equities = _collect_names_from_engine(
+        "main_equities.py",
+        r'from\s+strategies_equities\s+import\s+\(([^)]+)\)',
+        "strategies_equities",
+    )
+    # Crypto — main_crypto.py: imports individuales dentro de _register_strategies
+    crypto = _collect_names_from_engine(
+        "main_crypto.py",
+        r'(from\s+strategies_crypto\.[^\n]+import[^\n]+(?:\n\s*from\s+strategies_crypto\.[^\n]+import[^\n]+)*)',
+        "strategies_crypto",
+    )
+    # Fallback crypto: si el regex multilinea no agarró todo, escanear todas las importaciones sueltas
+    if len(crypto) < 5:
+        import re as _re2
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        try:
+            with open(os.path.join(base_dir, "main_crypto.py"), "r", encoding="utf-8") as f:
+                mc_src = f.read()
+            imported = set()
+            for m in _re2.finditer(r'from\s+strategies_crypto\.\S+\s+import\s+([A-Za-z0-9_,\s]+)', mc_src):
+                for cls in _re2.findall(r'([A-Z][A-Za-z0-9_]+)', m.group(1)):
+                    imported.add(cls)
+            pkg_dir = os.path.join(base_dir, "strategies_crypto")
+            for fname in os.listdir(pkg_dir):
+                if not (fname.startswith("strat_") and fname.endswith(".py")):
+                    continue
+                with open(os.path.join(pkg_dir, fname), "r", encoding="utf-8") as f:
+                    src = f.read()
+                classes_in_file = set(_re2.findall(r'^class\s+([A-Za-z0-9_]+)\s*[\(:]', src, _re2.MULTILINE))
+                if classes_in_file & imported:
+                    nm = _extract_strategy_name_from_source(src)
+                    if nm:
+                        crypto.add(nm)
+        except Exception as e:
+            logger.warning(f"[ActiveStrats] Fallback crypto falló: {e}")
+
+    _ACTIVE_STRATEGY_NAMES_CACHE = {"etf": etf, "equities": equities, "crypto": crypto}
+    logger.info(
+        f"[ActiveStrats] Registradas — ETF={len(etf)} Equities={len(equities)} Crypto={len(crypto)}"
+    )
+    return _ACTIVE_STRATEGY_NAMES_CACHE
+
+
 # ============================================================
 # HELPER: PARSER ROBUSTO DE client_order_id
 # ============================================================
@@ -578,6 +703,16 @@ async def get_market_regime():
     try:
         from engine.regime_manager import get_current_regime, REGIME_ETF_MAP, REGIME_CRYPTO_MAP, REGIME_EQUITIES_MAP, Regime
         state = get_current_regime()
+
+        # Lazy first-assess: si nunca se evalu\u00f3, forzar una evaluaci\u00f3n best-effort
+        if state.get("last_assessed") is None:
+            try:
+                rm = _get_or_create_regime_manager()
+                if rm is not None:
+                    rm.assess()
+                    state = get_current_regime()
+            except Exception as _e_lazy:
+                logger.warning(f"[API] Lazy regime assess fall\u00f3: {_e_lazy}")
 
         regime_str = state.get("regime", "UNKNOWN")
         try:
@@ -979,6 +1114,23 @@ async def get_strategy_ranking(sort_by: str = "profit_factor", desc: bool = True
             return val
 
         ranking_list.sort(key=get_sort_key, reverse=desc)
+
+        # Filtrar estrategias que ya no están registradas en los motores actuales
+        try:
+            active = _get_active_strategy_names()
+            filtered = []
+            for item in ranking_list:
+                nm = item.get("strategy") or item.get("name")
+                eng = item.get("engine", "unknown")
+                active_set = active.get(eng)
+                if active_set is None or nm in active_set:
+                    filtered.append(item)
+                else:
+                    logger.warning(f"[Ranking] Excluyendo estrategia histórica: {nm} ({eng})")
+            ranking_list = filtered
+        except Exception as _e_filter:
+            logger.warning(f"[Ranking] Filtro de estrategias activas falló: {_e_filter}")
+
         return ranking_list
     except Exception as e:
         logger.error(f"[API] Error en /api/strategy/ranking: {e}")
@@ -1297,7 +1449,16 @@ async def get_equities_regime():
     """Régimen de mercado actual (BULL/BEAR/CHOP) + datos de SPY y VIX."""
     try:
         from engine.regime_manager import get_current_regime
-        return get_current_regime()
+        state = get_current_regime()
+        if state.get("last_assessed") is None:
+            try:
+                rm = _get_or_create_regime_manager()
+                if rm is not None:
+                    rm.assess()
+                    state = get_current_regime()
+            except Exception as _e_lazy:
+                logger.warning(f"[API] Lazy equities regime assess falló: {_e_lazy}")
+        return state
     except Exception as e:
         return {"error": str(e), "regime": "UNKNOWN"}
 

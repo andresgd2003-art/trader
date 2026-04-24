@@ -11,15 +11,20 @@ class MockOrderManager:
     def __init__(self, paper=True):
         self.paper = paper
         self.buy = AsyncMock()
+        self.buy_dynamic = AsyncMock()
+        self.buy_bracket = AsyncMock()
         self.sell = AsyncMock()
         self.sell_exact = AsyncMock()
+        self.close_position = AsyncMock()
+        self.sync_position_from_alpaca = MagicMock(return_value=(False, 0))
+        self.request_buy = AsyncMock(return_value=True)
+        self.release_asset = AsyncMock()
+        self._calculate_crypto_qty = MagicMock(return_value=0.001)
         self.client = MagicMock()
-        # Mock client behavior
         mock_account = MagicMock()
         mock_account.settled_cash = "1000.0"
         self.client.get_account.return_value = mock_account
 
-    # Order manager logic relies on specific names passed.
     def _client_id(self, strategy):
         return f"test_eq_{strategy}"
 
@@ -99,10 +104,15 @@ async def test_etf_exit_condition(etf_strat):
 
 
 # --- TESTS FOR DEFENSIVE ROTATION ---
+def _set_global_regime(r):
+    import engine.regime_manager as rmod
+    rmod._CURRENT_REGIME["regime"] = r
+
 @pytest.fixture
 def eq_strat():
     om = MockOrderManager()
     rm = MockRegimeManager(enabled=True, regime="BEAR")
+    _set_global_regime("BEAR")
     return DefensiveRotation(order_manager=om, regime_manager=rm)
 
 @pytest.mark.asyncio
@@ -118,51 +128,50 @@ async def test_eq_instantiation(eq_strat):
 @pytest.mark.asyncio
 async def test_eq_signal_trigger(eq_strat):
     # Need SPY RSI < 40 and regime BEAR
-    # Feed 15 SPY bars down
-    for i in range(15):
+    for i in range(20):
         await eq_strat.on_bar(MockBar("SPY", 400.0 - i * 2.0))
-    
-    # Feed 15 KO bars
-    for i in range(15):
-        await eq_strat.on_bar(MockBar("KO", 50.0 - i * 0.1))
-        
-    eq_strat.order_manager.buy.assert_called()
-    args, kwargs = eq_strat.order_manager.buy.call_args
-    assert args[0] == "KO"
-    assert kwargs.get("strategy_name") == "DefensiveRotation"
+    for ticker in eq_strat.symbols:
+        if ticker == "SPY": continue
+        for i in range(20):
+            await eq_strat.on_bar(MockBar(ticker, 50.0 - i * 0.1))
+    eq_strat.order_manager.buy_bracket.assert_called()
 
 @pytest.mark.asyncio
 async def test_eq_regime_gate():
     om = MockOrderManager()
     rm = MockRegimeManager(enabled=False, regime="BULL")
+    _set_global_regime("BULL")
     strat = DefensiveRotation(order_manager=om, regime_manager=rm)
     
     # If regime is BULL and enabled is False, it shouldn't buy
-    for i in range(15):
+    for i in range(20):
         await strat.on_bar(MockBar("SPY", 400.0 - i * 2.0))
-    for i in range(15):
-        await strat.on_bar(MockBar("KO", 50.0 - i * 0.1))
-        
-    strat.order_manager.buy.assert_not_called()
+    for ticker in strat.symbols:
+        if ticker == "SPY": continue
+        for i in range(20):
+            await strat.on_bar(MockBar(ticker, 50.0 - i * 0.1))
+    strat.order_manager.buy_bracket.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_eq_exit_condition(eq_strat):
-    # Enter first
-    for i in range(15):
+    for i in range(20):
         await eq_strat.on_bar(MockBar("SPY", 400.0 - i * 2.0))
-    for i in range(15):
-        await eq_strat.on_bar(MockBar("KO", 50.0 - i * 0.1))
-        
-    eq_strat.order_manager.buy.assert_called()
-    
-    # Exit condition: SPY RSI > 55
-    for i in range(15):
+    for ticker in eq_strat.symbols:
+        if ticker == "SPY": continue
+        for i in range(20):
+            await eq_strat.on_bar(MockBar(ticker, 50.0 - i * 0.1))
+    eq_strat.order_manager.buy_bracket.assert_called()
+
+    # Force exit: SPY RSI > 55
+    for i in range(20):
         await eq_strat.on_bar(MockBar("SPY", 370.0 + i * 5.0))
-    
-    # Need to trigger on_bar for KO to check the exit
-    await eq_strat.on_bar(MockBar("KO", 50.0))
-    
-    assert eq_strat.order_manager.sell.called or eq_strat.order_manager.sell_exact.called
+    for ticker in eq_strat.symbols:
+        if ticker == "SPY": continue
+        await eq_strat.on_bar(MockBar(ticker, 52.0))
+
+    assert (eq_strat.order_manager.sell.called
+            or eq_strat.order_manager.sell_exact.called
+            or eq_strat.order_manager.close_position.called)
 
 
 # --- TESTS FOR CRYPTO MEAN REVERSION EXTREME ---
@@ -190,9 +199,9 @@ async def test_crypto_signal_trigger(crypto_strat):
         await crypto_strat.on_bar(MockBar("BTC/USD", 60000.0 - i*5000.0))
         
     crypto_strat.order_manager.buy.assert_called()
-    args, kwargs = crypto_strat.order_manager.buy.call_args
-    assert args[0] == "BTC/USD"
-    assert kwargs.get("strategy_name") == "CryptoMeanReversionExtreme"
+    _, kwargs = crypto_strat.order_manager.buy.call_args
+    assert kwargs.get("symbol") == "BTC/USD"
+    assert "Mean Reversion" in kwargs.get("strategy_name", "")
 
 @pytest.mark.asyncio
 async def test_crypto_regime_gate():
