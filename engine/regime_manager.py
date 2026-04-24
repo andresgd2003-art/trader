@@ -132,6 +132,17 @@ class RegimeManager:
 
             if len(spy_close_prices) < self.SMA_PERIOD:
                 logger.warning("[Regime] Datos insuficientes para SMA50. Régimen: UNKNOWN")
+                _spy_last = float(spy_close_prices[-1]) if len(spy_close_prices) > 0 else 0.0
+                _CURRENT_REGIME.update({
+                    "regime": Regime.UNKNOWN.value,
+                    "spy_price": round(_spy_last, 2),
+                    "spy_sma20": 0.0,
+                    "spy_sma50": 0.0,
+                    "vix_price": 0.0,
+                    "last_assessed": datetime.now().isoformat(),
+                    "enabled_strategies": REGIME_STRATEGY_MAP[Regime.UNKNOWN],
+                    "suggested_sizing": SIZING_BY_REGIME["UNKNOWN"],
+                })
                 return Regime.UNKNOWN
 
             spy_price = spy_close_prices[-1]
@@ -200,6 +211,12 @@ class RegimeManager:
 
         except Exception as e:
             logger.error(f"[Regime] ❌ Error evaluando régimen: {e}")
+            _CURRENT_REGIME.update({
+                "regime": Regime.UNKNOWN.value,
+                "last_assessed": datetime.now().isoformat(),
+                "enabled_strategies": REGIME_STRATEGY_MAP[Regime.UNKNOWN],
+                "suggested_sizing": SIZING_BY_REGIME["UNKNOWN"],
+            })
             return Regime.UNKNOWN
 
     def is_strategy_enabled(self, strat_number: int, engine: str = "etf") -> bool:
