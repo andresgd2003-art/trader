@@ -1115,15 +1115,26 @@ async def get_strategy_ranking(sort_by: str = "profit_factor", desc: bool = True
 
         ranking_list.sort(key=get_sort_key, reverse=desc)
 
-        # Filtrar estrategias que ya no están registradas en los motores actuales
+        # Filtrar estrategias que ya no están registradas en los motores actuales.
+        # Normalizamos quitando espacios/underscores y bajando a minúsculas para que
+        # "SmartTWAPAccum" (parseado del client_order_id) matchee "Smart TWAP Accum" (name de la clase).
+        # También descartamos siempre los pseudo-nombres administrativos (Adopt_*, OrphanTrailStop_*).
+        def _norm(s: str) -> str:
+            return "".join(ch for ch in (s or "").lower() if ch.isalnum())
+
+        ADMIN_PREFIXES = ("adopt_", "orphantrailstop_", "manualflat_")
         try:
             active = _get_active_strategy_names()
+            active_norm = {eng: {_norm(n) for n in names} for eng, names in active.items()}
             filtered = []
             for item in ranking_list:
-                nm = item.get("strategy") or item.get("name")
+                nm = item.get("strategy") or item.get("name") or ""
                 eng = item.get("engine", "unknown")
-                active_set = active.get(eng)
-                if active_set is None or nm in active_set:
+                if nm.lower().startswith(ADMIN_PREFIXES):
+                    logger.warning(f"[Ranking] Excluyendo admin/huérfano: {nm} ({eng})")
+                    continue
+                active_set = active_norm.get(eng)
+                if active_set is None or _norm(nm) in active_set:
                     filtered.append(item)
                 else:
                     logger.warning(f"[Ranking] Excluyendo estrategia histórica: {nm} ({eng})")
