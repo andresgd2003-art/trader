@@ -53,6 +53,7 @@ class GammaSqueezeStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
+            return
         if bar.symbol in self._traded_today:
             return
 
