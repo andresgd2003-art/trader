@@ -1078,7 +1078,7 @@ async function updateGlobalHealth(acct) {
       document.getElementById('regime-badge').style.color = color;
       setEl('regime-desc', regime.description || '');
       setEl('regime-spy', regime.spy_price ? `$${regime.spy_price.toFixed(2)}` : '—');
-      setEl('regime-sma', regime.spy_sma200 ? `$${regime.spy_sma200.toFixed(2)}` : '—');
+      setEl('regime-sma', regime.spy_sma50 ? `$${regime.spy_sma50.toFixed(2)}` : '—');
       setEl('regime-vix', regime.vix_price ? `${regime.vix_price.toFixed(1)}` : '—');
       if (regime.last_assessed) {
         const ts = new Date(regime.last_assessed);
@@ -1415,7 +1415,7 @@ async function loadEquitiesData() {
         badge.textContent = r;
         badge.className = `regime-badge ${r}`;
         setEl('eq-regime-spy', `$${fmt(regime.spy_price)}`);
-        setEl('eq-regime-sma', `$${fmt(regime.spy_sma200)}`);
+        setEl('eq-regime-sma', `$${fmt(regime.spy_sma50)}`);
         setEl('eq-regime-vix', fmt(regime.vix_price));
         setEl('eq-regime-strats', 'Todas Activas (Sizing Dinámico)');
     }

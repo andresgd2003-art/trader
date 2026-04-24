@@ -38,8 +38,8 @@ class Regime(str, Enum):
 _CURRENT_REGIME: dict = {
     "regime": Regime.UNKNOWN,
     "spy_price": 0.0,
+    "spy_sma20": 0.0,
     "spy_sma50": 0.0,
-    "spy_sma200": 0.0,
     "vix_price": 0.0,
     "last_assessed": None,
     "enabled_strategies": [],
@@ -84,10 +84,10 @@ class RegimeManager:
     Usa SPY y VIX como proxies del mercado general.
     """
 
-    VIX_BEAR_THRESHOLD = 25.0
-    VIX_BULL_THRESHOLD = 20.0
-    SMA_PERIOD = 200
-    SMA_FAST_PERIOD = 50
+    VIX_BEAR_THRESHOLD = 22.0
+    VIX_BULL_THRESHOLD = 18.0
+    SMA_PERIOD = 50
+    SMA_FAST_PERIOD = 20
 
     def __init__(self):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
@@ -107,7 +107,7 @@ class RegimeManager:
 
         try:
             end = datetime.now()
-            start = end - timedelta(days=300)  # 300 días para SMA200
+            start = end - timedelta(days=100)  # 100 días para SMA50
 
             # Obtener barras diarias de SPY
             spy_bars = self.client.get_stock_bars(StockBarsRequest(
@@ -131,12 +131,12 @@ class RegimeManager:
             spy_close_prices = spy_df[spy_df["symbol"] == "SPY"]["close"].values
 
             if len(spy_close_prices) < self.SMA_PERIOD:
-                logger.warning("[Regime] Datos insuficientes para SMA200. Régimen: UNKNOWN")
+                logger.warning("[Regime] Datos insuficientes para SMA50. Régimen: UNKNOWN")
                 return Regime.UNKNOWN
 
             spy_price = spy_close_prices[-1]
-            spy_sma200 = float(pd.Series(spy_close_prices).rolling(self.SMA_PERIOD).mean().iloc[-1])
-            spy_sma50 = float(pd.Series(spy_close_prices).rolling(self.SMA_FAST_PERIOD).mean().iloc[-1])
+            spy_sma50 = float(pd.Series(spy_close_prices).rolling(self.SMA_PERIOD).mean().iloc[-1])
+            spy_sma20 = float(pd.Series(spy_close_prices).rolling(self.SMA_FAST_PERIOD).mean().iloc[-1])
 
             try:
                 import yfinance as yf
@@ -166,10 +166,10 @@ class RegimeManager:
                 return Regime.UNKNOWN
 
             # Como usamos ^VIX real, los threshold originales de VIX (20 y 30) son correctos
-            # Determinar régimen dual (SMA50 y SMA200)
-            if spy_price > spy_sma50 and spy_price > spy_sma200 and vix_proxy < self.VIX_BULL_THRESHOLD:
+            # Determinar régimen dual (SMA20 y SMA50)
+            if spy_price > spy_sma20 and spy_price > spy_sma50 and vix_proxy < self.VIX_BULL_THRESHOLD:
                 regime = Regime.BULL
-            elif spy_price < spy_sma50 and spy_price < spy_sma200 and vix_proxy > self.VIX_BEAR_THRESHOLD:
+            elif spy_price < spy_sma20 and spy_price < spy_sma50 and vix_proxy > self.VIX_BEAR_THRESHOLD:
                 regime = Regime.BEAR
             else:
                 regime = Regime.CHOP
@@ -181,8 +181,8 @@ class RegimeManager:
             _CURRENT_REGIME.update({
                 "regime": regime.value,
                 "spy_price": round(spy_price, 2),
+                "spy_sma20": round(spy_sma20, 2),
                 "spy_sma50": round(spy_sma50, 2),
-                "spy_sma200": round(spy_sma200, 2),
                 "vix_price": round(vix_proxy, 2),
                 "last_assessed": datetime.now().isoformat(),
                 "enabled_strategies": enabled,
@@ -192,7 +192,7 @@ class RegimeManager:
             sizing = "4%" if regime == Regime.BULL else "3%" if regime == Regime.CHOP else "2%"
             logger.info(
                 f"[Regime] 📊 Régimen: {regime.value} | "
-                f"SPY={spy_price:.2f} vs SMA50={spy_sma50:.2f} vs SMA200={spy_sma200:.2f} | "
+                f"SPY={spy_price:.2f} vs SMA20={spy_sma20:.2f} vs SMA50={spy_sma50:.2f} | "
                 f"VIX~{vix_proxy:.2f} | Sizing activo: {sizing} | Todas activas!"
             )
 
