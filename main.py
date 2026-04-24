@@ -351,49 +351,136 @@ class TradingEngine:
 
 
 # ============================================================
+# MARKET HOURS HELPER  (TZ already pinned to America/New_York)
+# ============================================================
+def _is_market_window() -> bool:
+    """
+    Returns True if we are inside the ETF/Equities active window:
+      Mon-Fri  08:30 – 17:00  America/New_York
+    (1 hour pre-open buffer so the engines warm up before 09:30)
+    """
+    now = datetime.now()          # already in NY timezone (os.environ['TZ'] set above)
+    if now.weekday() >= 5:        # Saturday=5, Sunday=6
+        return False
+    market_start = now.replace(hour=8, minute=30, second=0, microsecond=0)
+    market_end   = now.replace(hour=17, minute=0,  second=0, microsecond=0)
+    return market_start <= now <= market_end
+
+
+def _seconds_until_next_window() -> float:
+    """Seconds until the next 08:30 NY window (Mon-Fri)."""
+    import math
+    now = datetime.now()
+    # Advance to next weekday if needed
+    days_ahead = 0
+    for i in range(1, 8):
+        candidate = now + __import__('datetime').timedelta(days=i)
+        if candidate.weekday() < 5:
+            days_ahead = i
+            break
+    next_open = (now + __import__('datetime').timedelta(days=days_ahead)).replace(
+        hour=8, minute=30, second=0, microsecond=0
+    )
+    return max(0.0, (next_open - now).total_seconds())
+
+
+# ============================================================
 # PUNTO DE ENTRADA
 # ============================================================
 if __name__ == "__main__":
     if not API_KEY or not SECRET_KEY:
         logger.error("ERROR: ALPACA_API_KEY y ALPACA_SECRET_KEY son requeridas.")
-        logger.error("Configúralas en las variables de entorno o en el archivo .env")
+        logger.error("Configuralas en las variables de entorno o en el archivo .env")
         exit(1)
 
-    # REGLA DE 20 SEGUNDOS: Delay para evitar Error 406 (conlimit) en redeploys rápidos
+    # REGLA DE 20 SEGUNDOS: Delay para evitar Error 406 (conlimit) en redeploys rapidos
     logger.info("[Main] Delay de seguridad (20s) activo para liberar sesiones previas en Alpaca...")
     time.sleep(20)
 
-    engine = TradingEngine()
-    
-    from main_crypto import CryptoTradingEngine
-    crypto_engine = CryptoTradingEngine()
-
-    from main_equities import EquitiesEngine
-    equities_engine = EquitiesEngine()
-
-    # Inyectar referencia al equities engine para compartir el stream IEX
-    engine.equities_engine = equities_engine
-    
     def global_exception_handler(loop, context):
         msg = context.get("exception", context.get("message"))
-        notifier.send_message_sync(f"🚨 CRITICAL CRASH: {msg}")
+        notifier.send_message_sync(f"CRITICAL CRASH: {msg}")
         loop.default_exception_handler(context)
-    
-    async def run_both():
+
+    # ── ETF/Equities engine factory (creates fresh instances) ──────────────
+    def _build_etf_equities():
+        from main_equities import EquitiesEngine
+        eq = EquitiesEngine()
+        etf = TradingEngine()
+        etf.equities_engine = eq
+        return etf, eq
+
+    async def _run_etf_equities(etf_engine, eq_engine):
+        """Single lifecycle run for ETF + Equities engines."""
+        await eq_engine.initialize()
+        await asyncio.gather(
+            etf_engine.run(),
+            eq_engine.start_engine(),
+            return_exceptions=True
+        )
+
+    async def market_scheduler(crypto_engine):
+        """
+        Controls the ETF/Equities engine lifecycle based on NY market hours.
+        - Starts engines at 08:30 NY (1h pre-open)
+        - Stops  engines at 17:00 NY (30min post-close)
+        - Crypto runs 24/7 independently (not touched here)
+        """
+        etf_task: asyncio.Task | None = None
+        engines_active = False
+
+        logger.info("[Scheduler] Market Scheduler iniciado. Crypto corre 24/7.")
+
+        while True:
+            in_window = _is_market_window()
+
+            if in_window and not engines_active:
+                logger.info("[Scheduler] VENTANA DE MERCADO ABIERTA. Iniciando motores ETF/Equities...")
+                notifier.send_message_sync("[Scheduler] Mercado abierto — Motores ETF/Equities ACTIVOS")
+                try:
+                    etf_engine, eq_engine = _build_etf_equities()
+                    etf_task = asyncio.create_task(
+                        _run_etf_equities(etf_engine, eq_engine)
+                    )
+                    engines_active = True
+                except Exception as e:
+                    logger.error(f"[Scheduler] Error iniciando motores: {e}")
+
+            elif not in_window and engines_active:
+                logger.info("[Scheduler] MERCADO CERRADO. Apagando motores ETF/Equities...")
+                notifier.send_message_sync("[Scheduler] Mercado cerrado — Motores ETF/Equities PAUSADOS (ahorro CPU)")
+                if etf_task and not etf_task.done():
+                    etf_task.cancel()
+                    try:
+                        await etf_task
+                    except asyncio.CancelledError:
+                        pass
+                etf_task = None
+                engines_active = False
+
+                wait = _seconds_until_next_window()
+                logger.info(f"[Scheduler] Proxima ventana en {wait/3600:.1f}h. Durmiendo...")
+                await asyncio.sleep(max(wait - 600, 60))  # wake up 10min before window
+                continue
+
+            await asyncio.sleep(60)  # poll every minute
+
+    async def run_all():
         loop = asyncio.get_running_loop()
         loop.set_exception_handler(global_exception_handler)
-        
-        # Precargar símbolos del universo de equities ANTES de suscribir el WebSocket
-        await equities_engine.initialize()
-        
+
+        from main_crypto import CryptoTradingEngine
+        crypto_engine = CryptoTradingEngine()
+
+        # Crypto is always-on; Scheduler governs ETF/Equities
         await asyncio.gather(
-            engine.run(),
             crypto_engine.start_engine(),
-            equities_engine.start_engine(),
+            market_scheduler(crypto_engine),
             return_exceptions=True
         )
 
     try:
-        asyncio.run(run_both())
+        asyncio.run(run_all())
     except KeyboardInterrupt:
         logger.info("[Main] Sistema detenido por el usuario.")
+
