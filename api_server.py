@@ -797,11 +797,20 @@ async def get_strategy_stats(period: str = "today"):
                 if (o.filled_at or o.created_at or datetime.min.replace(tzinfo=timezone.utc)) >= threshold
             ]
 
+        DEAD_STRATS = {
+            "PEAD Earnings Drift", "NLP News Sentiment", "Insider Buying Flow",
+            "Gapper Momentum", "Opening Gap Fade", "RSI Extreme Reversion", "Statistical Pairs Arb"
+        }
+
         from engine.order_meta import parse_order_meta, compute_trade_pnls, compute_metrics
         for o in valid_orders:
             # Fase 17: usar parser robusto en vez de parts[1]
             meta = parse_order_meta(o.client_order_id)
             strat_name = meta["name"]
+            
+            if strat_name in DEAD_STRATS:
+                continue
+                
             engine     = meta["engine"]
 
             if strat_name not in stats:
@@ -906,9 +915,17 @@ async def get_strategy_ranking(sort_by: str = "profit_factor", desc: bool = True
             # Calcular Realized PNL base
             stats = {}
             tracker = {}
+            DEAD_STRATS = {
+                "PEAD Earnings Drift", "NLP News Sentiment", "Insider Buying Flow",
+                "Gapper Momentum", "Opening Gap Fade", "RSI Extreme Reversion", "Statistical Pairs Arb"
+            }
             for o in valid_orders:
                 meta = parse_order_meta(o.client_order_id)
                 strat_name = meta["name"]
+                
+                if strat_name in DEAD_STRATS:
+                    continue
+                    
                 engine = meta["engine"]
                 if strat_name not in stats:
                     stats[strat_name] = {
