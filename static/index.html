@@ -914,6 +914,7 @@ const ETF_STRATEGIES = [
   { name: 'VWAP Bounce', regime: 'CHOP', symbols: 'QQQ' },
   { name: 'Pairs Trading', regime: 'CHOP', symbols: 'QQQ/SPY' },
   { name: 'Grid Trading', regime: 'CHOP', symbols: 'TQQQ' },
+  { name: 'Inverse Momentum', regime: 'BEAR', symbols: 'SQQQ/SPXU' },
 ];
 
 // ── PERÍODO P&L POR ESTRATEGIA ──
@@ -1295,6 +1296,7 @@ const CRYPTO_STRATEGIES = [
   { name: 'VWAP Touch', regime: 'BULL', symbols: 'BTC/USD', p: 2 },
   { name: 'Sentiment F&G', regime: 'BEAR', symbols: 'BTC/USD', p: 7 },
   { name: 'Micro-VWAP AVAX Aggressive', regime: 'CHOP', symbols: 'AVAX/USD', p: 5 },
+  { name: 'Mean Reversion Extreme', regime: 'BEAR', symbols: 'BTC/USD', p: 8 },
 ];
 
 async function loadCryptoData() {
@@ -1379,10 +1381,8 @@ async function loadCryptoData() {
 // ══════════════════════════════════════════════════════
 const EQ_STRATEGIES = [
   { name: 'VCP Minervini',    regime: 'BULL', symbols: 'High Beta',       strat: 2 },
-  { name: 'PEAD Earnings',    regime: 'BULL', symbols: 'News Driven',     strat: 4 },
+  { name: 'Defensive Rotation', regime: 'BEAR/CHOP', symbols: 'KO, PG, JNJ',  strat: 4 },
   { name: 'Gamma Squeeze',    regime: 'BULL', symbols: 'Short Interest',  strat: 5 },
-  { name: 'NLP Sentiment',    regime: 'BULL', symbols: 'News Headlines',  strat: 8 },
-  { name: 'Insider Flow',     regime: 'BULL', symbols: 'SEC Form 4',      strat: 9 },
   { name: 'Sector Rotation',  regime: 'CHOP', symbols: '11 SPDR ETFs',    strat: 10 },
 ];
 
