@@ -588,7 +588,8 @@ async def get_market_regime():
         return {
             "regime": regime_str,
             "spy_price": state.get("spy_price", 0),
-            "spy_sma200": state.get("spy_sma200", 0),
+            "spy_sma50": state.get("spy_sma50", 0),
+            "spy_sma20": state.get("spy_sma20", 0),
             "vix_price": state.get("vix_price", 0),
             "last_assessed": state.get("last_assessed"),
             "active_strategies": {
