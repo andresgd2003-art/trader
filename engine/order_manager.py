@@ -13,8 +13,8 @@ import logging
 import os
 import uuid
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest
-from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.trading.requests import MarketOrderRequest, GetOrdersRequest
+from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
 from engine.notifier import TelegramNotifier
 
 
@@ -94,6 +94,44 @@ class OrderManager:
             except Exception as e:
                 logger.error(f"[OrderManager] Error en cola: {e}")
 
+    async def _cancel_opposite_open_orders(self, symbol: str, intended_side: OrderSide, strategy: str) -> bool:
+        """
+        Previene 'potential wash trade' de Alpaca: si existe una orden ABIERTA
+        del lado opuesto para `symbol`, la cancela y espera (poll corto) a que
+        quede cancelada. Devuelve True si es seguro proceder.
+        """
+        try:
+            opposite = OrderSide.SELL if intended_side == OrderSide.BUY else OrderSide.BUY
+            req = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[symbol])
+            open_orders = self.client.get_orders(filter=req) or []
+            opposite_orders = [o for o in open_orders if getattr(o, 'side', None) == opposite]
+
+            if not opposite_orders:
+                return True
+
+            for o in opposite_orders:
+                try:
+                    logger.warning(f"[{strategy}] Wash-trade guard: cancelando {opposite} pendiente {o.id} en {symbol} antes de {intended_side}")
+                    self.client.cancel_order_by_id(o.id)
+                except Exception as e:
+                    logger.error(f"[{strategy}] No se pudo cancelar orden opuesta {o.id} en {symbol}: {e}. Abortando {intended_side}.")
+                    return False
+
+            # Poll corto (hasta ~2s) hasta confirmar que ya no hay opuestas abiertas
+            for _ in range(10):
+                await asyncio.sleep(0.2)
+                try:
+                    still = self.client.get_orders(filter=req) or []
+                    if not any(getattr(o, 'side', None) == opposite for o in still):
+                        return True
+                except Exception:
+                    continue
+            logger.warning(f"[{strategy}] Orden opuesta aún abierta tras cancelar en {symbol}. Abortando {intended_side} por seguridad.")
+            return False
+        except Exception as e:
+            logger.error(f"[{strategy}] Error en wash-trade guard para {symbol}: {e}. Abortando {intended_side}.")
+            return False
+
     async def _execute_order(self, order: dict):
         symbol = order["symbol"]
         strategy = order.get("strategy", "Unknown")
@@ -121,6 +159,10 @@ class OrderManager:
                 except Exception:
                     # Posición no existe — probablemente ya cerrada por bracket/stop de Alpaca
                     logger.warning(f"[{strategy}] VENTA ignorada: {symbol} no tiene posición abierta (ya cerrada por Alpaca).")
+                    return
+
+                # Wash-trade guard: cancelar BUY pendiente opuesta si existe
+                if not await self._cancel_opposite_open_orders(symbol, OrderSide.SELL, strategy):
                     return
 
                 try:
@@ -158,6 +200,10 @@ class OrderManager:
 
             if dynamic_notional < 1.0:
                 logger.warning(f"[{strategy}] Fondos insuficientes para {symbol} (Calc: ${dynamic_notional})")
+                return
+
+            # Wash-trade guard: cancelar SELL pendiente opuesta si existe
+            if not await self._cancel_opposite_open_orders(symbol, OrderSide.BUY, strategy):
                 return
 
             # 4. Generar ID único y enviar orden Notional
