@@ -10,7 +10,7 @@ Endpoints:
   GET  /api/orders      → Últimas 30 órdenes
   GET  /api/history     → Historia del portafolio (para el gráfico)
   GET  /api/logs        → Últimas 100 líneas del log
-  GET  /                → Dashboard HTML
+  GET  /                → Dashboard HTML local
 """
 import os
 import json
@@ -1346,6 +1346,7 @@ async def serve_dashboard():
     if dashboard_path.exists():
         return HTMLResponse(content=dashboard_path.read_text(encoding="utf-8"))
     return HTMLResponse(content=f"<h1>Dashboard cargando... ({dashboard_path} no encontrado)</h1><script>setTimeout(()=>location.reload(),3000)</script>")
+
 
 
 # ============================================================

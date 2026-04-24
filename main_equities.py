@@ -30,6 +30,7 @@ from strategies_equities import (
     VCPStrategy,
     GammaSqueezeStrategy,
     SectorRotationStrategy,
+    DefensiveRotation,
 )
 
 logger = logging.getLogger("EquitiesEngine")
@@ -82,6 +83,7 @@ class EquitiesEngine:
     def _register_strategies(self) -> list:
         strats = [
             VCPStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),          # idx 0, strat 2
+            DefensiveRotation(order_manager=self.order_manager, regime_manager=self.regime_manager),
             GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 1, strat 5
             SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 2, strat 10
         ]

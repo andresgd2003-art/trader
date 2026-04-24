@@ -47,20 +47,20 @@ _CURRENT_REGIME: dict = {
 
 REGIME_ETF_MAP = {
     Regime.BULL:    [1, 2, 4, 5, 8],
-    Regime.BEAR:    [3, 6, 9],
-    Regime.CHOP:    [7, 10],
+    Regime.BEAR:    [3, 6, 9, 11],
+    Regime.CHOP:    [7, 10, 11],
     Regime.UNKNOWN: [7, 10],
 }
 REGIME_CRYPTO_MAP = {
-    Regime.BULL:    [1, 2, 4, 8, 9, 11],
-    Regime.BEAR:    [5, 6, 10],
-    Regime.CHOP:    [3, 7, 11],
-    Regime.UNKNOWN: [3, 7, 11],
+    Regime.BULL:    [1, 2, 4, 8, 9, 11, 12],
+    Regime.BEAR:    [5, 6, 10, 12],
+    Regime.CHOP:    [3, 7, 11, 12],
+    Regime.UNKNOWN: [3, 7, 11, 12],
 }
 REGIME_EQUITIES_MAP = {
-    Regime.BULL:    [2, 4, 5, 8, 9],
-    Regime.BEAR:    [10],
-    Regime.CHOP:    [10],
+    Regime.BULL:    [2, 5],
+    Regime.BEAR:    [4, 10],
+    Regime.CHOP:    [4, 10],
     Regime.UNKNOWN: [10],
 }
 

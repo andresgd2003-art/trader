@@ -68,6 +68,7 @@ from strategies import (
     VWAPBounceStrategy,
     PairsTradingStrategy,
     GridTradingStrategy,
+    InverseMomentumETF,
 )
 
 # ============================================================
@@ -143,6 +144,7 @@ class TradingEngine:
             VWAPBounceStrategy(order_manager=self.order_manager, regime_manager=rm),
             PairsTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
             GridTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
+            InverseMomentumETF(order_manager=self.order_manager, regime_manager=rm),
         ]
         logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas.")
         return strategies

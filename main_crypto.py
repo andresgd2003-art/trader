@@ -46,6 +46,7 @@ class CryptoTradingEngine:
         from strategies_crypto.strat_09_vwap_touch import CryptoVWAPTouchStrategy
         from strategies_crypto.strat_10_sentiment import CryptoSentimentStrategy
         from strategies_crypto.strat_11_vwap_avax_aggressive import CryptoMicroVWAPAvaxStrategy
+        from strategies_crypto.strat_12_mean_reversion_extreme import CryptoMeanReversionExtreme
 
         rm = self.regime_manager  # alias corto
         return [
@@ -60,6 +61,7 @@ class CryptoTradingEngine:
             CryptoVWAPTouchStrategy(self.order_manager,     regime_manager=rm),
             CryptoSentimentStrategy(self.order_manager,     regime_manager=rm),
             CryptoMicroVWAPAvaxStrategy(self.order_manager, regime_manager=rm),
+            CryptoMeanReversionExtreme(self.order_manager,  regime_manager=rm),
         ]
 
     async def _on_crypto_bar(self, bar):
