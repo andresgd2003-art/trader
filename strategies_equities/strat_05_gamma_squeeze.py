@@ -53,9 +53,6 @@ class GammaSqueezeStrategy(BaseStrategy):
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
-            return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"):
-            return
         if bar.symbol in self._traded_today:
             return
 
@@ -95,6 +92,7 @@ class GammaSqueezeStrategy(BaseStrategy):
                     f"Close={close:.2f} > SMA20={sma20:.2f} | "
                     f"Vol={vol:.0f} ({vol/vol_avg:.1f}x)"
                 )
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"): return
                 await self.order_manager.buy_bracket(
                     symbol=sym,
                     price=close,

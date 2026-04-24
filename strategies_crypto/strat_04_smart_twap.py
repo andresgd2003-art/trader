@@ -67,8 +67,6 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         self._closes.append(bar.close)
 
@@ -103,6 +101,7 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
             qty = round(amount_usd / bar.close, 5)
             if qty > 0:
                 # Consultar árbitro (P6 = DCA programado, baja prioridad)
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                 granted = await self.order_manager.request_buy(
                     symbol=bar.symbol, priority=6, strategy_name=self.name
                 )
@@ -111,6 +110,7 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
                     return
 
                 logger.info(f"[{self.name}] Ejecutando TWAP Táctico. RSI={rsi:.2f}. Compra USD ${amount_usd}")
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                 await self.order_manager.buy(
                     symbol=bar.symbol,
                     notional_usd=amount_usd,

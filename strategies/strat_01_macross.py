@@ -44,8 +44,6 @@ class GoldenCrossStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
-            return
 
         # Agregar el precio de cierre al histórico
         self._closes.append(float(bar.close))
@@ -68,6 +66,7 @@ class GoldenCrossStrategy(BaseStrategy):
         if self._prev_fast_above is not None and fast_above != self._prev_fast_above:
             if fast_above and not self._has_position:
                 logger.info(f"[{self.name}] 🟢 GOLDEN CROSS detectado en {bar.symbol}! Enviando orden de COMPRA.")
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
                 await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
                 self._has_position = True
                 self._position[self.SYMBOL] = 1
@@ -82,6 +81,7 @@ class GoldenCrossStrategy(BaseStrategy):
         # ⚠️ Seguridad: spread mínimo evita entradas cerca del cruce donde hay ruido
         elif fast_above and spread_pct >= 0.2 and not self._has_position:
             logger.info(f"[{self.name}] 🟢 TENDENCIA ACTIVA: SMA50 > SMA200 (+{spread_pct:.2f}%). Entrando en {bar.symbol}.")
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
             self._position[self.SYMBOL] = 1

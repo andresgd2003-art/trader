@@ -51,10 +51,6 @@ class GridTradingStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
-            return
-
         current_price = float(bar.close)
 
         if self._baseline is None:
@@ -105,6 +101,8 @@ class GridTradingStrategy(BaseStrategy):
 
     async def _place_grid(self):
         if not self._baseline:
+            return
+        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
             return
 
         logger.info(f"[{self.name}] 🏗️ Colocando {self.GRID_LEVELS} niveles de compra (Paso 3%)...")

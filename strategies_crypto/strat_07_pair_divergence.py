@@ -29,8 +29,6 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         # Timeframe control de 15m
         minute = bar.timestamp.minute
@@ -76,6 +74,7 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
             else:
                 if ratio < lower_band:
                     # Consultar árbitro (P5 = mean reversion 15m)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     granted = await self.order_manager.request_buy(
                         symbol="ETH/USD", priority=5, strategy_name=self.name
                     )
@@ -86,6 +85,7 @@ class CryptoPairDivergenceStrategy(BaseStrategy):
                     logger.info(f"[{self.name}] Divergencia detectada. Ratio ({ratio:.5f}) < Band ({lower_band:.5f}). Comprando ETH.")
                     self.in_position = True
                     self.current_qty = round(100.0 / self.last_eth_close, 5)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     await self.order_manager.buy(
                         symbol="ETH/USD",
                         notional_usd=100.0,

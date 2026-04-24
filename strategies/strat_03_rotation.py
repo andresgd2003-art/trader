@@ -44,8 +44,6 @@ class MomentumRotationStrategy(BaseStrategy):
         self._loop_started = False  # Se inicia en el primer on_bar
 
     async def on_bar(self, bar) -> None:
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
-            return
         # Iniciar el loop semanal la primera vez que llegue una barra
         if not self._loop_started:
             asyncio.create_task(self._weekly_rotation_loop())
@@ -105,6 +103,7 @@ class MomentumRotationStrategy(BaseStrategy):
 
         # Comprar el ganador
         if best_symbol != self._current_holding:
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(best_symbol, strategy_name=self.name)
             self._current_holding = best_symbol
             self._position = {best_symbol: 1}

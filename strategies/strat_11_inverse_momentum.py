@@ -44,8 +44,6 @@ class InverseMomentumETF(BaseStrategy):
         if not self.should_process(sym):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
-            return
 
         self._closes[sym].append(float(bar.close))
 
@@ -112,5 +110,6 @@ class InverseMomentumETF(BaseStrategy):
             
             # Notional sizing is handled by OrderManager.buy dynamically.
             self._qty_bought[inverse_sym] = 1.0 # placeholder
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(inverse_sym, strategy_name=self.name)
             self._has_position[inverse_sym] = True

@@ -30,8 +30,6 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         self._volumes.append(bar.volume)
 
@@ -71,6 +69,7 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
                 
                 if is_pump and is_bullish:
                     # Consultar árbitro (P1 = máxima urgencia, pump de 1 minuto)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     granted = await self.order_manager.request_buy(
                         symbol=bar.symbol, priority=1, strategy_name=self.name
                     )
@@ -83,6 +82,7 @@ class CryptoVolAnomalyStrategy(BaseStrategy):
                     self.entry_price = bar.close
                     self.max_price = bar.close
                     self.current_qty = round(100.0 / bar.close, 5)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     await self.order_manager.buy(
                         symbol=bar.symbol,
                         notional_usd=100.0,

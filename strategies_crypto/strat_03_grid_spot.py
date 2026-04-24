@@ -83,8 +83,6 @@ class CryptoGridSpotStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         close = float(bar.close)
         vol = float(bar.volume)
@@ -184,6 +182,7 @@ class CryptoGridSpotStrategy(BaseStrategy):
 
         if dip_from_vwap >= required_dip:
             # Verificar con el árbitro
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
             can_buy = await self.order_manager.request_buy(
                 symbol=self.SYMBOL,
                 priority=4,
@@ -198,6 +197,7 @@ class CryptoGridSpotStrategy(BaseStrategy):
             )
             
             # El OrderManagerCrypto aplica su cap automáticamente ($15/$40)
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
             await self.order_manager.buy(
                 symbol=self.SYMBOL,
                 notional_usd=100.0,  # Aspiracional — será capeado a $15/$40

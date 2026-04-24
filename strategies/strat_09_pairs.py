@@ -74,8 +74,6 @@ class PairsTradingStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
-            return
 
         # Solo procesamos barras de QQQ para el cálculo del Z-Score
         if bar.symbol != self.SYMBOL_LONG:
@@ -123,6 +121,7 @@ class PairsTradingStrategy(BaseStrategy):
                 f"[{self.name}] 📉 Z={z_score:.2f} > {self.Z_ENTRY} → "
                 f"QQQ sobrevalorado. Comprando {self.SYMBOL_HEDGE} (inverso)"
             )
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(self.SYMBOL_HEDGE, strategy_name=self.name)
             self._position_type = "long_psq"
 
@@ -132,6 +131,7 @@ class PairsTradingStrategy(BaseStrategy):
                 f"[{self.name}] 📈 Z={z_score:.2f} < -{self.Z_ENTRY} → "
                 f"QQQ infravalorado. Comprando {self.SYMBOL_LONG}"
             )
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(self.SYMBOL_LONG, strategy_name=self.name)
             self._position_type = "long_qqq"
 

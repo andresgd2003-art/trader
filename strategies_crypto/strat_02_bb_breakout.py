@@ -36,8 +36,6 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         current_close = float(bar.close)
         current_volume = float(bar.volume)
@@ -73,6 +71,7 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
             # Entry logic
             if is_squeeze and current_close > up and current_volume > (vol_sma * 1.5):
                 # Consultar árbitro antes de comprar
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                 granted = await self.order_manager.request_buy(
                     symbol=self.SYMBOL, priority=4, strategy_name=self.name
                 )
@@ -81,6 +80,7 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
                     return
 
                 logger.info(f"[{self.name}] 🚀 BB BREAKOUT & SQUEEZE en ETH! Comprando.")
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                 await self.order_manager.buy(
                     symbol=self.SYMBOL, 
                     notional_usd=self.NOTIONAL_RISK_USD, 
