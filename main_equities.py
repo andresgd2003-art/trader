@@ -258,6 +258,10 @@ class EquitiesEngine:
                 sym = pos.symbol
                 qty = float(pos.qty)
                 price = float(pos.current_price) if pos.current_price else 0.0
+                # qty retenida por órdenes abiertas (bracket SL/TP, etc.)
+                held = float(getattr(pos, 'held_for_orders', 0) or 0)
+                qty_available = float(getattr(pos, 'qty_available', qty - held) or 0)
+                is_fractional = (qty != int(qty))
 
                 if qty <= 0 or sym in protected_symbols:
                     continue
@@ -265,20 +269,60 @@ class EquitiesEngine:
                 if price < 1.00:
                     # Liquidar penny stocks directamente
                     try:
+                        # Si no hay qty disponible pero sí hay held, cancelar órdenes abiertas del símbolo
+                        if qty_available <= 0 and held > 0:
+                            try:
+                                sym_open_orders = client.get_orders(filter=GetOrdersRequest(
+                                    status=QueryOrderStatus.OPEN, symbols=[sym], limit=50
+                                ))
+                                for oo in sym_open_orders:
+                                    try:
+                                        client.cancel_order_by_id(oo.id)
+                                    except Exception:
+                                        pass
+                                await asyncio.sleep(1)
+                                pos = client.get_open_position(sym)
+                                qty = float(pos.qty)
+                                qty_available = float(getattr(pos, 'qty_available', qty) or 0)
+                                is_fractional = (qty != int(qty))
+                            except Exception as cancel_err:
+                                logger.warning(f"[EquitiesEngine] Error cancelando órdenes de {sym}: {cancel_err}")
+
+                        sell_qty = qty_available if qty_available > 0 else qty
+                        if sell_qty <= 0:
+                            logger.warning(f"[EquitiesEngine] {sym}: sin qty disponible para liquidar. Skip.")
+                            continue
+
                         req = MarketOrderRequest(
                             symbol=sym,
-                            qty=qty,
+                            qty=sell_qty,
                             side=OrderSide.SELL,
                             time_in_force=TimeInForce.DAY,
                             client_order_id=self.order_manager._client_id("Adopt_Liquidate"),
                         )
                         client.submit_order(req)
                         liquidated.append(f"{sym}(${price:.2f})")
-                        logger.warning(f"[EquitiesEngine] 🗑️ LIQUIDADA posición huérfana (precio<$1): {sym} qty={qty}")
+                        logger.warning(f"[EquitiesEngine] 🗑️ LIQUIDADA posición huérfana (precio<$1): {sym} qty={sell_qty}")
                     except Exception as e:
                         logger.error(f"[EquitiesEngine] Error liquidando {sym}: {e}")
                 else:
-                    # Colocar trailing stop 15%
+                    # Para fraccionales, Alpaca NO acepta trailing_stop; usar MARKET DAY para liquidar.
+                    if is_fractional:
+                        try:
+                            req = MarketOrderRequest(
+                                symbol=sym,
+                                qty=qty,
+                                side=OrderSide.SELL,
+                                time_in_force=TimeInForce.DAY,
+                                client_order_id=self.order_manager._client_id("Adopt_FracLiq"),
+                            )
+                            client.submit_order(req)
+                            liquidated.append(f"{sym}(${price:.2f} frac)")
+                            logger.warning(f"[EquitiesEngine] 🗑️ LIQUIDADA fraccional huérfana: {sym} qty={qty} @ ${price:.2f} (trailing no soportado en fraccionales)")
+                        except Exception as e:
+                            logger.error(f"[EquitiesEngine] Error liquidando fraccional {sym}: {e}")
+                        continue
+                    # Colocar trailing stop 15% (solo qty entera)
                     try:
                         req = TrailingStopOrderRequest(
                             symbol=sym,

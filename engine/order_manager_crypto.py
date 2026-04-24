@@ -224,7 +224,14 @@ class OrderManagerCrypto:
                         logger.info(f"[{strategy}] [CryptoSELL] Ajustando qty a {real_qty} para venta completa de {symbol}.")
                         qty = real_qty
                 except Exception as pos_e:
-                    logger.error(f"[{strategy}] [CryptoSELL] No se pudo verificar posición de {symbol}: {pos_e}. Abortando por seguridad.")
+                    # "position does not exist" / 404 Not Found => flag interno stale:
+                    # la estrategia creyó tener posición pero ya fue cerrada (otra strat, SL, manual).
+                    # Abortar es el comportamiento correcto; se degrada a WARN para reducir ruido.
+                    err_txt = str(pos_e).lower()
+                    if "not found" in err_txt or "does not exist" in err_txt or "404" in err_txt:
+                        logger.warning(f"[{strategy}] [CryptoSELL] Sin posición en {symbol} (flag stale). SELL abortado.")
+                    else:
+                        logger.error(f"[{strategy}] [CryptoSELL] No se pudo verificar posición de {symbol}: {pos_e}. Abortando por seguridad.")
                     return
 
             if order["limit_price"]:
