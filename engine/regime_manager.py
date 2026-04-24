@@ -20,7 +20,7 @@ from enum import Enum
 from collections import deque
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 from datetime import datetime, timedelta
 import pandas as pd
 
@@ -107,24 +107,24 @@ class RegimeManager:
 
         try:
             end = datetime.now()
-            start = end - timedelta(days=100)  # 100 días para SMA50
+            start = end - timedelta(days=5)  # 5 días de datos para obtener 100+ barras intradiarias
 
-            # Obtener barras diarias de SPY
+            # Obtener barras intradiarias de SPY (15 minutos)
             spy_bars = self.client.get_stock_bars(StockBarsRequest(
                 symbol_or_symbols="SPY",
-                timeframe=TimeFrame.Day,
+                timeframe=TimeFrame(15, TimeFrameUnit.Minute),
                 start=start,
                 end=end,
-                limit=210
+                limit=1000
             ))
 
             # Obtener precio de VIX (via VIXY — ETF proxy de VIX en Alpaca)
             vix_bars = self.client.get_stock_bars(StockBarsRequest(
                 symbol_or_symbols="VIXY",
-                timeframe=TimeFrame.Day,
-                start=end - timedelta(days=5),
+                timeframe=TimeFrame(15, TimeFrameUnit.Minute),
+                start=start,
                 end=end,
-                limit=5
+                limit=1000
             ))
 
             spy_df = spy_bars.df.reset_index()
@@ -140,7 +140,7 @@ class RegimeManager:
 
             try:
                 import yfinance as yf
-                vix_hist = yf.Ticker("^VIX").history(period="5d")
+                vix_hist = yf.Ticker("^VIX").history(period="5d", interval="15m")
                 vix_proxy = float(vix_hist["Close"].iloc[-1]) if not vix_hist.empty else None
             except Exception as e:
                 logger.warning(f"[Regime] yfinance falló: {e}")
@@ -225,11 +225,11 @@ class RegimeManager:
         return strat_number in enabled
 
     def assess_if_needed(self) -> Regime:
-        """Re-evalúa el régimen solo si ha pasado más de 1 hora desde la última evaluación."""
+        """Re-evalúa el régimen solo si ha pasado más de 15 minutos desde la última evaluación."""
         from datetime import datetime
         now = datetime.now()
         last = _LAST_HOURLY_ASSESS.get("ts")
-        if last is None or (now - last).total_seconds() > 3600:
+        if last is None or (now - last).total_seconds() > 900:
             regime = self.assess()
             _LAST_HOURLY_ASSESS["ts"] = now
             return regime
