@@ -40,8 +40,6 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         # Update trailing params
         if self.in_position:
@@ -76,6 +74,7 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
                 # Si no estamos dentro, evaluamos entry
                 if funding_rate <= -0.0005:  # -0.05%
                     # Consultar árbitro (P3 = urgencia media)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     granted = await self.order_manager.request_buy(
                         symbol=bar.symbol, priority=3, strategy_name=self.name
                     )
@@ -88,6 +87,7 @@ class CryptoFundingSqueezeStrategy(BaseStrategy):
                     self.entry_price = bar.close
                     self.max_price = bar.close
                     qty = round(100.0 / bar.close, 5)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     await self.order_manager.buy(
                         symbol=bar.symbol,
                         notional_usd=100.0,

@@ -38,8 +38,6 @@ class CryptoMeanReversionExtreme(BaseStrategy):
             return
 
         # Regime gate: we want this to run in BEAR, CHOP, BULL, but specifically BEAR/CHOP
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         self._closes[sym].append(float(bar.close))
         
@@ -78,5 +76,6 @@ class CryptoMeanReversionExtreme(BaseStrategy):
             
             self._entry_price[sym] = curr_price
             self._qty_bought[sym] = 1.0 # placeholder
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
             await self.order_manager.buy(sym, strategy_name=self.name)
             self._has_position[sym] = True

@@ -75,9 +75,6 @@ class SectorRotationStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"):
-            return
-
         self._closes[bar.symbol].append(float(bar.close))
 
         # Solo ejecutar lógica el viernes al cierre (weekday() == 4)
@@ -159,6 +156,7 @@ class SectorRotationStrategy(BaseStrategy):
         # Comprar nuevas selecciones
         for stock, rsi, price in top_stocks:
             if stock not in self._current_positions and price > 0:
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"): return
                 logger.info(f"[{self.name}] 🔄 ROTACIÓN → COMPRANDO {stock} RSI={rsi:.1f} @ ${price:.2f}")
                 await self.order_manager.buy_bracket(
                     symbol=stock,

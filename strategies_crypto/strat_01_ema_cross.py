@@ -33,8 +33,6 @@ class CryptoEMACrossStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         self._closes.append(float(bar.close))
 
@@ -52,6 +50,7 @@ class CryptoEMACrossStrategy(BaseStrategy):
         if self._prev_fast_above is not None and fast_above != self._prev_fast_above:
             if fast_above and not self._has_position:
                 # Consultar árbitro antes de comprar
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                 granted = await self.order_manager.request_buy(
                     symbol=self.SYMBOL, priority=4, strategy_name=self.name
                 )
@@ -61,6 +60,7 @@ class CryptoEMACrossStrategy(BaseStrategy):
                     return
 
                 logger.info(f"[{self.name}] 🟢 EMA CROSSOVER en {bar.symbol}! Comprando ${self.NOTIONAL_RISK_USD}")
+                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                 await self.order_manager.buy(
                     symbol=self.SYMBOL, 
                     notional_usd=self.NOTIONAL_RISK_USD, 

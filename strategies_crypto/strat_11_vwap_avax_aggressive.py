@@ -56,10 +56,7 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
     async def on_bar(self, bar):
         if not self.should_process(bar.symbol):
             return
-        if (self.regime_manager and
-                not self.regime_manager.is_strategy_enabled(
-                    self.STRAT_NUMBER, engine="crypto")):
-            return
+
 
         dt = bar.timestamp
         if dt.day != self._last_reset_day:
@@ -108,6 +105,7 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
             return
 
         if self._bullets_fired == 0 and deviation <= self.ENTRY_1_DEV:
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
             await self.order_manager.buy(
                 symbol=self.SYMBOL,
                 notional_usd=self.BULLET_USD,
@@ -120,6 +118,7 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
             logger.info(f"[{self.name}] Bala 1 @ ${float(bar.close):.4f} (dev {deviation*100:+.2f}%) qty={qty_added} AVAX")
 
         elif self._bullets_fired == 1 and deviation <= self.ENTRY_2_DEV:
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
             await self.order_manager.buy(
                 symbol=self.SYMBOL,
                 notional_usd=self.BULLET_USD,

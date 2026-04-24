@@ -31,8 +31,6 @@ class CryptoVWAPTouchStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         dt = bar.timestamp
         # Reset VWAP a la medianoche UTC
@@ -79,6 +77,7 @@ class CryptoVWAPTouchStrategy(BaseStrategy):
             if not self.in_position and self.minutes_above_vwap >= 60:
                 if bar.close <= self.current_vwap * 1.001:
                     # Consultar árbitro (P2 = intraday veloz, alta prioridad)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     granted = await self.order_manager.request_buy(
                         symbol=bar.symbol, priority=2, strategy_name=self.name
                     )
@@ -87,6 +86,7 @@ class CryptoVWAPTouchStrategy(BaseStrategy):
                         self.in_position = True
                         self.entry_vwap = self.current_vwap
                         self.current_qty = round(100.0 / bar.close, 5)
+                        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                         await self.order_manager.buy(
                             symbol=bar.symbol,
                             notional_usd=100.0,

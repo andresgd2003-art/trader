@@ -41,8 +41,6 @@ class MACDTrendStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
-            return
 
         self._closes.append(float(bar.close))
 
@@ -72,6 +70,7 @@ class MACDTrendStrategy(BaseStrategy):
             if macd_above and not self._prev_macd_above_signal:
                 if not self._has_position:
                     logger.info(f"[{self.name}] 🟢 MACD cruzó arriba de señal. COMPRANDO {self.SYMBOL}")
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
                     await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
                     self._has_position = True
                     self._position[self.SYMBOL] = 1

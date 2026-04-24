@@ -77,8 +77,6 @@ class CryptoSentimentStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         dt = bar.timestamp
         # Detectar cierre de día (aprox medianoche o nueva barra dia)
@@ -100,6 +98,7 @@ class CryptoSentimentStrategy(BaseStrategy):
             if not self.in_position:
                 if fg_index <= 20 and rsi < 35:
                     # Consultar árbitro (P7 = largo plazo, menor prioridad)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     granted = await self.order_manager.request_buy(
                         symbol=bar.symbol, priority=7, strategy_name=self.name
                     )
@@ -111,6 +110,7 @@ class CryptoSentimentStrategy(BaseStrategy):
                     self.in_position = True
                     cap = self.order_manager._get_dynamic_cap()
                     self.current_qty = round(cap / float(bar.close), 5)
+                    if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                     await self.order_manager.buy(
                         symbol=bar.symbol,
                         notional_usd=cap,

@@ -74,8 +74,6 @@ class CryptoEMARibbonStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"):
-            return
 
         dt = bar.timestamp
         # Evaluamos solo 1 vez cada 4 horas
@@ -114,6 +112,7 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                 else:
                     if is_aligned and bar.close <= e21:  # Pullback a value zone (EMA21)
                         # Consultar árbitro (P5 = EMA ribbon 4H)
+                        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                         granted = await self.order_manager.request_buy(
                             symbol=bar.symbol, priority=5, strategy_name=self.name
                         )
@@ -125,6 +124,7 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                             # Calcular qty basándose en el cap REAL del OrderManager
                             cap = self.order_manager._get_dynamic_cap()
                             self.current_qty = round(cap / float(bar.close), 5)
+                            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                             await self.order_manager.buy(
                                 symbol=bar.symbol,
                                 notional_usd=cap,

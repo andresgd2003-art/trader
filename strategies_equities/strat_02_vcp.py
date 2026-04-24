@@ -125,8 +125,6 @@ class VCPStrategy(BaseStrategy):
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
-        if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"):
-            return
         if bar.symbol in self._traded_today:
             return
 
@@ -173,6 +171,7 @@ class VCPStrategy(BaseStrategy):
                 f"[{self.name}] 🏔️ VCP BREAKOUT INTRA-DAY {sym}! "
                 f"Close={c:.2f} > Res={resistance:.2f} | Vol={v:.0f}x{score_note}"
             )
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="equities"): return
             await self.order_manager.buy_bracket(
                 symbol=sym,
                 price=c,
