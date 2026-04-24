@@ -11,6 +11,7 @@ from .strat_07_vix_filter import VIXFilteredReversionStrategy
 from .strat_08_vwap import VWAPBounceStrategy
 from .strat_09_pairs import PairsTradingStrategy
 from .strat_10_grid import GridTradingStrategy
+from .strat_11_inverse_momentum import InverseMomentumETF
 
 __all__ = [
     "GoldenCrossStrategy",
@@ -23,4 +24,5 @@ __all__ = [
     "VWAPBounceStrategy",
     "PairsTradingStrategy",
     "GridTradingStrategy",
+    "InverseMomentumETF",
 ]
