@@ -28,7 +28,7 @@ class CryptoMeanReversionExtreme(BaseStrategy):
     BB_PERIOD = 20
     BB_STD = 2.5
     RSI_PERIOD = 14
-    RSI_OVERSOLD = 25.0
+    RSI_OVERSOLD = 35.0  # Bajado de 25 → 35 para más señales (menos selectivo)
     RSI_EXIT = 50.0
     STOP_LOSS_PCT = 0.03
     NOTIONAL_RISK_USD = 500.0

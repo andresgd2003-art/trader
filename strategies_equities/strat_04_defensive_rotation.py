@@ -36,7 +36,7 @@ SPY_TRACKER = "SPY"
 class DefensiveRotation(BaseStrategy):
     STRAT_NUMBER = 4
     RSI_PERIOD = 14
-    RSI_SPY_BUY_THRESHOLD = 40.0
+    RSI_SPY_BUY_THRESHOLD = 45.0  # Bajado de 40 → 45 para más oportunidades de rotación defensiva
     RSI_SPY_EXIT_THRESHOLD = 55.0
     TAKE_PROFIT_PCT = 0.02
     STOP_LOSS_PCT = 0.03

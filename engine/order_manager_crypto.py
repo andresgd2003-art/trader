@@ -148,6 +148,14 @@ class OrderManagerCrypto:
     async def buy(self, symbol: str, notional_usd: float, current_price: float, limit_price: float = None, strategy_name: str = "", precision: int = 4):
         if self.ignore_orders:
             return
+        # Kill-switch global de volatilidad crypto: si BTC ATR/close > 1.2% pausa entradas
+        try:
+            from engine.crypto_volatility_kill_switch import is_crypto_panic
+            if is_crypto_panic():
+                logger.warning(f"[{strategy_name}] BUY {symbol} BLOQUEADO por kill-switch de volatilidad BTC")
+                return
+        except Exception:
+            pass
         qty = self._calculate_crypto_qty(notional_usd, current_price, precision)
         if qty <= 0: return
 

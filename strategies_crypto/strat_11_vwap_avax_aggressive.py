@@ -36,6 +36,8 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
     STOP_LOSS_DEV          = -0.025
     COOLDOWN_SECS_AFTER_SL = 900
     STRAT_NUMBER           = 11
+    FORCED_STOP_LOSS_PCT   = 0.04   # -4%
+    FORCED_TAKE_PROFIT_PCT = 0.06   # +6%
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__("Micro-VWAP AVAX Aggressive", [self.SYMBOL], order_manager)
@@ -47,11 +49,18 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
         self._bullets_fired    = 0
         self._bullet_qty_total = 0.0
         self._cooldown_until   = None
+        self._entry_price = 0.0
         qty = self.sync_position_from_alpaca(self.SYMBOL)
         if qty > 0:
             logger.info(f"[{self.name}] Posición AVAX existente detectada qty={qty}. Adoptando como propia.")
             self._bullet_qty_total = qty
             self._bullets_fired = 1
+            try:
+                pos = self.order_manager.broker.get_position(self.SYMBOL) if hasattr(self.order_manager, "broker") else None
+                if pos:
+                    self._entry_price = float(pos.avg_entry_price)
+            except Exception:
+                pass
 
     async def on_bar(self, bar):
         if not self.should_process(bar.symbol):
@@ -73,6 +82,25 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
         self._current_vwap = self._vwap_sum_pv / self._vwap_sum_v
 
         deviation = (float(bar.close) - self._current_vwap) / self._current_vwap
+
+        # === FORCED EXIT (SL -4% / TP +6%) por entry_price tracking ===
+        if self._bullets_fired > 0 and self._entry_price > 0 and self._bullet_qty_total > 0:
+            pnl_pct = (float(bar.close) - self._entry_price) / self._entry_price
+            if pnl_pct <= -self.FORCED_STOP_LOSS_PCT or pnl_pct >= self.FORCED_TAKE_PROFIT_PCT:
+                tag = "SL -4%" if pnl_pct <= -self.FORCED_STOP_LOSS_PCT else "TP +6%"
+                logger.warning(f"[{self.name}] FORCED {tag} en AVAX. entry={self._entry_price:.4f} now={float(bar.close):.4f}")
+                real_qty = self.sync_position_from_alpaca(self.SYMBOL)
+                exact_qty = min(real_qty, self._bullet_qty_total) if real_qty > 0 else 0
+                if exact_qty > 0:
+                    await self.order_manager.sell_exact(
+                        symbol=self.SYMBOL, exact_qty=exact_qty, strategy_name=self.name
+                    )
+                if pnl_pct <= -self.FORCED_STOP_LOSS_PCT:
+                    self._cooldown_until = datetime.utcnow() + timedelta(seconds=self.COOLDOWN_SECS_AFTER_SL)
+                self._bullets_fired = 0
+                self._bullet_qty_total = 0.0
+                self._entry_price = 0.0
+                return
 
         # Exit path
         if self._bullets_fired > 0:
@@ -98,6 +126,7 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
                     logger.info(f"[{self.name}] Stop Loss. Cooldown hasta {self._cooldown_until.strftime('%H:%M:%S')} UTC")
                 self._bullets_fired    = 0
                 self._bullet_qty_total = 0.0
+                self._entry_price      = 0.0
                 return
 
         # Entry path
@@ -115,6 +144,7 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
             qty_added = round(self.BULLET_USD / float(bar.close), 4)
             self._bullet_qty_total += qty_added
             self._bullets_fired = 1
+            self._entry_price = float(bar.close)
             logger.info(f"[{self.name}] Bala 1 @ ${float(bar.close):.4f} (dev {deviation*100:+.2f}%) qty={qty_added} AVAX")
 
         elif self._bullets_fired == 1 and deviation <= self.ENTRY_2_DEV:
@@ -126,6 +156,12 @@ class CryptoMicroVWAPAvaxStrategy(BaseStrategy):
                 strategy_name=self.name
             )
             qty_added = round(self.BULLET_USD / float(bar.close), 4)
+            # avg ponderado de entry tras Bala 2
+            prev_qty = self._bullet_qty_total
+            if (prev_qty + qty_added) > 0:
+                self._entry_price = (
+                    (self._entry_price * prev_qty) + (float(bar.close) * qty_added)
+                ) / (prev_qty + qty_added)
             self._bullet_qty_total += qty_added
             self._bullets_fired = 2
             logger.info(f"[{self.name}] Bala 2 @ ${float(bar.close):.4f} (dev {deviation*100:+.2f}%) total qty={self._bullet_qty_total} AVAX")

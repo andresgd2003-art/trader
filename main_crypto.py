@@ -65,6 +65,13 @@ class CryptoTradingEngine:
         ]
 
     async def _on_crypto_bar(self, bar):
+        # Alimentar kill-switch de volatilidad con barras BTC
+        if getattr(bar, "symbol", None) == "BTC/USD":
+            try:
+                from engine.crypto_volatility_kill_switch import feed_btc_bar
+                feed_btc_bar(float(bar.high), float(bar.low), float(bar.close))
+            except Exception:
+                pass
         tasks = []
         for strat in self.strategies:
             if strat.should_process(bar.symbol):

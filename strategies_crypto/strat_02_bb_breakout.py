@@ -15,6 +15,8 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
     BB_STD = 2.0
     SQUEEZE_PERIOD = 50
     NOTIONAL_RISK_USD = 1000.0
+    FORCED_STOP_LOSS_PCT   = 0.04   # -4%
+    FORCED_TAKE_PROFIT_PCT = 0.06   # +6%
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -31,6 +33,16 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
         self._has_position = qty > 0
         self._current_qty = qty
         self._peak_price = 0.0
+        self._entry_price = 0.0
+        # Recuperar avg_entry_price real desde Alpaca tras restart
+        if self._has_position:
+            try:
+                pos = self.order_manager.broker.get_position(self.SYMBOL) if hasattr(self.order_manager, "broker") else None
+                if pos:
+                    self._entry_price = float(pos.avg_entry_price)
+                    self._peak_price = self._entry_price
+            except Exception:
+                pass
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
@@ -42,6 +54,16 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
 
         self._closes.append(current_close)
         self._volumes.append(current_volume)
+
+        # === FORCED EXIT (SL -4% / TP +6%) por entry_price tracking ===
+        if self._has_position and self._entry_price > 0 and self._current_qty > 0:
+            pnl_pct = (current_close - self._entry_price) / self._entry_price
+            if pnl_pct <= -self.FORCED_STOP_LOSS_PCT or pnl_pct >= self.FORCED_TAKE_PROFIT_PCT:
+                tag = "SL -4%" if pnl_pct <= -self.FORCED_STOP_LOSS_PCT else "TP +6%"
+                logger.warning(f"[{self.name}] FORCED {tag} en {self.SYMBOL}. entry={self._entry_price:.2f} now={current_close:.2f}")
+                await self._exit_position()
+                self._entry_price = 0.0
+                return
 
         if len(self._closes) < self.BB_PERIOD:
             return
@@ -90,6 +112,7 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
                 self._has_position = True
                 self._current_qty = self.order_manager._calculate_crypto_qty(self.NOTIONAL_RISK_USD, current_close)
                 self._peak_price = current_close
+                self._entry_price = current_close
         else:
             # Salida: Trailing stop 3% o debajo del SMA_20 middle band
             self._peak_price = max(self._peak_price, current_close)

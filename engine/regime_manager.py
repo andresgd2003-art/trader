@@ -57,11 +57,13 @@ REGIME_CRYPTO_MAP = {
     Regime.CHOP:    [3, 7, 11, 12],
     Regime.UNKNOWN: [3, 7, 11, 12],
 }
+# ⚠️ QUARANTINED 2026-04-24: strat 5 (GammaSqueeze) y strat 10 (SectorRotation)
+# removidas — exits rotos (18/0 y 28/2 buys/sells). Re-añadir tras fix de SELL.
 REGIME_EQUITIES_MAP = {
-    Regime.BULL:    [2, 5],
-    Regime.BEAR:    [4, 10],
-    Regime.CHOP:    [4, 10],
-    Regime.UNKNOWN: [10],
+    Regime.BULL:    [2],
+    Regime.BEAR:    [4],
+    Regime.CHOP:    [4],
+    Regime.UNKNOWN: [],
 }
 
 SIZING_BY_REGIME = {"BULL": 0.08, "CHOP": 0.05, "BEAR": 0.03, "UNKNOWN": 0.03}

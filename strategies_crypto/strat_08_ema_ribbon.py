@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 class CryptoEMARibbonStrategy(BaseStrategy):
     STRAT_NUMBER = 8
+
+    # FORCED EXIT — safety net evaluado en cada barra (la salida nativa solo en cambio de bloque 4H)
+    FORCED_STOP_LOSS_PCT   = 0.04
+    FORCED_TAKE_PROFIT_PCT = 0.06
     """
     08 - Multiple EMA Ribbon Pullback
     Asset: BCH/USD
@@ -30,11 +34,19 @@ class CryptoEMARibbonStrategy(BaseStrategy):
         self.db_path = os.environ.get("DB_PATH", "/opt/trader/data/trades.db")
         self._init_db()
         self._load_state()
+        self._entry_price = {"BCH/USD": 0.0}
+        self._has_position = {"BCH/USD": False}
         # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
         qty = self.sync_position_from_alpaca("BCH/USD")
         if qty > 0:
             self.in_position = True
             self.current_qty = qty
+            self._has_position["BCH/USD"] = True
+            try:
+                pos = self.order_manager.client.get_open_position("BCH/USD")
+                self._entry_price["BCH/USD"] = float(pos.avg_entry_price)
+            except Exception as e:
+                logger.warning(f"[{self.name}] No pude obtener avg_entry_price BCH: {e}")
 
     def _init_db(self):
         try:
@@ -74,6 +86,29 @@ class CryptoEMARibbonStrategy(BaseStrategy):
         if not self.should_process(bar.symbol):
             return
 
+        symbol = bar.symbol
+        # FORCED EXIT — evaluado en cada barra (la salida nativa solo dispara cada 4H con cross EMA)
+        if self._has_position.get(symbol) and self._entry_price.get(symbol, 0) > 0:
+            current_close = float(bar.close)
+            entry = self._entry_price[symbol]
+            ret = (current_close / entry) - 1.0
+            if ret <= -self.FORCED_STOP_LOSS_PCT or ret >= self.FORCED_TAKE_PROFIT_PCT:
+                tag = "🛑 FORCED SL" if ret < 0 else "💰 FORCED TP"
+                logger.info(f"[{self.name}] {tag} {ret*100:+.2f}% → SELL {symbol}")
+                try:
+                    real_qty = self.sync_position_from_alpaca(symbol) or self.current_qty
+                    if real_qty > 0:
+                        await self.order_manager.sell_exact(
+                            symbol=symbol, exact_qty=real_qty, strategy_name=self.name
+                        )
+                        self.order_manager.release_asset(symbol, self.name)
+                except Exception as e:
+                    logger.error(f"[{self.name}] Error en forced exit: {e}")
+                self.in_position = False
+                self.current_qty = 0.0
+                self._has_position[symbol] = False
+                self._entry_price[symbol] = 0.0
+                return
 
         dt = bar.timestamp
         # Evaluamos solo 1 vez cada 4 horas
@@ -109,6 +144,8 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                             self.order_manager.release_asset(bar.symbol, self.name)
                         self.in_position = False
                         self.current_qty = 0.0
+                        self._has_position[bar.symbol] = False
+                        self._entry_price[bar.symbol] = 0.0
                 else:
                     if is_aligned and bar.close <= e21:  # Pullback a value zone (EMA21)
                         # Consultar árbitro (P5 = EMA ribbon 4H)
@@ -121,6 +158,8 @@ class CryptoEMARibbonStrategy(BaseStrategy):
                         else:
                             logger.info(f"[{self.name}] Bullish Alignment (3-EMA) + Pullback al EMA21. Comprando!")
                             self.in_position = True
+                            self._has_position[bar.symbol] = True
+                            self._entry_price[bar.symbol] = float(bar.close)
                             # Calcular qty basándose en el cap REAL del OrderManager
                             cap = self.order_manager._get_dynamic_cap()
                             self.current_qty = round(cap / float(bar.close), 5)

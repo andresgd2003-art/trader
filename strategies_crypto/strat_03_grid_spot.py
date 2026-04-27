@@ -38,6 +38,10 @@ class CryptoGridSpotStrategy(BaseStrategy):
     LOG_INTERVAL     = 300     # Loguear cada 5 minutos
     MAX_HOLD_SECS    = 86400   # 24h — forzar venta si tranche no cierra en este tiempo
 
+    # FORCED EXIT — safety net evaluado en CADA barra (la lógica nativa solo corre cada 5)
+    FORCED_STOP_LOSS_PCT   = 0.04
+    FORCED_TAKE_PROFIT_PCT = 0.06
+
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="Dynamic Spot Grid",
@@ -56,6 +60,8 @@ class CryptoGridSpotStrategy(BaseStrategy):
         self._tranches: list[dict] = []  # [{entry_price, qty, timestamp}]
         self._bar_count = 0
         self._last_log_time = 0
+        self._entry_price = {self.SYMBOL: 0.0}
+        self._has_position = {self.SYMBOL: False}
         
         # Restore existing position at startup
         self._restore_state()
@@ -66,8 +72,16 @@ class CryptoGridSpotStrategy(BaseStrategy):
             qty = self.sync_position_from_alpaca(self.SYMBOL)
             if qty > 0:
                 # Tenemos SOL en cartera — registrar como 1 tranche genérica
-                self._tranches = [{"entry_price": 0.0, "qty": qty, "timestamp": time.time()}]
-                logger.info(f"[{self.name}] Estado restaurado: {qty} SOL en posición.")
+                avg_entry = 0.0
+                try:
+                    pos = self.order_manager.client.get_open_position(self.SYMBOL)
+                    avg_entry = float(pos.avg_entry_price)
+                except Exception as e:
+                    logger.warning(f"[{self.name}] No pude obtener avg_entry_price: {e}")
+                self._tranches = [{"entry_price": avg_entry, "qty": qty, "timestamp": time.time()}]
+                self._has_position[self.SYMBOL] = True
+                self._entry_price[self.SYMBOL] = avg_entry
+                logger.info(f"[{self.name}] Estado restaurado: {qty} SOL en posición (entry=${avg_entry:.2f}).")
             else:
                 logger.info(f"[{self.name}] Sin posición SOL al arrancar. Grid lista.")
         except Exception as e:
@@ -86,6 +100,29 @@ class CryptoGridSpotStrategy(BaseStrategy):
 
         close = float(bar.close)
         vol = float(bar.volume)
+        symbol = bar.symbol
+        current_close = close
+
+        # FORCED EXIT — evaluado en CADA barra (antes de la lógica throttled)
+        if self._has_position.get(symbol) and self._entry_price.get(symbol, 0) > 0:
+            entry = self._entry_price[symbol]
+            ret = (current_close / entry) - 1.0
+            if ret <= -self.FORCED_STOP_LOSS_PCT or ret >= self.FORCED_TAKE_PROFIT_PCT:
+                tag = "🛑 FORCED SL" if ret < 0 else "💰 FORCED TP"
+                logger.info(f"[{self.name}] {tag} {ret*100:+.2f}% → SELL {symbol}")
+                try:
+                    real_qty = self.sync_position_from_alpaca(symbol)
+                    if real_qty > 0:
+                        await self.order_manager.sell_exact(
+                            symbol=symbol, exact_qty=real_qty, strategy_name=self.name
+                        )
+                        self.order_manager.release_asset(symbol, self.name)
+                except Exception as e:
+                    logger.error(f"[{self.name}] Error en forced exit: {e}")
+                self._tranches = []
+                self._has_position[symbol] = False
+                self._entry_price[symbol] = 0.0
+                return
         
         # Acumular VWAP
         typ_price = (float(bar.high) + float(bar.low) + close) / 3.0
@@ -170,6 +207,10 @@ class CryptoGridSpotStrategy(BaseStrategy):
                 logger.error(f"[{self.name}] Error vendiendo tranche #{i+1}: {e}")
             self._tranches.pop(i)
 
+        if not self._tranches:
+            self._has_position[self.SYMBOL] = False
+            self._entry_price[self.SYMBOL] = 0.0
+
         # ── LÓGICA DE COMPRA (Dip Buying escalonado) ──
         if len(self._tranches) >= self.MAX_TRANCHES:
             return  # Grid llena
@@ -213,3 +254,9 @@ class CryptoGridSpotStrategy(BaseStrategy):
                 "qty": real_qty,
                 "timestamp": time.time()
             })
+            # Track avg entry price across all tranches para FORCED EXIT
+            total_qty = sum(t["qty"] for t in self._tranches)
+            if total_qty > 0:
+                avg = sum(t["entry_price"] * t["qty"] for t in self._tranches) / total_qty
+                self._entry_price[self.SYMBOL] = avg
+            self._has_position[self.SYMBOL] = True

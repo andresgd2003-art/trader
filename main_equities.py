@@ -26,10 +26,13 @@ from engine.regime_manager import RegimeManager
 from engine.order_manager_equities import OrderManagerEquities
 from engine.portfolio_manager import PortfolioManager
 from engine.notifier import TelegramNotifier
+# ⚠️ QUARANTINED 2026-04-24: GammaSqueezeStrategy y SectorRotationStrategy tienen
+# lógica de exit rota (18/0 y 28/2 buys/sells respectivamente en últimas 500 órdenes).
+# Re-enable solo después de arreglar la lógica de SELL.
 from strategies_equities import (
     VCPStrategy,
-    GammaSqueezeStrategy,
-    SectorRotationStrategy,
+    # GammaSqueezeStrategy,   # QUARANTINED — exits rotos (18 buys / 0 sells)
+    # SectorRotationStrategy, # QUARANTINED — exits rotos (28 buys / 2 sells)
     DefensiveRotation,
 )
 
@@ -84,8 +87,10 @@ class EquitiesEngine:
         strats = [
             VCPStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager),          # idx 0, strat 2
             DefensiveRotation(order_manager=self.order_manager, regime_manager=self.regime_manager),
-            GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 1, strat 5
-            SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 2, strat 10
+            # ⚠️ QUARANTINED 2026-04-24: exits broken (28/2 and 18/0 buys/sells in last 500 orders).
+            # Re-enable solo después de arreglar la lógica de SELL.
+            # GammaSqueezeStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 1, strat 5
+            # SectorRotationStrategy(order_manager=self.order_manager, regime_manager=self.regime_manager), # idx 2, strat 10
         ]
         _EQ_ENGINE_STATUS["strategies"] = [s.name for s in strats]
         logger.info(f"[EquitiesEngine] {len(strats)} estrategias registradas.")

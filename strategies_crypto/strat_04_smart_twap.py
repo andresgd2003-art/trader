@@ -19,16 +19,26 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
     STRAT_NUMBER = 4
     RSI_PERIOD = 14
     BASE_ALLOCATION = 50.0
+    FORCED_STOP_LOSS_PCT = 0.04   # -4% (acumulación: solo SL, NO TP)
 
     def __init__(self, order_manager, regime_manager=None):
-        # Registramos BTC/USD con un identificador único 
+        # Registramos BTC/USD con un identificador único
         super().__init__("Smart TWAP Accum", ["BTC/USD"], order_manager)
         self.regime_manager = regime_manager
         self._closes = deque(maxlen=self.RSI_PERIOD * 2)
-        
+
         # [P4 FIX - 2026-04-15] Mapeo explícito a /opt/trader/data para prevenir Split-Brain
         self.db_path = os.environ.get("DB_PATH", "/opt/trader/data/trades.db")
         self._init_db()
+
+        # Forced exit tracking (SL only): adopta posición real desde Alpaca
+        qty = self.sync_position_from_alpaca("BTC/USD")
+        self._current_qty = qty
+        try:
+            pos = self.order_manager.broker.get_position("BTC/USD") if hasattr(self.order_manager, "broker") else None
+            self.entry_price = float(pos.avg_entry_price) if pos and qty > 0 else 0.0
+        except Exception:
+            self.entry_price = 0.0
 
     def _init_db(self):
         try:
@@ -69,6 +79,21 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
 
 
         self._closes.append(bar.close)
+
+        # === FORCED EXIT (SL -4%) — protección contra crash, sin TP por ser acumulación ===
+        if self.entry_price > 0 and self._current_qty > 0:
+            loss_pct = (float(bar.close) - self.entry_price) / self.entry_price
+            if loss_pct <= -self.FORCED_STOP_LOSS_PCT:
+                logger.warning(f"[{self.name}] FORCED SL -4% en BTC. entry={self.entry_price:.2f} now={float(bar.close):.2f}")
+                real_qty = self.sync_position_from_alpaca("BTC/USD")
+                exact_qty = min(real_qty, self._current_qty) if real_qty > 0 else 0
+                if exact_qty > 0:
+                    await self.order_manager.sell_exact(
+                        symbol="BTC/USD", exact_qty=exact_qty, strategy_name=self.name
+                    )
+                self._current_qty = 0.0
+                self.entry_price = 0.0
+                return
 
         if len(self._closes) < self.RSI_PERIOD:
             return
@@ -117,5 +142,12 @@ class CryptoSmartTWAPStrategy(BaseStrategy):
                     current_price=bar.close,
                     strategy_name=self.name
                 )
+                # Actualizar entry_price (avg ponderado) y qty para tracking SL
+                qty_added = amount_usd / float(bar.close)
+                if self._current_qty + qty_added > 0:
+                    self.entry_price = (
+                        (self.entry_price * self._current_qty) + (float(bar.close) * qty_added)
+                    ) / (self._current_qty + qty_added) if self._current_qty > 0 else float(bar.close)
+                self._current_qty += qty_added
                 self._set_last_trade_hour(hour_str)
                 # TWAP es hold de largo plazo: no hay release explícito aquí.
