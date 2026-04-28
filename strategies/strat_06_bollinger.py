@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 class BollingerReversionStrategy(BaseStrategy):
 
     STRAT_NUMBER = 6
-    SYMBOL  = "QQQ"    # Era SRVR — sin volumen en IEX free feed
+    SYMBOL  = "QQQ"
     PERIOD  = 20
     STD_DEV = 2.0
+    FORCED_STOP_LOSS_PCT = 0.02   # -2% (ajustado de 1.5%)
+    FORCED_TAKE_PROFIT_PCT = 0.02 # +2% (nuevo)
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -26,7 +28,6 @@ class BollingerReversionStrategy(BaseStrategy):
         )
         self.regime_manager = regime_manager
         self._closes = deque(maxlen=50)
-        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
         qty = self.sync_position_from_alpaca(self.SYMBOL)
         self._has_position = qty > 0
         self._qty_bought = qty
@@ -58,18 +59,31 @@ class BollingerReversionStrategy(BaseStrategy):
             f"BB[{curr_lower:.2f} | {curr_middle:.2f} | {curr_upper:.2f}]"
         )
 
-        # Stop loss check
-        if self._has_position and self._entry_price > 0 and curr_price <= self._entry_price * 0.985:
-            logger.warning(f"[{self.name}] 🚨 Stop Loss alcanzado (-1.5%). VENDIENDO {self._qty_bought} {self.SYMBOL}")
-            if hasattr(self.order_manager, 'sell_exact'):
-                await self.order_manager.sell_exact(self.SYMBOL, self._qty_bought, strategy_name=self.name)
-            else:
-                await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
-            self._has_position = False
-            self._position[self.SYMBOL] = 0
-            self._qty_bought = 0.0
-            self._entry_price = 0.0
-            return
+        # Salidas forzosas SL/TP — siempre evaluadas
+        if self._has_position and self._entry_price > 0:
+            ret = (curr_price / self._entry_price) - 1.0
+            if ret <= -self.FORCED_STOP_LOSS_PCT:
+                logger.info(f"[{self.name}] 🛑 SL FORZOSO {ret*100:+.2f}% → VENDIENDO")
+                if hasattr(self.order_manager, 'sell_exact') and self._qty_bought > 0:
+                    await self.order_manager.sell_exact(self.SYMBOL, self._qty_bought, strategy_name=self.name)
+                else:
+                    await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
+                self._has_position = False
+                self._position[self.SYMBOL] = 0
+                self._qty_bought = 0.0
+                self._entry_price = 0.0
+                return
+            if ret >= self.FORCED_TAKE_PROFIT_PCT:
+                logger.info(f"[{self.name}] 💰 TP FORZOSO {ret*100:+.2f}% → VENDIENDO")
+                if hasattr(self.order_manager, 'sell_exact') and self._qty_bought > 0:
+                    await self.order_manager.sell_exact(self.SYMBOL, self._qty_bought, strategy_name=self.name)
+                else:
+                    await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
+                self._has_position = False
+                self._position[self.SYMBOL] = 0
+                self._qty_bought = 0.0
+                self._entry_price = 0.0
+                return
 
         if curr_price <= curr_lower and not self._has_position:
             logger.info(f"[{self.name}] 🟢 Precio tocó banda INFERIOR. COMPRANDO {self.SYMBOL}")
@@ -94,6 +108,7 @@ class BollingerReversionStrategy(BaseStrategy):
             await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
             self._position[self.SYMBOL] = 1
+            self._entry_price = curr_price
 
         elif self._has_position and curr_price >= curr_middle:
             logger.info(f"[{self.name}] 🔴 Precio llegó a la media. VENDIENDO {self._qty_bought} {self.SYMBOL}")
