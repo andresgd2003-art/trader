@@ -63,17 +63,47 @@ def parse_order_meta(raw: Optional[str]) -> dict:
 
     name = "_".join(name_parts) if name_parts else "unknown"
 
+    # Mapeo: client_order_id name (sin espacios) → nombre legible de la estrategia
+    # Incluye nombres truncados legacy Y nombres completos actuales
     LEGACY_NAME_MAP = {
-        "RSI+VIXFil": "RSI + VIX Filter",
-        "PairsTradi": "Pairs Trading",
-        "RSIBuytheD": "RSI Buy the Dip",
-        "MACDTrend": "MACD Trend",
-        "BollingerR": "Bollinger Reversion",
-        "GoldenCros": "Golden Cross",
-        "DonchianBr": "Donchian Breakout",
-        "MomentumRo": "Momentum Rotation",
-        "GridTradin": "Grid Trading",
-        "VWAPBounce": "VWAP Bounce"
+        # ETF — legacy truncados (10 chars)
+        "RSI+VIXFil":   "RSI + VIX Filter",
+        "PairsTradi":   "Pairs Trading",
+        "RSIBuytheD":   "RSI Buy the Dip",
+        "MACDTrend":    "MACD Trend",
+        "BollingerR":   "Bollinger Reversion",
+        "GoldenCros":   "Golden Cross",
+        "DonchianBr":   "Donchian Breakout",
+        "MomentumRo":   "Momentum Rotation",
+        "GridTradin":   "Grid Trading",
+        "VWAPBounce":   "VWAP Bounce",
+        # ETF — nombres completos sin espacios (formato actual)
+        "RSIBuytheDip":         "RSI Buy the Dip",
+        "GoldenCross":          "Golden Cross",
+        "DonchianBreakout":     "Donchian Breakout",
+        "BollingerReversion":   "Bollinger Reversion",
+        "PairsTrading":         "Pairs Trading",
+        "MomentumRotation":     "Momentum Rotation",
+        "GridTrading":          "Grid Trading",
+        "VWAPBounce":           "VWAP Bounce",
+        "InverseMomentumETF":   "Inverse Momentum ETF",
+        # Crypto — nombres completos sin espacios
+        "EMATrendCrossover":           "EMA Trend Crossover",
+        "BBBreakout":                  "BB Breakout",
+        "DynamicSpotGrid":             "Dynamic Spot Grid",
+        "SmartTWAPAccum":              "Smart TWAP Accum",
+        "FundingSqueeze":              "Funding Squeeze",
+        "VolumeAnomaly":               "Volume Anomaly",
+        "PairDivergence":              "Pair Divergence",
+        "EMARibbonPullback":           "EMA Ribbon Pullback",
+        "VWAPTouch-and-Go":            "VWAP Touch-and-Go",
+        "CryptoSentiment":             "Crypto Sentiment",
+        "Micro-VWAPAVAXAggressive":    "Micro-VWAP AVAX Aggressive",
+        "CryptoMeanReversionExtreme":  "Crypto Mean Reversion Extreme",
+        # Equities — nombres completos sin espacios
+        "DefensiveRotation": "Defensive Rotation",
+        "GammaSqueeze":      "Gamma Squeeze",
+        "SectorRotation":    "Sector Rotation",
     }
     if name in LEGACY_NAME_MAP:
         name = LEGACY_NAME_MAP[name]

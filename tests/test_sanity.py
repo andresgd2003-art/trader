@@ -74,19 +74,19 @@ class TestParseOrderMeta(unittest.TestCase):
         self.parse = parse_order_meta
 
     def test_etf_legacy_simple(self):
-        """Formato: strat_{name}_{uuid8}"""
+        """Formato: strat_{name}_{uuid8} → nombre mapeado a legible"""
         r = self.parse("strat_GoldenCross_a3f8b2c1")
         self.assertEqual(r["prefix"], "strat")
         self.assertEqual(r["engine"], "etf")
-        self.assertEqual(r["name"], "GoldenCross")
+        self.assertEqual(r["name"], "Golden Cross")
         self.assertEqual(r["uuid"], "a3f8b2c1")
 
     def test_etf_old_with_mode(self):
-        """Backward compat: IDs viejos con mA/mB/mC siguen parseando"""
+        """Backward compat: IDs viejos con mA/mB/mC siguen parseando → nombre mapeado"""
         r = self.parse("strat_GoldenCross_mA_a3f8b2c1")
         self.assertEqual(r["prefix"], "strat")
         self.assertEqual(r["engine"], "etf")
-        self.assertEqual(r["name"], "GoldenCross")
+        self.assertEqual(r["name"], "Golden Cross")
         self.assertEqual(r["uuid"], "a3f8b2c1")
 
     def test_etf_multitoken_name(self):
@@ -96,11 +96,11 @@ class TestParseOrderMeta(unittest.TestCase):
         self.assertEqual(r["engine"], "etf")
 
     def test_crypto_legacy(self):
-        """Crypto: cry_{name}_{uuid8}"""
+        """Crypto: cry_{name}_{uuid8} → nombre mapeado a legible"""
         r = self.parse("cry_EMATrendCrossover_b2d9e1f0")
         self.assertEqual(r["prefix"], "cry")
         self.assertEqual(r["engine"], "crypto")
-        self.assertEqual(r["name"], "EMATrendCrossover")
+        self.assertEqual(r["name"], "EMA Trend Crossover")
 
     def test_equities_legacy(self):
         """Equities: eq_{name}_{uuid8}"""
