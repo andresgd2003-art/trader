@@ -412,12 +412,21 @@ if __name__ == "__main__":
 
     async def _run_etf_equities(etf_engine, eq_engine):
         """Single lifecycle run for ETF + Equities engines."""
-        await eq_engine.initialize()
-        await asyncio.gather(
-            etf_engine.run(),
-            eq_engine.start_engine(),
-            return_exceptions=True
-        )
+        try:
+            await eq_engine.initialize()
+            results = await asyncio.gather(
+                etf_engine.run(),
+                eq_engine.start_engine(),
+                return_exceptions=True
+            )
+            for i, r in enumerate(results):
+                if isinstance(r, Exception):
+                    name = ["etf_engine.run", "eq_engine.start_engine"][i]
+                    logger.error(f"[Scheduler] {name} terminó con error: {r}", exc_info=r)
+        except Exception as e:
+            import traceback
+            logger.error(f"[Scheduler] _run_etf_equities FALLO: {e}\n{traceback.format_exc()}")
+            raise
 
     async def market_scheduler(crypto_engine):
         """
@@ -434,17 +443,36 @@ if __name__ == "__main__":
         while True:
             in_window = _is_market_window()
 
+            # Detectar si el task ETF murió inesperadamente y reiniciar
+            if engines_active and etf_task and etf_task.done():
+                exc = etf_task.exception() if not etf_task.cancelled() else None
+                if exc:
+                    logger.error(f"[Scheduler] ETF task murió con excepción: {exc}. Reiniciando en 30s...")
+                else:
+                    logger.warning("[Scheduler] ETF task terminó sin excepción. Reiniciando en 30s...")
+                engines_active = False
+                etf_task = None
+                await asyncio.sleep(30)
+
             if in_window and not engines_active:
                 logger.info("[Scheduler] VENTANA DE MERCADO ABIERTA. Iniciando motores ETF/Equities...")
                 notifier.send_message_sync("[Scheduler] Mercado abierto — Motores ETF/Equities ACTIVOS")
                 try:
                     etf_engine, eq_engine = _build_etf_equities()
                     etf_task = asyncio.create_task(
-                        _run_etf_equities(etf_engine, eq_engine)
+                        _run_etf_equities(etf_engine, eq_engine),
+                        name="etf_equities_task"
                     )
+                    def _on_task_done(t: asyncio.Task):
+                        if t.cancelled():
+                            logger.info("[Scheduler] ETF task cancelado.")
+                        elif t.exception():
+                            logger.error(f"[Scheduler] ETF task excepción no capturada: {t.exception()}")
+                    etf_task.add_done_callback(_on_task_done)
                     engines_active = True
                 except Exception as e:
-                    logger.error(f"[Scheduler] Error iniciando motores: {e}")
+                    import traceback
+                    logger.error(f"[Scheduler] Error construyendo motores: {e}\n{traceback.format_exc()}")
 
             elif not in_window and engines_active:
                 logger.info("[Scheduler] MERCADO CERRADO. Apagando motores ETF/Equities...")
