@@ -239,48 +239,64 @@ async def _build_charts_task():
 
 async def update_history_cache_task():
     """Background task to fetch portfolio history, minimizando llamadas API."""
-    import requests
+    import httpx
+    import datetime as _dt
+
+    INTERVAL = 300      # Refresca cada 5 min (paper-api es lento, no necesita 60s)
+    TIMEOUT  = 25       # 25s — suficiente para paper-api bajo carga
+
     while True:
         try:
             ak = os.getenv('APCA_API_KEY_ID') or os.getenv('ALPACA_API_KEY')
             sk = os.getenv('APCA_API_SECRET_KEY') or os.getenv('ALPACA_SECRET_KEY')
             if not ak or not sk:
-                await asyncio.sleep(60)
+                await asyncio.sleep(INTERVAL)
                 continue
-                
-            is_p = True if ak and ak.startswith('PK') else False
+
+            is_p = ak.startswith('PK') if ak else True
             base_url = "https://paper-api.alpaca.markets" if is_p else "https://api.alpaca.markets"
             url = f"{base_url}/v2/account/portfolio/history"
-            
             headers = {"APCA-API-KEY-ID": ak, "APCA-API-SECRET-KEY": sk}
-            history_cache = {}
+
             tf_map = {
                 "1D": ("1D", "5Min"),
                 "1W": ("1W", "15Min"),
                 "1M": ("1M", "1D"),
-                "1A": ("1A", "1D")
+                "1A": ("1A", "1D"),
             }
-            
-            for p in ["1D", "1W", "1M", "1A"]:
-                params = {"period": tf_map[p][0], "timeframe": tf_map[p][1], "extended_hours": "false"}
-                res = requests.get(url, headers=headers, params=params, timeout=10)
-                if res.status_code == 200:
-                    history_data = res.json()
-                    hist_objs = []
-                    if "timestamp" in history_data and "equity" in history_data:
-                        import datetime as _dt
-                        for ts, eq in zip(history_data['timestamp'], history_data['equity']):
-                            if eq is not None:
-                                date_str = _dt.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
-                                hist_objs.append({"date": date_str, "equity": round(float(eq), 2)})
-                    history_cache[p] = hist_objs
-            
+
+            history_cache = dict(STATE_CACHE.get("history", {}))  # preservar cache anterior en caso de fallo parcial
+
+            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+                for p, (period, timeframe) in tf_map.items():
+                    try:
+                        params = {"period": period, "timeframe": timeframe, "extended_hours": "false"}
+                        res = await client.get(url, headers=headers, params=params)
+                        if res.status_code == 200:
+                            data = res.json()
+                            hist_objs = []
+                            if "timestamp" in data and "equity" in data:
+                                for ts, eq in zip(data["timestamp"], data["equity"]):
+                                    if eq is not None:
+                                        date_str = _dt.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M')
+                                        hist_objs.append({"date": date_str, "equity": round(float(eq), 2)})
+                            history_cache[p] = hist_objs
+                        elif res.status_code == 429:
+                            logger.warning("[API] history cache: rate-limit (429), reintentando en 60s")
+                            await asyncio.sleep(60)
+                            break
+                        else:
+                            logger.warning(f"[API] history cache {p}: HTTP {res.status_code}")
+                    except httpx.TimeoutException:
+                        logger.warning(f"[API] history cache {p}: timeout, se conserva valor anterior")
+                        continue
+
             STATE_CACHE["history"] = history_cache
-            
+
         except Exception as e:
             logger.error(f"[API] Error actualizando history cache: {e}")
-            
-        await asyncio.sleep(60)  # Fetch cada 60 seg, sin laggear al frontend
+
+        await asyncio.sleep(INTERVAL)
 
 async def update_cache_task():
     """Background task to fetch account and positions, minimizing API calls."""
