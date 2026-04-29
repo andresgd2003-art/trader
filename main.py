@@ -244,9 +244,11 @@ class TradingEngine:
                 )
                 logger.info(f"[Engine] Descargando historial de 5 días para evitar Cold Start...")
                 
-                # SUPPRESS ORDERS DURING HISTORY
+                # SUPPRESS ORDERS DURING HISTORY (ETF + Equities)
                 self.order_manager.ignore_orders = True
-                
+                if self.equities_engine:
+                    self.equities_engine.order_manager.ignore_orders = True
+
                 bars = hist_client.get_stock_bars(req)
                 count = 0
                 if hasattr(bars, 'data'):
@@ -258,8 +260,10 @@ class TradingEngine:
                                 await self._on_bar(pb)
                 logger.info(f"[Engine] ✅ Historial inyectado: {count} barras de 1Min procesadas.")
                 
-                # RESTORE AND RE-SYNC STATE
+                # RESTORE AND RE-SYNC STATE (ETF + Equities)
                 self.order_manager.ignore_orders = False
+                if self.equities_engine:
+                    self.equities_engine.order_manager.ignore_orders = False
                 while not self.order_manager._queue.empty():
                     try:
                         self.order_manager._queue.get_nowait()

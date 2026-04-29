@@ -61,9 +61,11 @@ class DefensiveRotation(BaseStrategy):
         self._entry_price: dict[str, float] = {s: 0.0 for s in DEFENSIVE_UNIVERSE}
 
         # Sync inicial desde Alpaca (anti-duplicado al reiniciar)
+        # Considera posición real O órdenes abiertas (ej: brackets held_for_orders)
         for sym in DEFENSIVE_UNIVERSE:
             qty = self.sync_position_from_alpaca(sym)
-            if qty > 0:
+            has_orders = self.check_open_orders_exist(sym)
+            if qty > 0 or has_orders:
                 self._has_position[sym] = True
 
         self._bar_counter = 0
@@ -203,6 +205,7 @@ class DefensiveRotation(BaseStrategy):
         # Re-sincronizar posiciones al abrir el mercado
         for sym in DEFENSIVE_UNIVERSE:
             qty = self.sync_position_from_alpaca(sym)
-            self._has_position[sym] = qty > 0
-            if qty == 0:
+            has_orders = self.check_open_orders_exist(sym)
+            self._has_position[sym] = qty > 0 or has_orders
+            if not self._has_position[sym]:
                 self._entry_price[sym] = 0.0

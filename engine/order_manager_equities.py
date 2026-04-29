@@ -259,8 +259,12 @@ class OrderManagerEquities:
                     if total_qty > 0:
                         logger.info(f"[{strategy}] {symbol}: qty held by bracket orders. Cancelando órdenes pendientes...")
                         try:
+                            from alpaca.trading.requests import GetOrdersRequest
+                            from alpaca.trading.enums import QueryOrderStatus
                             # Cancelar órdenes abiertas del símbolo
-                            open_orders = self.client.get_orders({"status": "open", "symbols": symbol})
+                            open_orders = self.client.get_orders(GetOrdersRequest(
+                                status=QueryOrderStatus.OPEN, symbols=[symbol], limit=50
+                            ))
                             for oo in open_orders:
                                 try:
                                     self.client.cancel_order_by_id(oo.id)
