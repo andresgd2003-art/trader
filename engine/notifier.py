@@ -39,6 +39,10 @@ class TelegramNotifier:
                 self._queue.popleft()
             self._queue.append(text)
 
+    def send_message_sync(self, text: str):
+        """Alias for send_message — non-blocking enqueue, safe to call from sync contexts."""
+        self.send_message(text)
+
     def _worker(self):
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         while True:
