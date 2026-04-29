@@ -254,33 +254,35 @@ class OrderManagerEquities:
                 
                 # Si qty disponible es 0 pero hay qty held_for_orders,
                 # cancelar las bracket orders pendientes primero
+                total_qty = float(pos.qty)
+                if qty_available <= 0 and total_qty > 0:
+                    logger.info(f"[{strategy}] {symbol}: qty held by bracket orders. Cancelando órdenes pendientes...")
+                    try:
+                        from alpaca.trading.requests import GetOrdersRequest
+                        from alpaca.trading.enums import QueryOrderStatus
+                        open_orders = self.client.get_orders(GetOrdersRequest(
+                            status=QueryOrderStatus.OPEN, symbols=[symbol], limit=50
+                        ))
+                        for oo in open_orders:
+                            try:
+                                self.client.cancel_order_by_id(oo.id)
+                            except: pass
+                        import asyncio
+                        await asyncio.sleep(2)  # Alpaca puede tardar >1s en liberar qty
+                        pos = self.client.get_open_position(symbol)
+                        qty_available = float(getattr(pos, 'qty_available', pos.qty))
+                        # Si qty_available sigue en 0 pero sabemos que las shares existen,
+                        # usar total_qty — los brackets ya fueron cancelados
+                        if qty_available <= 0 and total_qty > 0:
+                            logger.warning(f"[{strategy}] {symbol}: qty_available=0 tras cancelar. Usando total_qty={total_qty:.0f}")
+                            qty_available = total_qty
+                    except Exception as cancel_err:
+                        logger.warning(f"[{strategy}] Error cancelando órdenes de {symbol}: {cancel_err}")
+
                 if qty_available <= 0:
-                    total_qty = float(pos.qty)
-                    if total_qty > 0:
-                        logger.info(f"[{strategy}] {symbol}: qty held by bracket orders. Cancelando órdenes pendientes...")
-                        try:
-                            from alpaca.trading.requests import GetOrdersRequest
-                            from alpaca.trading.enums import QueryOrderStatus
-                            # Cancelar órdenes abiertas del símbolo
-                            open_orders = self.client.get_orders(GetOrdersRequest(
-                                status=QueryOrderStatus.OPEN, symbols=[symbol], limit=50
-                            ))
-                            for oo in open_orders:
-                                try:
-                                    self.client.cancel_order_by_id(oo.id)
-                                except: pass
-                            import asyncio
-                            await asyncio.sleep(1)  # Esperar a que Alpaca libere las qty
-                            # Re-verificar qty disponible
-                            pos = self.client.get_open_position(symbol)
-                            qty_available = float(getattr(pos, 'qty_available', pos.qty))
-                        except Exception as cancel_err:
-                            logger.warning(f"[{strategy}] Error cancelando órdenes de {symbol}: {cancel_err}")
-                
-                if qty_available <= 0:
-                    logger.warning(f"[{strategy}] {symbol}: Sin qty disponible aún después de cancelar. Abortando.")
+                    logger.warning(f"[{strategy}] {symbol}: Sin qty para cerrar. Abortando.")
                     return
-                    
+
                 req = MarketOrderRequest(
                     symbol=symbol,
                     qty=qty_available,
