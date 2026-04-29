@@ -31,9 +31,9 @@ from engine.notifier import TelegramNotifier
 # Re-enable solo después de arreglar la lógica de SELL.
 from strategies_equities import (
     VCPStrategy,
-    # GammaSqueezeStrategy,   # QUARANTINED — exits rotos (18 buys / 0 sells)
-    # SectorRotationStrategy, # QUARANTINED — exits rotos (28 buys / 2 sells)
     DefensiveRotation,
+    # GammaSqueezeStrategy,   # QUARANTINED - exits rotos
+    # SectorRotationStrategy, # QUARANTINED - exits rotos
 )
 
 logger = logging.getLogger("EquitiesEngine")
