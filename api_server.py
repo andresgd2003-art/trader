@@ -51,13 +51,14 @@ logging.basicConfig(
 logger = logging.getLogger("api_server")
 
 # CONFIGURACIÓN (Auth Inquebrantable PROMPT 15)
-API_KEY = os.getenv('APCA_API_KEY_ID')
-SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
+API_KEY = os.getenv('APCA_API_KEY_ID') or os.getenv('ALPACA_API_KEY')
+SECRET_KEY = os.getenv('APCA_API_SECRET_KEY') or os.getenv('ALPACA_SECRET_KEY')
 
 if not API_KEY or not SECRET_KEY:
     logger.critical("[API] ❌ ERROR CRÍTICO: Las llaves de Alpaca son NULAS. Revisa el archivo .env")
 else:
-    logger.info(f"[API] Keys cargadas correctamente. Prefijo: {API_KEY[:4]}***")
+    _mode = "PAPER" if (API_KEY or "").startswith("PK") else "LIVE"
+    logger.info(f"[API] Keys cargadas correctamente. Modo: {_mode}. Prefijo: {API_KEY[:4]}***")
 
 LOG_PATH = os.environ.get("LOG_PATH", "/opt/trader/data/engine.log")
 
@@ -242,8 +243,8 @@ async def update_history_cache_task():
     import httpx
     import datetime as _dt
 
-    INTERVAL = 300      # Refresca cada 5 min (paper-api es lento, no necesita 60s)
-    TIMEOUT  = 25       # 25s — suficiente para paper-api bajo carga
+    INTERVAL = 300      # Refresca cada 5 min
+    TIMEOUT  = 25       # 25s timeout
 
     while True:
         try:
