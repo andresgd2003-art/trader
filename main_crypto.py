@@ -35,32 +35,20 @@ class CryptoTradingEngine:
         self.strategies = self._register_strategies()
 
     def _register_strategies(self):
-        from strategies_crypto.strat_01_ema_cross import CryptoEMACrossStrategy
         from strategies_crypto.strat_02_bb_breakout import CryptoBBBreakoutStrategy
-        from strategies_crypto.strat_03_grid_spot import CryptoGridSpotStrategy
-        from strategies_crypto.strat_04_smart_twap import CryptoSmartTWAPStrategy
         from strategies_crypto.strat_05_funding_squeeze import CryptoFundingSqueezeStrategy
         from strategies_crypto.strat_06_vol_anomaly import CryptoVolAnomalyStrategy
-        from strategies_crypto.strat_07_pair_divergence import CryptoPairDivergenceStrategy
-        from strategies_crypto.strat_08_ema_ribbon import CryptoEMARibbonStrategy
         from strategies_crypto.strat_09_vwap_touch import CryptoVWAPTouchStrategy
         from strategies_crypto.strat_10_sentiment import CryptoSentimentStrategy
-        from strategies_crypto.strat_11_vwap_avax_aggressive import CryptoMicroVWAPAvaxStrategy
         from strategies_crypto.strat_12_mean_reversion_extreme import CryptoMeanReversionExtreme
 
         rm = self.regime_manager  # alias corto
         return [
-            CryptoEMACrossStrategy(self.order_manager,      regime_manager=rm),
             CryptoBBBreakoutStrategy(self.order_manager,    regime_manager=rm),
-            CryptoGridSpotStrategy(self.order_manager,      regime_manager=rm),
-            CryptoSmartTWAPStrategy(self.order_manager,     regime_manager=rm),
             CryptoFundingSqueezeStrategy(self.order_manager, regime_manager=rm),
             CryptoVolAnomalyStrategy(self.order_manager,    regime_manager=rm),
-            CryptoPairDivergenceStrategy(self.order_manager, regime_manager=rm),
-            CryptoEMARibbonStrategy(self.order_manager,     regime_manager=rm),
             CryptoVWAPTouchStrategy(self.order_manager,     regime_manager=rm),
             CryptoSentimentStrategy(self.order_manager,     regime_manager=rm),
-            CryptoMicroVWAPAvaxStrategy(self.order_manager, regime_manager=rm),
             CryptoMeanReversionExtreme(self.order_manager,  regime_manager=rm),
         ]
 

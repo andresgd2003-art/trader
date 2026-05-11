@@ -58,17 +58,13 @@ from alpaca.data.enums import DataFeed
 from engine.order_manager import OrderManager
 from engine.regime_manager import RegimeManager
 from strategies import (
-    GoldenCrossStrategy,
-    DonchianBreakoutStrategy,
     MomentumRotationStrategy,
-    MACDTrendStrategy,
     RSIDipStrategy,
     BollingerReversionStrategy,
     VIXFilteredReversionStrategy,
     VWAPBounceStrategy,
     PairsTradingStrategy,
     GridTradingStrategy,
-    InverseMomentumETF,
 )
 
 # ============================================================
@@ -134,17 +130,13 @@ class TradingEngine:
         """
         rm = self.regime_manager
         strategies = [
-            GoldenCrossStrategy(order_manager=self.order_manager, regime_manager=rm),
-            DonchianBreakoutStrategy(order_manager=self.order_manager, regime_manager=rm),
             MomentumRotationStrategy(order_manager=self.order_manager, regime_manager=rm),
-            MACDTrendStrategy(order_manager=self.order_manager, regime_manager=rm),
             RSIDipStrategy(order_manager=self.order_manager, regime_manager=rm),
             BollingerReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
             VIXFilteredReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
             VWAPBounceStrategy(order_manager=self.order_manager, regime_manager=rm),
             PairsTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
             GridTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
-            InverseMomentumETF(order_manager=self.order_manager, regime_manager=rm),
         ]
         logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas.")
         return strategies

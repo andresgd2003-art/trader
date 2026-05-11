@@ -3,7 +3,7 @@ import asyncio
 from unittest.mock import MagicMock, AsyncMock
 
 # Strategy Imports
-from strategies.strat_11_inverse_momentum import InverseMomentumETF
+
 from strategies_equities.strat_04_defensive_rotation import DefensiveRotation
 from strategies_crypto.strat_12_mean_reversion_extreme import CryptoMeanReversionExtreme
 
@@ -43,64 +43,6 @@ class MockBar:
     def __init__(self, symbol, close):
         self.symbol = symbol
         self.close = close
-
-# --- TESTS FOR INVERSE MOMENTUM ETF ---
-@pytest.fixture
-def etf_strat():
-    om = MockOrderManager()
-    rm = MockRegimeManager(enabled=True, regime="BEAR")
-    return InverseMomentumETF(order_manager=om, regime_manager=rm)
-
-@pytest.mark.asyncio
-async def test_etf_smoke():
-    # Smoke import is covered by just importing it at the top
-    assert InverseMomentumETF is not None
-
-@pytest.mark.asyncio
-async def test_etf_instantiation(etf_strat):
-    assert etf_strat.STRAT_NUMBER == 11
-    assert "QQQ" in etf_strat.symbols
-    assert "SPY" in etf_strat.symbols
-
-@pytest.mark.asyncio
-async def test_etf_signal_trigger(etf_strat):
-    # Needs MACD hist < 0 and close < SMA200
-    # Feed 200 bars going down to trigger it
-    for i in range(200):
-        # descending prices to create MACD < 0 and price < SMA200
-        await etf_strat.on_bar(MockBar("QQQ", 200.0 - i * 0.1))
-    
-    etf_strat.order_manager.buy.assert_called_once()
-    args, kwargs = etf_strat.order_manager.buy.call_args
-    assert args[0] == "SQQQ"
-    assert kwargs.get("strategy_name") == "InverseMomentumETF"
-
-@pytest.mark.asyncio
-async def test_etf_regime_gate():
-    om = MockOrderManager()
-    rm = MockRegimeManager(enabled=False, regime="BULL")
-    strat = InverseMomentumETF(order_manager=om, regime_manager=rm)
-    
-    for i in range(200):
-        await strat.on_bar(MockBar("QQQ", 200.0 - i * 0.1))
-    
-    strat.order_manager.buy.assert_not_called()
-
-@pytest.mark.asyncio
-async def test_etf_exit_condition(etf_strat):
-    # Enter first
-    for i in range(200):
-        await etf_strat.on_bar(MockBar("QQQ", 200.0 - i * 0.1))
-    
-    etf_strat.order_manager.buy.assert_called()
-    etf_strat.order_manager.buy.reset_mock()
-    
-    # Now feed bars going UP to make MACD hist > 0
-    for i in range(30):
-        await etf_strat.on_bar(MockBar("QQQ", 180.0 + i * 2.0))
-        
-    # Should have triggered sell
-    assert etf_strat.order_manager.sell.called or etf_strat.order_manager.sell_exact.called
 
 
 # --- TESTS FOR DEFENSIVE ROTATION ---
