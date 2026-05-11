@@ -904,17 +904,13 @@
 
 // ── DEFINICION DE ESTRATEGIAS ──
 const ETF_STRATEGIES = [
-  { name: 'Golden Cross', regime: 'BULL', symbols: 'SPY, QQQ' },
-  { name: 'Donchian Breakout', regime: 'BULL', symbols: 'XLK, SMH' },
   { name: 'Momentum Rotation', regime: 'BULL', symbols: 'Top ETFs' },
-  { name: 'MACD Trend', regime: 'BULL', symbols: 'SPY, QQQ' },
   { name: 'RSI Dip', regime: 'CHOP', symbols: 'TQQQ' },
   { name: 'Bollinger Reversion', regime: 'CHOP', symbols: 'SOXX' },
   { name: 'VIX Filtered Rever', regime: 'BEAR', symbols: 'SPY' },
   { name: 'VWAP Bounce', regime: 'CHOP', symbols: 'QQQ' },
   { name: 'Pairs Trading', regime: 'CHOP', symbols: 'QQQ/SPY' },
   { name: 'Grid Trading', regime: 'CHOP', symbols: 'TQQQ' },
-  { name: 'Inverse Momentum', regime: 'BEAR', symbols: 'SQQQ/SPXU' },
 ];
 
 // ── PERÍODO P&L POR ESTRATEGIA ──
@@ -1285,17 +1281,11 @@ async function loadEtfData() {
 //  TAB CRYPTO — carga de datos
 // ══════════════════════════════════════════════════════
 const CRYPTO_STRATEGIES = [
-  { name: 'EMA Cross', regime: 'BULL', symbols: 'BTC/USD', p: 4 },
   { name: 'BB Breakout', regime: 'BULL', symbols: 'ETH/USD', p: 4 },
-  { name: 'Grid Spot', regime: 'CHOP', symbols: 'SOL/USD', p: 6 },
-  { name: 'Smart TWAP', regime: 'BULL', symbols: 'BTC/USD', p: 6 },
   { name: 'Funding Squeeze', regime: 'BEAR', symbols: 'ETH/USD', p: 3 },
   { name: 'Vol Anomaly', regime: 'BEAR', symbols: 'LINK/USD', p: 1 },
-  { name: 'Pair Divergence', regime: 'CHOP', symbols: 'ETH/USD', p: 5 },
-  { name: 'EMA Ribbon', regime: 'BULL', symbols: 'BCH/USD', p: 5 },
   { name: 'VWAP Touch', regime: 'BULL', symbols: 'BTC/USD', p: 2 },
   { name: 'Sentiment F&G', regime: 'BEAR', symbols: 'BTC/USD', p: 7 },
-  { name: 'Micro-VWAP AVAX Aggressive', regime: 'CHOP', symbols: 'AVAX/USD', p: 5 },
   { name: 'Mean Reversion Extreme', regime: 'BEAR', symbols: 'BTC/USD', p: 8 },
 ];
 
