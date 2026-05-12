@@ -255,19 +255,37 @@ class TradingEngine:
                 self.order_manager.ignore_orders = False
                 if self.equities_engine:
                     self.equities_engine.order_manager.ignore_orders = False
-                while not self.order_manager._queue.empty():
-                    try:
-                        self.order_manager._queue.get_nowait()
-                        self.order_manager._queue.task_done()
-                    except: break
+                # Drain any queued orders from history replay
+                for mgr in [self.order_manager] + ([self.equities_engine.order_manager] if self.equities_engine else []):
+                    while not mgr._queue.empty():
+                        try:
+                            mgr._queue.get_nowait()
+                            mgr._queue.task_done()
+                        except: break
 
-                for strat in self.strategies:
+                # Re-sync ALL strategies from Alpaca (source of truth)
+                all_strats = list(self.strategies)
+                if self.equities_engine:
+                    all_strats.extend(self.equities_engine.strategies)
+
+                for strat in all_strats:
                     for sym in strat.symbols:
-                        pos = strat.sync_position_from_alpaca(sym) > 0
-                        if hasattr(strat, "_has_position") and isinstance(strat._has_position, dict):
-                            strat._has_position[sym] = pos
-                        elif hasattr(strat, "in_position"):
-                            strat.in_position = pos
+                        real_pos = strat.sync_position_from_alpaca(sym) > 0
+                        if hasattr(strat, "_has_position"):
+                            if isinstance(strat._has_position, dict):
+                                strat._has_position[sym] = real_pos
+                            elif isinstance(strat._has_position, bool):
+                                strat._has_position = real_pos
+                        if hasattr(strat, "in_position"):
+                            strat.in_position = real_pos
+                        # Reset entry price if no real position
+                        if not real_pos and hasattr(strat, "_entry_price"):
+                            if isinstance(strat._entry_price, dict):
+                                strat._entry_price[sym] = 0.0
+                            elif isinstance(strat._entry_price, (int, float)):
+                                strat._entry_price = 0.0
+
+                logger.info(f"[Engine] ✅ Post-history sync: {len(all_strats)} estrategias re-sincronizadas desde Alpaca.")
                             
         except Exception as e:
             logger.warning(f"[Engine] Falló la pre-carga histórica: {e}")
