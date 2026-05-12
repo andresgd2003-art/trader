@@ -140,8 +140,8 @@ class OrderManager:
         try:
             # 1. Obtener Settled Cash para el cálculo
             account = self.client.get_account()
-            # En Paper Trading no existe settled_cash, usamos cash como fallback
-            settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
+            # En Live Trading, settled_cash puede no existir — usar cash como fallback
+            settled_cash = float(getattr(account, 'settled_cash', None) or account.cash)
             
             # 2. Lógica de Venta (Liquidar todo o exacto)
             if side == OrderSide.SELL:
