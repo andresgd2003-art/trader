@@ -64,7 +64,6 @@ from strategies import (
     VIXFilteredReversionStrategy,
     VWAPBounceStrategy,
     PairsTradingStrategy,
-    GridTradingStrategy,
 )
 
 # ============================================================
@@ -136,7 +135,7 @@ class TradingEngine:
             VIXFilteredReversionStrategy(order_manager=self.order_manager, regime_manager=rm),
             VWAPBounceStrategy(order_manager=self.order_manager, regime_manager=rm),
             PairsTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
-            GridTradingStrategy(order_manager=self.order_manager, regime_manager=rm),
+            # Grid Trading eliminada — incompatible con cuenta Cash Live (requiere órdenes limit)
         ]
         logger.info(f"[Engine] {len(strategies)} estrategias ETF registradas.")
         return strategies
