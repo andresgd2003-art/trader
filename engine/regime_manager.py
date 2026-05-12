@@ -49,7 +49,9 @@ REGIME_ETF_MAP = {
     Regime.BULL:    [1, 2, 4, 5, 8],
     Regime.BEAR:    [3, 6, 9, 11],
     Regime.CHOP:    [7, 10, 11],
-    Regime.UNKNOWN: [7, 10],
+    # UNKNOWN: habilitar estrategias genéricas que funcionan en cualquier régimen
+    # (5=RSIDip, 6=Bollinger, 7=VIXFilter, 8=VWAP, 10=Pairs)
+    Regime.UNKNOWN: [5, 6, 7, 8, 10],
 }
 REGIME_CRYPTO_MAP = {
     Regime.BULL:    [1, 2, 4, 8, 9, 11, 12],
@@ -111,23 +113,31 @@ class RegimeManager:
             end = datetime.now()
             start = end - timedelta(days=10)  # 10 días de datos para obtener 100+ barras intradiarias
 
-            # Obtener barras intradiarias de SPY (5 minutos)
-            spy_bars = self.client.get_stock_bars(StockBarsRequest(
-                symbol_or_symbols="SPY",
-                timeframe=TimeFrame(5, TimeFrameUnit.Minute),
-                start=start,
-                end=end,
-                limit=1000
-            ))
+            from alpaca.data.enums import DataFeed
+
+            def _get_bars(symbol, feed=DataFeed.IEX):
+                """Intenta obtener barras; fallback a IEX si SIP falla por suscripción."""
+                try:
+                    return self.client.get_stock_bars(StockBarsRequest(
+                        symbol_or_symbols=symbol,
+                        timeframe=TimeFrame(5, TimeFrameUnit.Minute),
+                        start=start,
+                        end=end,
+                        limit=1000,
+                        feed=feed,
+                    ))
+                except Exception as e:
+                    if "SIP" in str(e) or "subscription" in str(e).lower():
+                        if feed != DataFeed.IEX:
+                            logger.warning(f"[Regime] SIP no disponible para {symbol}, usando IEX.")
+                            return _get_bars(symbol, feed=DataFeed.IEX)
+                    raise
+
+            # Obtener barras intradiarias de SPY (5 minutos) — IEX primero para cuentas sin SIP
+            spy_bars = _get_bars("SPY")
 
             # Obtener precio de VIX (via VIXY — ETF proxy de VIX en Alpaca)
-            vix_bars = self.client.get_stock_bars(StockBarsRequest(
-                symbol_or_symbols="VIXY",
-                timeframe=TimeFrame(5, TimeFrameUnit.Minute),
-                start=start,
-                end=end,
-                limit=1000
-            ))
+            vix_bars = _get_bars("VIXY")
 
             spy_df = spy_bars.df.reset_index()
             spy_close_prices = spy_df[spy_df["symbol"] == "SPY"]["close"].values

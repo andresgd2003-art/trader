@@ -423,6 +423,20 @@ async def update_cache_task():
                 categorized_ords = {"crypto": [], "etf": [], "eq": []}
                 
                 for o in raw_orders:
+                    _client_id = str(o.client_order_id) if o.client_order_id else ""
+
+                    # Parsear meta PRIMERO para resolver nombre de estrategia correctamente
+                    meta = parse_order_meta(_client_id)
+                    engine = meta.get("engine", "unknown")
+                    meta_name = meta.get("name", "")
+
+                    # Nombre de estrategia: prioridad al meta parser (cubre strat_, cry_, eq_)
+                    # Fallback al mapa de órdenes históricas eq_ (para posiciones abiertas)
+                    strategy_name = (
+                        meta_name if meta_name and meta_name not in ("unknown", "Manual")
+                        else symbol_to_strategy.get(o.symbol, "")
+                    )
+
                     ord_data = {
                         "id":           str(o.id),
                         "symbol":       o.symbol,
@@ -436,16 +450,13 @@ async def update_cache_task():
                         "limit_price":  float(o.limit_price) if o.limit_price else None,
                         "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else None,
                         "created_at":   o.submitted_at.isoformat() if o.submitted_at else None,
-                        "client_id":    str(o.client_order_id) if o.client_order_id else "",
-                        "strategy":     symbol_to_strategy.get(o.symbol, "")
+                        "client_id":    _client_id,
+                        "strategy":     strategy_name,
+                        "engine":       engine,
                     }
-                    
-                    # Usamos el meta parser para los órdenes que lo tengan, y si no, caemos a ETFs list
-                    meta = parse_order_meta(ord_data["client_id"])
-                    engine = meta.get("engine", "unknown")
-                    
+
                     is_crypto = o.asset_class.value == 'crypto' or '/USD' in o.symbol or engine == "crypto"
-                    
+
                     if is_crypto:
                         categorized_ords["crypto"].append(ord_data)
                     elif engine == "equities" or (engine == "unknown" and o.symbol not in etf_symbols):
