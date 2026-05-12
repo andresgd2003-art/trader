@@ -78,15 +78,31 @@ class OrderManagerEquities:
     def _calculate_notional(self) -> float:
         """
         Calcula el notional para acciones (fraccionario).
-        Utiliza el 5% del settled_cash (o cash en Paper) para evitar GFV. Nunca supera MAX_POSITION_USD.
+        Utiliza el 5% del settled_cash para evitar GFV. Nunca supera MAX_POSITION_USD.
+        SIEMPRE verifica que haya al menos 20% del equity disponible como cash (reserva global).
         """
         try:
             account = self.client.get_account()
-            # Fallback para Paper Trading - Settled Cash solo existe en Live
-            settled_cash = float(getattr(account, 'settled_cash', account.cash if self.paper else 0.0))
+            equity = float(account.equity or 0)
+            cash = float(account.cash or 0)
+
+            # ── RESERVA GLOBAL: si cash < 20% del equity, no comprar ──
+            cash_reserve_required = equity * 0.20
+            if cash < cash_reserve_required:
+                logger.warning(
+                    f"[OrderManagerEquities] 🛡️ RESERVA GLOBAL: "
+                    f"cash=${cash:.2f} < mínimo=${cash_reserve_required:.2f} "
+                    f"(20% de equity=${equity:.2f}). Bloqueando compras equities."
+                )
+                return 0.0
+
+            # Capital disponible después de reserva
+            settled_cash = float(getattr(account, 'settled_cash', cash if self.paper else cash))
+            available = max(settled_cash - cash_reserve_required, 0.0)
+
             from engine.regime_manager import get_current_regime
             pct = get_current_regime().get("suggested_sizing", 0.03)
-            target_amount = settled_cash * pct
+            target_amount = available * pct
             return min(target_amount, self.MAX_POSITION_USD)
         except Exception as e:
             logger.error(f"[OrderManagerEquities] Error calculando notional: {e}")

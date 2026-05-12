@@ -40,12 +40,14 @@ class OrderManagerCrypto:
     """
     MIN_DELAY_SECONDS = 0.4
 
-    # Caps y reservas para el modo noche (Cuenta simulada de $200)
-    DAY_CAP_USD       = 25.0    # Cap durante horas de mercado
-    NIGHT_CAP_MAX_USD = 50.0    # Tope absoluto nocturno
-    NIGHT_CAP_PCT     = 0.30    # % del capital disponible nocturno por posición
-    NIGHT_RESERVE_PCT = 0.40    # % de settled_cash siempre reservado para apertura
-    MIN_EQUITY_EXPAND = 80.0    # No expandir si equity total < $80
+    # Caps y reservas
+    DAY_CAP_USD           = 25.0   # Cap durante horas de mercado
+    NIGHT_CAP_MAX_USD     = 40.0   # Tope absoluto nocturno
+    NIGHT_CAP_PCT         = 0.15   # % del capital libre nocturno por posición
+    NIGHT_RESERVE_PCT     = 0.60   # % de settled_cash reservado para apertura
+    MIN_EQUITY_EXPAND     = 80.0   # No expandir si equity total < $80
+    GLOBAL_CASH_RESERVE_PCT = 0.20 # Reserva mínima de cash sobre equity
+    MAX_CRYPTO_EQUITY_PCT   = 0.40 # Cripto NUNCA puede superar el 40% del equity total
 
     def __init__(self, arbiter=None):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
@@ -81,9 +83,8 @@ class OrderManagerCrypto:
     def _get_dynamic_cap(self) -> float:
         """
         Retorna el cap de notional en USD según el horario de mercado.
-        Durante horas de mercado: $15 (conservador).
-        Fuera de mercado: hasta 20% del capital disponible (máx $40),
-        reservando siempre un 40% del settled_cash para la apertura.
+        - Bloquea nuevas compras si las posiciones cripto ya superan el 40% del equity total.
+        - Bloquea si el cash cae por debajo del 20% del equity total.
         """
         from engine.regime_manager import get_current_regime
         regime_mult = {"BULL": 1.0, "CHOP": 0.6, "BEAR": 0.4, "UNKNOWN": 0.4}
@@ -92,32 +93,63 @@ class OrderManagerCrypto:
         day_cap_effective = self.DAY_CAP_USD * mult
         night_cap_effective_max = self.NIGHT_CAP_MAX_USD * mult
 
-        if _us_market_is_open():
-            return day_cap_effective
-
-        # Modo noche: calcular cap dinámico
         try:
             account = self.client.get_account()
             equity = float(account.equity or 0)
-            settled = float(getattr(account, 'settled_cash', account.cash if self.paper else 0))
+            cash = float(account.cash or 0)
 
-            # No expandir si la cuenta está muy baja
-            if equity < self.MIN_EQUITY_EXPAND:
-                logger.debug(f"[OrderManagerCrypto] Equity ${equity:.2f} < ${self.MIN_EQUITY_EXPAND} → modo conservador nocturno.")
+            # ── TECHO DE EXPOSICIÓN POR MOTOR: Cripto ≤ 40% del equity total ──
+            crypto_market_value = float(getattr(account, 'long_market_value', 0) or 0)
+            # Intentar obtener el valor cripto real de posiciones abiertas
+            try:
+                positions = self.client.get_all_positions()
+                crypto_mv = sum(
+                    float(p.market_value or 0)
+                    for p in positions
+                    if p.asset_class and 'crypto' in str(p.asset_class).lower()
+                )
+            except Exception:
+                crypto_mv = 0.0
+
+            crypto_budget = equity * self.MAX_CRYPTO_EQUITY_PCT
+            if crypto_mv >= crypto_budget and equity > 0:
+                logger.warning(
+                    f"[OrderManagerCrypto] 🚧 TECHO DE MOTOR ALCANZADO: "
+                    f"Cripto=${crypto_mv:.2f} ≥ presupuesto={crypto_budget:.2f} "
+                    f"(40% de equity=${equity:.2f}). Bloqueando nuevas compras."
+                )
+                return 0.0
+
+            # ── RESERVA GLOBAL: si cash < 20% del equity, no abrir más ──
+            cash_reserve_required = equity * self.GLOBAL_CASH_RESERVE_PCT
+            if cash < cash_reserve_required:
+                logger.warning(
+                    f"[OrderManagerCrypto] 🛡️ RESERVA GLOBAL: "
+                    f"cash=${cash:.2f} < mínimo=${cash_reserve_required:.2f}. Bloqueando."
+                )
+                return 0.0
+
+            if _us_market_is_open():
                 return day_cap_effective
 
-            reserve    = settled * self.NIGHT_RESERVE_PCT
-            available  = max(settled - reserve, 0.0)
-            night_cap  = min(available * self.NIGHT_CAP_PCT, night_cap_effective_max)
+            # Modo noche: calcular cap dinámico sobre lo que queda libre
+            if equity < self.MIN_EQUITY_EXPAND:
+                return day_cap_effective
 
-            if night_cap > day_cap_effective:
-                logger.info(f"[OrderManagerCrypto] 🌙 Modo noche: cap ${night_cap:.2f} (equity ${equity:.2f}, disponible ${available:.2f}, reserva ${reserve:.2f})")
-            else:
-                logger.info(f"[OrderManagerCrypto] 🌙 Modo noche activo pero cap=${night_cap:.2f} ≤ cap diurno ${day_cap_effective} (equity ${equity:.2f} — cuenta pequeña)")
-            return max(night_cap, day_cap_effective)   # Nunca menos que el cap diurno
+            available_after_reserve = max(cash - cash_reserve_required, 0.0)
+            extra_reserve = float(getattr(account, 'settled_cash', cash)) * self.NIGHT_RESERVE_PCT
+            available = max(available_after_reserve - extra_reserve, 0.0)
+            night_cap = min(available * self.NIGHT_CAP_PCT, night_cap_effective_max)
+
+            logger.info(
+                f"[OrderManagerCrypto] 🌙 cap=${night_cap:.2f} "
+                f"(equity=${equity:.2f}, cripto_mv=${crypto_mv:.2f}/{crypto_budget:.2f}, "
+                f"cash_libre=${available:.2f})"
+            )
+            return max(night_cap, day_cap_effective) if night_cap > 0 else 0.0
 
         except Exception as e:
-            logger.warning(f"[OrderManagerCrypto] Error calculando cap nocturno: {e}. Usando cap diurno.")
+            logger.warning(f"[OrderManagerCrypto] Error calculando cap: {e}. Usando cap diurno.")
             return day_cap_effective
 
     def _calculate_crypto_qty(self, notional_usd: float, current_price: float, precision: int = 4) -> float:
