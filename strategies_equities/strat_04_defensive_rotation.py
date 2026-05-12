@@ -61,11 +61,26 @@ class DefensiveRotation(BaseStrategy):
         self._entry_price: dict[str, float] = {s: 0.0 for s in DEFENSIVE_UNIVERSE}
 
         # Sync inicial desde Alpaca (anti-duplicado al reiniciar)
-        # Considera posición real O órdenes abiertas (ej: brackets held_for_orders)
+        # SOLO marca True si hay posición real confirmada en Alpaca O bracket orders activas.
+        # No confiar solo en el estado local para evitar llamadas al Firewall con símbolos fantasma.
         for sym in DEFENSIVE_UNIVERSE:
             qty = self.sync_position_from_alpaca(sym)
             has_orders = self.check_open_orders_exist(sym)
-            if qty > 0 or has_orders:
+            if qty > 0:
+                self._has_position[sym] = True
+                # Intentar recuperar entry_price desde Alpaca
+                try:
+                    from alpaca.trading.client import TradingClient
+                    import os as _os
+                    _ak = _os.environ.get("ALPACA_API_KEY", "")
+                    _sk = _os.environ.get("ALPACA_SECRET_KEY", "")
+                    _paper = _os.environ.get("PAPER_TRADING", "True").lower() == "true"
+                    _client = TradingClient(api_key=_ak, secret_key=_sk, paper=_paper)
+                    _pos = _client.get_open_position(sym)
+                    self._entry_price[sym] = float(_pos.avg_entry_price)
+                except Exception:
+                    pass
+            elif has_orders:
                 self._has_position[sym] = True
 
         self._bar_counter = 0
@@ -125,6 +140,19 @@ class DefensiveRotation(BaseStrategy):
 
         for s in DEFENSIVE_UNIVERSE:
             if not self._has_position.get(s):
+                continue
+
+            # Verificar que existe posición real en Alpaca antes de intentar cerrar
+            # Esto previene que el Firewall rechace ventas de símbolos sin posición real
+            real_qty = self.sync_position_from_alpaca(s)
+            if real_qty <= 0 and not self.check_open_orders_exist(s):
+                # Estado local desincronizado — no hay posición real, corregir
+                logger.warning(
+                    f"[{self.name}] Estado local desincronizado para {s}: "
+                    f"_has_position=True pero Alpaca no tiene posición. Corrigiendo."
+                )
+                self._has_position[s] = False
+                self._entry_price[s] = 0.0
                 continue
 
             # Evaluar TP +2% usando último close conocido del ticker
@@ -202,10 +230,25 @@ class DefensiveRotation(BaseStrategy):
         self._entry_price[target] = target_price
 
     def on_market_open(self):
-        # Re-sincronizar posiciones al abrir el mercado
+        """Re-sincroniza posiciones al abrir el mercado desde Alpaca (fuente de verdad)."""
         for sym in DEFENSIVE_UNIVERSE:
             qty = self.sync_position_from_alpaca(sym)
             has_orders = self.check_open_orders_exist(sym)
+            # Posición real tiene prioridad; bracket orders también bloquean nueva entrada
             self._has_position[sym] = qty > 0 or has_orders
-            if not self._has_position[sym]:
+            if qty > 0:
+                # Recuperar entry price real desde Alpaca
+                try:
+                    from alpaca.trading.client import TradingClient
+                    import os as _os
+                    _ak = _os.environ.get("ALPACA_API_KEY", "")
+                    _sk = _os.environ.get("ALPACA_SECRET_KEY", "")
+                    _paper = _os.environ.get("PAPER_TRADING", "True").lower() == "true"
+                    _client = TradingClient(api_key=_ak, secret_key=_sk, paper=_paper)
+                    _pos = _client.get_open_position(sym)
+                    self._entry_price[sym] = float(_pos.avg_entry_price)
+                    logger.info(f"[{self.name}] 🔄 {sym} entry_price={self._entry_price[sym]:.2f} sincronizado desde Alpaca")
+                except Exception:
+                    pass
+            elif not has_orders:
                 self._entry_price[sym] = 0.0

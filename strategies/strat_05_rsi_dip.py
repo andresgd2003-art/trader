@@ -21,6 +21,7 @@ class RSIDipStrategy(BaseStrategy):
     # TQQQ es 3x apalancado — necesita stops más agresivos que un ETF normal
     STOP_LOSS_PCT   = 0.025  # -2.5% corta pérdidas antes de que el apalancamiento las amplifique
     TAKE_PROFIT_PCT = 0.05   # +5% cierra ganancia sin esperar al cruce RSI 65
+    MIN_BARS_BETWEEN_BUYS = 5  # Mínimo 5 barras (5 min) entre compras para evitar bucle
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
@@ -42,12 +43,15 @@ class RSIDipStrategy(BaseStrategy):
                 logger.info(f"[{self.name}] Entry price sincronizado desde Alpaca: ${self._entry_price:.2f}")
             except Exception:
                 pass
+        # Cooldown: barra en que se emitió la última compra
+        self._last_buy_bar: int = -self.MIN_BARS_BETWEEN_BUYS
+        self._bar_count: int = 0
 
     async def on_bar(self, bar) -> None:
         if not self.should_process(bar.symbol):
             return
 
-
+        self._bar_count += 1
         self._closes.append(float(bar.close))
 
         if len(self._closes) < self.RSI_PERIOD + 1:
@@ -81,12 +85,29 @@ class RSIDipStrategy(BaseStrategy):
                 return
 
         if current_rsi < self.RSI_BUY and not self._has_position:
+            # 🔒 COOLDOWN: no comprar si ya compramos hace menos de MIN_BARS_BETWEEN_BUYS barras
+            bars_since_last_buy = self._bar_count - self._last_buy_bar
+            if bars_since_last_buy < self.MIN_BARS_BETWEEN_BUYS:
+                logger.debug(
+                    f"[{self.name}] ⏳ Cooldown activo ({bars_since_last_buy}/{self.MIN_BARS_BETWEEN_BUYS} barras). "
+                    f"Omitiendo compra de {self.SYMBOL}."
+                )
+                return
+
+            # Verificar también en Alpaca que realmente no tenemos posición
+            real_qty = self.sync_position_from_alpaca(self.SYMBOL)
+            if real_qty > 0:
+                logger.info(f"[{self.name}] Posición real detectada en Alpaca (qty={real_qty:.4f}). Sincronizando estado.")
+                self._has_position = True
+                return
+
             logger.info(f"[{self.name}] 🟢 RSI={current_rsi:.1f} < {self.RSI_BUY} → COMPRANDO {self.SYMBOL}")
             if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
             self._position[self.SYMBOL] = 1
             self._entry_price = float(bar.close)
+            self._last_buy_bar = self._bar_count
 
         elif current_rsi > self.RSI_SELL and self._has_position:
             logger.info(f"[{self.name}] 🔴 RSI={current_rsi:.1f} > {self.RSI_SELL} → VENDIENDO {self.SYMBOL}")
