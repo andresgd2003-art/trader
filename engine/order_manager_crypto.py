@@ -47,7 +47,7 @@ class OrderManagerCrypto:
     NIGHT_RESERVE_PCT     = 0.60   # % de settled_cash reservado para apertura
     MIN_EQUITY_EXPAND     = 80.0   # No expandir si equity total < $80
     GLOBAL_CASH_RESERVE_PCT = 0.20 # Reserva mínima de cash sobre equity
-    MAX_CRYPTO_EQUITY_PCT   = 0.40 # Cripto NUNCA puede superar el 40% del equity total
+    MAX_CRYPTO_EQUITY_PCT   = 0.35 # Cripto NUNCA puede superar el 35% del equity total
 
     def __init__(self, arbiter=None):
         self.api_key = os.environ.get("ALPACA_API_KEY", "")
