@@ -142,19 +142,6 @@ class DefensiveRotation(BaseStrategy):
             if not self._has_position.get(s):
                 continue
 
-            # Verificar que existe posición real en Alpaca antes de intentar cerrar
-            # Esto previene que el Firewall rechace ventas de símbolos sin posición real
-            real_qty = self.sync_position_from_alpaca(s)
-            if real_qty <= 0 and not self.check_open_orders_exist(s):
-                # Estado local desincronizado — no hay posición real, corregir
-                logger.warning(
-                    f"[{self.name}] Estado local desincronizado para {s}: "
-                    f"_has_position=True pero Alpaca no tiene posición. Corrigiendo."
-                )
-                self._has_position[s] = False
-                self._entry_price[s] = 0.0
-                continue
-
             # Evaluar TP +2% usando último close conocido del ticker
             last_close = self._closes[s][-1] if self._closes[s] else 0.0
             entry = self._entry_price.get(s, 0.0)
