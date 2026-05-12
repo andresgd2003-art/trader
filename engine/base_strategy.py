@@ -93,7 +93,8 @@ class BaseStrategy(ABC):
             secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
             if not api_key:
                 return 0.0
-            client = TradingClient(api_key=api_key, secret_key=secret_key, paper=True)
+            is_paper = os.environ.get("PAPER_TRADING", "True").lower() == "true"
+            client = TradingClient(api_key=api_key, secret_key=secret_key, paper=is_paper)
             # Alpaca usa BTCUSD sin slash para positions
             alpaca_sym = symbol.replace("/", "")
             try:
@@ -119,7 +120,8 @@ class BaseStrategy(ABC):
             secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
             if not api_key:
                 return False
-            client = TradingClient(api_key=api_key, secret_key=secret_key, paper=True)
+            is_paper = os.environ.get("PAPER_TRADING", "True").lower() == "true"
+            client = TradingClient(api_key=api_key, secret_key=secret_key, paper=is_paper)
             alpaca_sym = symbol.replace("/", "")
             orders = client.get_orders(GetOrdersRequest(status="open", symbols=[alpaca_sym]))
             has_orders = len(orders) > 0
