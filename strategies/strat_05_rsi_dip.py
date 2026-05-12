@@ -107,15 +107,17 @@ class RSIDipStrategy(BaseStrategy):
                 return
 
             logger.info(f"[{self.name}] 🟢 RSI={current_rsi:.1f} < {self.RSI_BUY} → COMPRANDO {self.SYMBOL}")
-            await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
-            self._has_position = True
-            self._position[self.SYMBOL] = 1
-            self._entry_price = float(bar.close)
-            self._last_buy_bar = self._bar_count
+            queued = await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
+            if queued:
+                self._has_position = True
+                self._position[self.SYMBOL] = 1
+                self._entry_price = float(bar.close)
+                self._last_buy_bar = self._bar_count
 
         elif current_rsi > self.RSI_SELL and self._has_position:
             logger.info(f"[{self.name}] 🔴 RSI={current_rsi:.1f} > {self.RSI_SELL} → VENDIENDO {self.SYMBOL}")
-            await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
-            self._has_position = False
-            self._position[self.SYMBOL] = 0
-            self._entry_price = 0.0
+            queued = await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
+            if queued:
+                self._has_position = False
+                self._position[self.SYMBOL] = 0
+                self._entry_price = 0.0

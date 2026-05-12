@@ -86,8 +86,12 @@ class BollingerReversionStrategy(BaseStrategy):
                 return
 
         if curr_price <= curr_lower and not self._has_position:
+            # Soft guard ANTES del log
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
+                return
+
             logger.info(f"[{self.name}] 🟢 Precio tocó banda INFERIOR. COMPRANDO {self.SYMBOL}")
-            
+
             # Estimación del notional dinámico para rastrear qty
             try:
                 account = self.order_manager.client.get_account()
@@ -103,20 +107,21 @@ class BollingerReversionStrategy(BaseStrategy):
                 logger.error(f"[{self.name}] Error calculando notional estimado: {e}")
                 self._qty_bought = 0.0
 
-            self._entry_price = curr_price
-            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
-            await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
-            self._has_position = True
-            self._position[self.SYMBOL] = 1
-            self._entry_price = curr_price
+            queued = await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
+            if queued:
+                self._has_position = True
+                self._position[self.SYMBOL] = 1
+                self._entry_price = curr_price
 
         elif self._has_position and curr_price >= curr_middle:
             logger.info(f"[{self.name}] 🔴 Precio llegó a la media. VENDIENDO {self._qty_bought} {self.SYMBOL}")
             if hasattr(self.order_manager, 'sell_exact') and self._qty_bought > 0:
-                await self.order_manager.sell_exact(self.SYMBOL, self._qty_bought, strategy_name=self.name)
+                queued = await self.order_manager.sell_exact(self.SYMBOL, self._qty_bought, strategy_name=self.name)
             else:
-                await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
-            self._has_position = False
-            self._position[self.SYMBOL] = 0
-            self._qty_bought = 0.0
-            self._entry_price = 0.0
+                queued = await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
+            if queued:
+                self._has_position = False
+                self._position[self.SYMBOL] = 0
+                self._qty_bought = 0.0
+                self._entry_price = 0.0
+

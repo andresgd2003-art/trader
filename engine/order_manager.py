@@ -51,36 +51,42 @@ class OrderManager:
     async def stop(self):
         self._running = False
 
-    async def buy(self, symbol: str, strategy_name: str = ""):
+    async def buy(self, symbol: str, strategy_name: str = "") -> bool:
         """
         Encola una orden de COMPRA. El monto se calcula en la ejecución.
+        Retorna True si fue encolada, False si fue suprimida (ignore_orders).
         """
         if getattr(self, 'ignore_orders', False):
-            return
+            return False
         order = {"side": "buy", "symbol": symbol, "strategy": strategy_name}
         await self._queue.put(order)
         logger.info(f"[OrderManager] COMPRA encolada para {symbol} ({strategy_name})")
+        return True
 
-    async def sell(self, symbol: str, strategy_name: str = ""):
+    async def sell(self, symbol: str, strategy_name: str = "") -> bool:
         """
-        Encola una orden de VENTA para liquidar la posición completa.
+        Encola una orden de VENTA.
+        Retorna True si fue encolada, False si fue suprimida.
         """
         if getattr(self, 'ignore_orders', False):
-            return
+            return False
         order = {"side": "sell", "symbol": symbol, "strategy": strategy_name}
         await self._queue.put(order)
         logger.info(f"[OrderManager] VENTA encolada para {symbol} ({strategy_name})")
+        return True
 
-    async def sell_exact(self, symbol: str, exact_qty: float, strategy_name: str = ""):
+    async def sell_exact(self, symbol: str, exact_qty: float, strategy_name: str = "") -> bool:
         """
         Encola una orden de VENTA para liquidar una cantidad exacta (fraccionaria permitida).
+        Retorna True si fue encolada, False si fue suprimida.
         """
         if getattr(self, 'ignore_orders', False):
-            return
-        if exact_qty <= 0: return
+            return False
+        if exact_qty <= 0: return False
         order = {"side": "sell", "symbol": symbol, "qty": exact_qty, "strategy": strategy_name}
         await self._queue.put(order)
         logger.info(f"[OrderManager] VENTA EXACTA encolada para {exact_qty} {symbol} ({strategy_name})")
+        return True
 
     async def _process_queue(self):
         while self._running:
