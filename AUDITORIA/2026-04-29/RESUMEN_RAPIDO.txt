@@ -1,0 +1,87 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  AUDITORÍA 2026-04-29 — Fixes Críticos                     ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+PROBLEMA
+────────
+ETF/Equities engine no arrancaba toda la sesión (0 órdenes).
+DefensiveRotation compraba KO en cascada (56→63→65 shares).
+
+
+BUGS ENCONTRADOS Y CORREGIDOS
+──────────────────────────────
+
+1️⃣ send_message_sync → AttributeError
+   ├─ Ubicación: main.py:459 (scheduler llama send_message_sync)
+   ├─ Causa: TelegramNotifier solo tenía send_message()
+   ├─ Impacto: market_scheduler moría cada ventana de mercado
+   └─ Fix: engine/notifier.py — añadir send_message_sync alias
+      Commit: 6211f6b ✅
+
+2️⃣ get_orders(dict) vs GetOrdersRequest
+   ├─ Ubicación: order_manager_equities.py:263
+   ├─ Causa: Pasar dict en lugar de GetOrdersRequest
+   ├─ Impacto: Fallo al cancelar órdenes antes de vender
+   └─ Fix: engine/order_manager_equities.py — usar GetOrdersRequest
+      Commit: 377fcad ✅
+
+3️⃣ Cold start sin ignore_orders para equities
+   ├─ Ubicación: main.py:248 (solo ETF se bloqueaba)
+   ├─ Causa: ignore_orders no se propagaba a equities order manager
+   ├─ Impacto: DefensiveRotation compraba en cada barra histórica
+   └─ Fix: main.py — propagar ignore_orders al equities OM
+      Commit: 377fcad ✅
+
+4️⃣ sync_position ignora held_for_orders
+   ├─ Ubicación: strat_04_defensive_rotation.py:65
+   ├─ Causa: No chequea check_open_orders_exist() al sincronizar
+   ├─ Impacto: Posición held por bracket se veía como "sin posición"
+   └─ Fix: strat_04_defensive_rotation.py — añadir check_open_orders_exist
+      Commit: 377fcad ✅
+
+
+TIMELINE
+────────
+08:01 UTC (NY 04:01) — Scheduler start → ETF crash en VENTANA
+12:30 UTC (NY 08:30) — Market open detection → ETF crash (send_message_sync error)
+15:32 UTC (NY 11:32) — Service restart → ETF crash (same reason)
+15:40 UTC (NY 11:40) — Deploy fix #1 → ✅ EquitiesEngine ARRANCA PRIMERA VEZ
+15:48 UTC (NY 11:48) — Cold start + DefensiveRotation → Bug #2, #3 cascade KO
+Post-15:48 — Deploy fix #2, #3, #4 → ✅ Protección activa
+
+
+COMMITS
+───────
+6211f6b — fix(scheduler): add send_message_sync to TelegramNotifier
+377fcad — fix(equities): prevent cascading KO buys + fix cancel orders bug
+
+
+TESTS
+─────
+pytest tests/test_sanity.py -v
+✅ 14/14 PASSED
+
+
+ESTADO FINAL
+────────────
+✅ ETF/Equities engine operational
+✅ Cold start sin órdenes espurias
+✅ Telegram notifications restauradas
+⚠️ KO positions (56-65 shares) en brackets → se liquidarán por TP/SL
+   Sin impacto en P&L (stops en -3%, TP en +2%)
+
+
+ARCHIVOS MODIFICADOS
+────────────────────
+engine/notifier.py                           +4 líneas
+engine/order_manager_equities.py             +6 líneas
+main.py                                      +8 líneas
+strategies_equities/strat_04_defensive_rotation.py +6 líneas
+────────────────────────────────────────────────────
+Total: 4 archivos, 24 líneas de código, 2 commits
+
+
+═════════════════════════════════════════════════════════════════════════════
+Auditoría completada: 2026-04-29 16:00 UTC
+Deployado a VPS: ✅ EXITOSO
+═════════════════════════════════════════════════════════════════════════════

@@ -87,9 +87,12 @@ class OrderManagerCrypto:
         - Bloquea si el cash cae por debajo del 20% del equity total.
         """
         from engine.regime_manager import get_current_regime
+        regime_data = get_current_regime()
         regime_mult = {"BULL": 1.0, "CHOP": 0.6, "BEAR": 0.4, "UNKNOWN": 0.4}
-        _rg = get_current_regime().get("regime", "UNKNOWN")
+        _rg = regime_data.get("regime", "UNKNOWN")
         mult = regime_mult.get(_rg, 0.4)
+        crypto_conf = regime_data.get("crypto_confidence_score", 0.5)
+        mult = mult * crypto_conf  # Modular cap por confianza del sentimiento
         day_cap_effective = self.DAY_CAP_USD * mult
         night_cap_effective_max = self.NIGHT_CAP_MAX_USD * mult
 

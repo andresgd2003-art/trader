@@ -117,21 +117,21 @@ class PairsTradingStrategy(BaseStrategy):
 
         if z_score > self.Z_ENTRY and self._position_type is None:
             # QQQ sobrevalorado → Compra PSQ (hedge inverso, sube cuando QQQ baja)
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             logger.info(
                 f"[{self.name}] 📉 Z={z_score:.2f} > {self.Z_ENTRY} → "
                 f"QQQ sobrevalorado. Comprando {self.SYMBOL_HEDGE} (inverso)"
             )
-            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(self.SYMBOL_HEDGE, strategy_name=self.name)
             self._position_type = "long_psq"
 
         elif z_score < -self.Z_ENTRY and self._position_type is None:
             # QQQ infravalorado → Compra QQQ (largo directo)
+            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             logger.info(
                 f"[{self.name}] 📈 Z={z_score:.2f} < -{self.Z_ENTRY} → "
                 f"QQQ infravalorado. Comprando {self.SYMBOL_LONG}"
             )
-            if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
             await self.order_manager.buy(self.SYMBOL_LONG, strategy_name=self.name)
             self._position_type = "long_qqq"
 

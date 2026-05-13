@@ -754,6 +754,13 @@ async def get_market_regime():
             "spy_sma50": state.get("spy_sma50", 0),
             "spy_sma20": state.get("spy_sma20", 0),
             "vix_price": state.get("vix_price", 0),
+            "adx_value": state.get("adx_value"),
+            "vix9d": state.get("vix9d"),
+            "vix3m": state.get("vix3m"),
+            "vix_structure": state.get("vix_structure", "unknown"),
+            "confidence_score": state.get("confidence_score", 0.5),
+            "crypto_confidence_score": state.get("crypto_confidence_score", 0.5),
+            "fear_greed_value": state.get("fear_greed_value"),
             "last_assessed": state.get("last_assessed"),
             "active_strategies": {
                 "etf": REGIME_ETF_MAP.get(regime, []),

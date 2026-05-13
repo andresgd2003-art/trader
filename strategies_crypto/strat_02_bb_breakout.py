@@ -102,7 +102,6 @@ class CryptoBBBreakoutStrategy(BaseStrategy):
                     return
 
                 logger.info(f"[{self.name}] 🚀 BB BREAKOUT & SQUEEZE en ETH! Comprando.")
-                if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="crypto"): return
                 await self.order_manager.buy(
                     symbol=self.SYMBOL, 
                     notional_usd=self.NOTIONAL_RISK_USD, 

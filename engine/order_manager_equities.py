@@ -101,8 +101,14 @@ class OrderManagerEquities:
             available = max(settled_cash - cash_reserve_required, 0.0)
 
             from engine.regime_manager import get_current_regime
-            pct = get_current_regime().get("suggested_sizing", 0.03)
-            target_amount = available * pct
+            regime_data = get_current_regime()
+            pct = regime_data.get("suggested_sizing", 0.03)
+            confidence = regime_data.get("confidence_score", 0.5)
+            target_amount = available * pct * confidence
+            logger.info(
+                f"[OrderManagerEquities] Sizing: base={pct*100:.0f}% "
+                f"× confianza={confidence:.2f} → ${target_amount:.2f}"
+            )
             return min(target_amount, self.MAX_POSITION_USD)
         except Exception as e:
             logger.error(f"[OrderManagerEquities] Error calculando notional: {e}")

@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk 'NR==195' \"C:\\\\Users\\\\user\\\\.claude\\\\projects\\\\c--Users-user-OneDrive-Escritorio-gemini-cli-trader\\\\e04336df-0d2e-4260-bf2b-6e76030b01bd.jsonl\")",
+      "Bash(python -m py_compile api_server.py)",
+      "Bash(python -m py_compile engine/order_manager_crypto.py)",
+      "Bash(python -m py_compile strategies_crypto/strat_08_ema_ribbon.py)",
+      "Bash(python -m py_compile engine/logger.py)",
+      "Bash(python -m py_compile engine/stock_scorer.py)",
+      "Bash(python -m py_compile api_server.py engine/order_manager_crypto.py strategies_crypto/strat_08_ema_ribbon.py engine/logger.py engine/stock_scorer.py engine/daily_mode.py main.py strategies_crypto/strat_10_sentiment.py strategies_crypto/strat_04_smart_twap.py)",
+      "Bash(python -m py_compile api_server.py strategies_crypto/strat_08_ema_ribbon.py)",
+      "Bash(grep -rn \"/app/data\" --include=\"*.py\" engine/ strategies/ strategies_crypto/ strategies_equities/ main.py api_server.py)",
+      "Bash(mkdir -p _archive/root_scripts_2026-04-15)",
+      "Bash(mv check_activity.py check_alpaca.py check_alpaca2.py check_boot.py check_deployed_strats.py check_equities.py check_equities2.py check_final.py check_final2.py check_live.py check_orders.py check_orders2.py check_prefetch.py check_prefetch2.py check_regime.py check_regime2.py check_signals.py deploy_final.py deploy_fix.py deploy_fix2.py deploy_regime.py deploy_strategies.py fix_kill.py fix_orders.py fix_orders2.py fix_prefetch.py fix_prefetch2.py fix_sol_orders.py fix_sol_orders2.py fix_telegram.py fix_test.py force_restart.py full_diag.py live_check.py restart_force.py status_check.py test_crypto_s.py test_full.py test_script.py test_script_err.py test_script_ok.py test_telegram.py test_telegram2.py test_telegram3.py test_telegram4.py test_vps.py test_vps2.py test_vps3.py update_vps.py update_vps_hard.py verify_regime.py _archive/root_scripts_2026-04-15/)",
+      "Bash(mv \"37c03c60-3054-44d7-89cf-7dcfad8a94bf - Acceso directo.lnk\" _archive/root_scripts_2026-04-15/)",
+      "Bash(python -c ' *)",
+      "Bash(venv/Scripts/python.exe -c ' *)",
+      "Bash(ls -d venv* .venv*)",
+      "Bash(where python *)",
+      "Bash(pip show *)",
+      "Bash(pip list *)",
+      "Bash(ls strategies/*.py)",
+      "Bash(ls strategies_crypto/*.py)",
+      "Bash(ls strategies_equities/*.py)",
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f\\).read\\(\\)\\) for f in ['strategies_equities/__init__.py', 'main_equities.py', 'engine/regime_manager.py']] ; print\\('OK: sin errores de sintaxis'\\)\")",
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['strategies_equities/__init__.py', 'main_equities.py', 'engine/regime_manager.py']]; print\\('OK'\\)\")",
+      "Bash(sshpass -p 'Aunquemalgastes@1' ssh -o StrictHostKeyChecking=no root@148.230.82.14 \"cd /opt/trader && git pull origin main && systemctl restart trader\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@148.230.82.14 \"cd /opt/trader && git pull origin main && systemctl restart trader\")",
+      "Bash(pip install *)",
+      "Bash(python -c \"import paramiko; print\\('paramiko OK'\\)\")"
+    ]
+  }
+}

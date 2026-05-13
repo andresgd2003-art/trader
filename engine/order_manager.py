@@ -200,9 +200,12 @@ class OrderManager:
                 "UNKNOWN": 0.03,   # 3% — seguro por defecto
             }
             pct = REGIME_NOTIONAL_PCT.get(regime_str, 0.02)
-            
-            dynamic_notional = round(settled_cash * pct, 2)
-            logger.info(f"[OrderManager] Sizing régimen {regime_str}: {pct*100:.0f}% → ${dynamic_notional}")
+            confidence = regime_data.get("confidence_score", 0.5)
+            dynamic_notional = round(settled_cash * pct * confidence, 2)
+            logger.info(
+                f"[OrderManager] Sizing: {regime_str} base={pct*100:.0f}% "
+                f"× confianza={confidence:.2f} → ${dynamic_notional}"
+            )
 
             if dynamic_notional < 1.0:
                 logger.warning(f"[{strategy}] Fondos insuficientes para {symbol} (Calc: ${dynamic_notional})")

@@ -56,8 +56,8 @@ class VIXFilteredReversionStrategy(BaseStrategy):
         logger.info(f"[{self.name}] {self.SYMBOL} RSI={current_rsi:.1f}")
 
         if current_rsi < self.RSI_BUY and not self._has_position:
-            logger.info(f"[{self.name}] 🟢 RSI={current_rsi:.1f} < {self.RSI_BUY} → COMPRANDO {self.SYMBOL}")
             if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"): return
+            logger.info(f"[{self.name}] 🟢 RSI={current_rsi:.1f} < {self.RSI_BUY} → COMPRANDO {self.SYMBOL}")
             await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
             self._has_position = True
             self._position[self.SYMBOL] = 1

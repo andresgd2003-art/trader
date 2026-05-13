@@ -489,14 +489,37 @@
             </div>
           </div>
         </div>
-        <div style="display: flex; gap: 24px; text-align: center;">
+        <div style="display: flex; gap: 24px; text-align: center; flex-wrap: wrap;">
           <div><div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px;">SPY</div><div id="regime-spy" style="font-weight: 700; font-size: 0.9rem;">—</div></div>
           <div><div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px;">SMA 50</div><div id="regime-sma" style="font-weight: 700; font-size: 0.9rem;">—</div></div>
           <div><div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px;">VIX~</div><div id="regime-vix" style="font-weight: 700; font-size: 0.9rem;">—</div></div>
+          <div><div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px;">ADX(14)</div><div id="regime-adx" style="font-weight: 700; font-size: 0.9rem;">—</div></div>
+          <div><div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px;">VIX Curva</div><div id="regime-vix-structure" style="font-weight: 700; font-size: 0.9rem;">—</div></div>
+          <div><div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px;">F&amp;G Crypto</div><div id="regime-fg" style="font-weight: 700; font-size: 0.9rem;">—</div></div>
           <div><div style="font-size: 0.65rem; color: var(--text-secondary); margin-bottom: 2px;">Última eval.</div><div id="regime-ts" style="font-size: 0.75rem; color: var(--text-secondary);">—</div></div>
         </div>
       </div>
       <div class="card-body" style="padding: 16px 20px;">
+        <!-- Confidence Bars -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-size: 0.7rem; color: var(--etf-accent); font-weight: 700; text-transform: uppercase;">📊 Confianza ETF/Eq</span>
+              <span id="regime-conf-etf-pct" style="font-size: 0.75rem; font-weight: 700; color: var(--text-primary);">—</span>
+            </div>
+            <div class="progress-bg"><div class="progress-fill" id="regime-conf-etf-bar" style="width:50%; background: var(--etf-accent);"></div></div>
+            <div id="regime-conf-etf-desc" style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 4px;">ADX + VIX Structure</div>
+          </div>
+          <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-size: 0.7rem; color: var(--crypto-accent); font-weight: 700; text-transform: uppercase;">🧠 Confianza Crypto</span>
+              <span id="regime-conf-crypto-pct" style="font-size: 0.75rem; font-weight: 700; color: var(--text-primary);">—</span>
+            </div>
+            <div class="progress-bg"><div class="progress-fill" id="regime-conf-crypto-bar" style="width:50%; background: var(--crypto-accent);"></div></div>
+            <div id="regime-conf-crypto-desc" style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 4px;">Fear &amp; Greed Index</div>
+          </div>
+        </div>
+        <!-- Bots activos por motor -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
           <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
             <div style="font-size: 0.7rem; color: var(--etf-accent); font-weight: 700; margin-bottom: 6px; text-transform: uppercase;"><i data-lucide="trending-up" style="width:16px;height:16px;"></i> ETFs Activos</div>
@@ -1076,15 +1099,60 @@ async function updateGlobalHealth(acct) {
       setEl('regime-spy', regime.spy_price ? `$${regime.spy_price.toFixed(2)}` : '—');
       setEl('regime-sma', regime.spy_sma50 ? `$${regime.spy_sma50.toFixed(2)}` : '—');
       setEl('regime-vix', regime.vix_price ? `${regime.vix_price.toFixed(1)}` : '—');
+
+      // New: ADX
+      const adxEl = document.getElementById('regime-adx');
+      if (adxEl) {
+        const adx = regime.adx_value;
+        if (adx != null) {
+          adxEl.textContent = adx.toFixed(1);
+          adxEl.style.color = adx >= 25 ? 'var(--green)' : adx >= 20 ? 'var(--yellow)' : 'var(--text-secondary)';
+        } else { adxEl.textContent = 'N/A'; }
+      }
+
+      // New: VIX Structure
+      const vsEl = document.getElementById('regime-vix-structure');
+      if (vsEl) {
+        const vs = regime.vix_structure || 'unknown';
+        vsEl.textContent = vs === 'contango' ? '📉 Contango' : vs === 'backwardation' ? '📈 Backw.' : '—';
+        vsEl.style.color = vs === 'contango' ? 'var(--green)' : vs === 'backwardation' ? 'var(--red)' : 'var(--text-secondary)';
+      }
+
+      // New: Fear & Greed
+      const fgEl = document.getElementById('regime-fg');
+      if (fgEl) {
+        const fg = regime.fear_greed_value;
+        if (fg != null) {
+          const fgLabel = fg >= 75 ? 'Ext. Greed' : fg >= 55 ? 'Greed' : fg >= 45 ? 'Neutral' : fg >= 25 ? 'Fear' : 'Ext. Fear';
+          fgEl.textContent = `${fg} (${fgLabel})`;
+          fgEl.style.color = fg >= 55 ? 'var(--green)' : fg >= 45 ? 'var(--yellow)' : 'var(--red)';
+        } else { fgEl.textContent = 'N/A'; }
+      }
+
+      // New: Confidence Bars
+      function confColor(c) { return c >= 0.7 ? 'var(--green)' : c >= 0.45 ? 'var(--yellow)' : 'var(--red)'; }
+      const confEtf = regime.confidence_score || 0.5;
+      const confCrypto = regime.crypto_confidence_score || 0.5;
+      setEl('regime-conf-etf-pct', `${(confEtf * 100).toFixed(0)}%`);
+      setEl('regime-conf-crypto-pct', `${(confCrypto * 100).toFixed(0)}%`);
+      const etfBar = document.getElementById('regime-conf-etf-bar');
+      if (etfBar) { etfBar.style.width = `${confEtf * 100}%`; etfBar.style.background = confColor(confEtf); }
+      const cryptoBar = document.getElementById('regime-conf-crypto-bar');
+      if (cryptoBar) { cryptoBar.style.width = `${confCrypto * 100}%`; cryptoBar.style.background = confColor(confCrypto); }
+      const confEtfDesc = document.getElementById('regime-conf-etf-desc');
+      if (confEtfDesc) {
+        const adxTxt = regime.adx_value != null ? `ADX=${regime.adx_value.toFixed(1)}` : 'ADX=N/A';
+        confEtfDesc.textContent = `${adxTxt} + ${regime.vix_structure || 'unknown'} → Sizing ×${confEtf.toFixed(2)}`;
+      }
+      const confCryptoDesc = document.getElementById('regime-conf-crypto-desc');
+      if (confCryptoDesc) {
+        const fgTxt = regime.fear_greed_value != null ? `F&G=${regime.fear_greed_value}` : 'F&G=N/A';
+        confCryptoDesc.textContent = `${fgTxt} → Sizing ×${confCrypto.toFixed(2)}`;
+      }
+
       if (regime.last_assessed) {
         const ts = new Date(regime.last_assessed);
         setEl('regime-ts', ts.toLocaleTimeString());
-      }
-      if (regime.regime) {
-        const sizingDesc = regime.regime === 'BULL' ? '🟢 Sizing Alto (4%)' : regime.regime === 'CHOP' ? '🟡 Sizing Medio (3%)' : regime.regime === 'BEAR' ? '🔴 Sizing Bajo (2%)' : '⚪ Sizing Base (2%)';
-        document.getElementById('regime-etf-bots').innerHTML = `<div style="font-size:0.85rem">10/10 Activos</div><div style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">${sizingDesc}</div>`;
-        document.getElementById('regime-crypto-bots').innerHTML = `<div style="font-size:0.85rem">10/10 Activos</div><div style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">Motor 24/7 Always-On</div>`;
-        document.getElementById('regime-eq-bots').innerHTML = `<div style="font-size:0.85rem">10/10 Activos</div><div style="font-size:0.7rem; color:var(--text-secondary); margin-top:4px;">Exposición Gestionada</div>`;
       }
     }
   } catch(e) { /* regime widget falla silenciosamente */ }
