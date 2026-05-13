@@ -1150,6 +1150,16 @@ async function updateGlobalHealth(acct) {
         confCryptoDesc.textContent = `${fgTxt} → Sizing ×${confCrypto.toFixed(2)}`;
       }
 
+      if (regime.active_strategies) {
+        const etfStrats = regime.active_strategies.etf || [];
+        const cryptoStrats = regime.active_strategies.crypto || [];
+        const eqStrats = regime.active_strategies.equities || [];
+        
+        setEl('regime-etf-bots', etfStrats.length > 0 ? `${etfStrats.length} Estrategias` : '—');
+        setEl('regime-crypto-bots', cryptoStrats.length > 0 ? `${cryptoStrats.length} Estrategias` : '—');
+        setEl('regime-eq-bots', eqStrats.length > 0 ? `${eqStrats.length} Estrategias` : '—');
+      }
+
       if (regime.last_assessed) {
         const ts = new Date(regime.last_assessed);
         setEl('regime-ts', ts.toLocaleTimeString());
