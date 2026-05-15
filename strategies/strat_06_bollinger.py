@@ -1,5 +1,10 @@
 """
-strategies/strat_06_bollinger.py — Bollinger Band Reversion
+strategies/strat_06_bollinger.py — Bollinger Band Reversion (TLT defensivo)
+
+Cambio 2026-05-15: Símbolo QQQ → TLT.
+La estrategia solo está habilitada en BEAR + UNKNOWN. En esos regímenes
+los bonos largos (TLT) tienden a mean-revertir más fiablemente que QQQ
+porque el flight-to-safety hace que oversold bounces sean más sticky.
 """
 import logging
 import numpy as np
@@ -14,7 +19,7 @@ logger = logging.getLogger(__name__)
 class BollingerReversionStrategy(BaseStrategy):
 
     STRAT_NUMBER = 6
-    SYMBOL  = "QQQ"
+    SYMBOL  = "TLT"
     PERIOD  = 20
     STD_DEV = 2.0
     FORCED_STOP_LOSS_PCT = 0.02   # -2% (ajustado de 1.5%)

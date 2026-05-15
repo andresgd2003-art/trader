@@ -51,7 +51,7 @@ _CURRENT_REGIME: dict = {
 
 REGIME_ETF_MAP = {
     Regime.BULL:    [1, 2, 4, 5, 8],
-    Regime.BEAR:    [3, 6, 9, 11],
+    Regime.BEAR:    [3, 5, 6, 9, 11],
     Regime.CHOP:    [7, 10, 11],
     Regime.UNKNOWN: [6, 7, 8, 10],
 }

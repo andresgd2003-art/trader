@@ -1,8 +1,16 @@
 """
-strategies/strat_05_rsi_dip.py — RSI Buy the Dip
+strategies/strat_05_rsi_dip.py — RSI Buy the Dip (Regime-Aware)
+
+Cambio 2026-05-15: Multi-símbolo según régimen.
+  BULL → TQQQ (3x Nasdaq, dip-buy en rally)
+  BEAR → GLD  (flight-to-safety, dip-buy en oro)
+
+Cada símbolo tiene tracking independiente de RSI, posición y entry price.
+Las salidas SL/TP se evalúan SIEMPRE sobre cualquier símbolo abierto
+(aunque el régimen cambie, las posiciones existentes se protegen).
+Las nuevas compras solo se permiten en el símbolo target del régimen actual.
 """
 import logging
-import numpy as np
 import pandas as pd
 from collections import deque
 from ta.momentum import RSIIndicator
@@ -14,110 +22,122 @@ logger = logging.getLogger(__name__)
 class RSIDipStrategy(BaseStrategy):
 
     STRAT_NUMBER = 5
-    SYMBOL     = "TQQQ"
+    SYMBOL_BY_REGIME = {
+        "BULL": "TQQQ",
+        "BEAR": "GLD",
+    }
+    SYMBOLS = ["TQQQ", "GLD"]
+
     RSI_PERIOD = 14
-    RSI_BUY    = 45   # Era 30 — sube para capturar correcciones moderadas en rally
-    RSI_SELL   = 65   # Era 70 — baja para asegurar ganancia antes de sobrecompra
-    # TQQQ es 3x apalancado — necesita stops más agresivos que un ETF normal
-    STOP_LOSS_PCT   = 0.025  # -2.5% corta pérdidas antes de que el apalancamiento las amplifique
-    TAKE_PROFIT_PCT = 0.05   # +5% cierra ganancia sin esperar al cruce RSI 65
-    MIN_BARS_BETWEEN_BUYS = 5  # Mínimo 5 barras (5 min) entre compras para evitar bucle
+    RSI_BUY    = 45
+    RSI_SELL   = 65
+    STOP_LOSS_PCT   = 0.025
+    TAKE_PROFIT_PCT = 0.05
+    MIN_BARS_BETWEEN_BUYS = 5
 
     def __init__(self, order_manager, regime_manager=None):
         super().__init__(
             name="RSI Buy the Dip",
-            symbols=[self.SYMBOL],
+            symbols=list(self.SYMBOLS),
             order_manager=order_manager
         )
         self.regime_manager = regime_manager
-        self._closes = deque(maxlen=50)
-        # ⚠️ ANTI-DUPLICADO: Sincronizar posición real desde Alpaca al reiniciar
-        qty = self.sync_position_from_alpaca(self.SYMBOL)
-        self._has_position = qty > 0
-        # Entry price para SL/TP — se inicializa desde Alpaca si hay posición
-        self._entry_price = 0.0
-        if self._has_position:
-            try:
-                pos = self.order_manager.client.get_open_position(self.SYMBOL)
-                self._entry_price = float(pos.avg_entry_price)
-                logger.info(f"[{self.name}] Entry price sincronizado desde Alpaca: ${self._entry_price:.2f}")
-            except Exception:
-                pass
-        # Cooldown: barra en que se emitió la última compra
-        self._last_buy_bar: int = -self.MIN_BARS_BETWEEN_BUYS
-        self._bar_count: int = 0
+
+        # Estado por símbolo
+        self._closes = {s: deque(maxlen=50) for s in self.SYMBOLS}
+        self._has_position = {s: False for s in self.SYMBOLS}
+        self._entry_price = {s: 0.0 for s in self.SYMBOLS}
+        self._last_buy_bar = {s: -self.MIN_BARS_BETWEEN_BUYS for s in self.SYMBOLS}
+        self._bar_count = 0
+
+        # Sync posiciones existentes desde Alpaca
+        for sym in self.SYMBOLS:
+            qty = self.sync_position_from_alpaca(sym)
+            if qty > 0:
+                self._has_position[sym] = True
+                try:
+                    pos = self.order_manager.client.get_open_position(sym)
+                    self._entry_price[sym] = float(pos.avg_entry_price)
+                    logger.info(f"[{self.name}] Entry {sym} sincronizado: ${self._entry_price[sym]:.2f}")
+                except Exception:
+                    pass
+
+    def _target_symbol(self):
+        """Símbolo que la estrategia debe comprar en el régimen actual (None si no aplica)."""
+        if not self.regime_manager:
+            return None
+        from engine.regime_manager import get_current_regime
+        regime = get_current_regime().get("regime", "UNKNOWN")
+        return self.SYMBOL_BY_REGIME.get(regime)
 
     async def on_bar(self, bar) -> None:
-        if not self.should_process(bar.symbol):
+        sym = bar.symbol
+        if sym not in self.SYMBOLS:
             return
 
         self._bar_count += 1
-        self._closes.append(float(bar.close))
+        self._closes[sym].append(float(bar.close))
 
-        if len(self._closes) < self.RSI_PERIOD + 1:
+        if len(self._closes[sym]) < self.RSI_PERIOD + 1:
             return
 
-        s = pd.Series(list(self._closes))
-        rsi_indicator = RSIIndicator(close=s, window=self.RSI_PERIOD)
-        current_rsi = rsi_indicator.rsi().iloc[-1]
-
+        s = pd.Series(list(self._closes[sym]))
+        current_rsi = RSIIndicator(close=s, window=self.RSI_PERIOD).rsi().iloc[-1]
         if pd.isna(current_rsi):
             return
 
-        logger.info(f"[{self.name}] {bar.symbol} RSI={current_rsi:.1f} Precio={bar.close:.2f}")
+        logger.info(f"[{self.name}] {sym} RSI={current_rsi:.1f} Precio={bar.close:.2f}")
 
-        # Salidas evaluadas SIEMPRE (sin Soft Guard) para proteger capital ya invertido
-        if self._has_position and self._entry_price > 0:
-            ret = (float(bar.close) / self._entry_price) - 1.0
+        # Salidas SIEMPRE — protegen capital aunque el régimen cambie
+        if self._has_position[sym] and self._entry_price[sym] > 0:
+            ret = (float(bar.close) / self._entry_price[sym]) - 1.0
             if ret <= -self.STOP_LOSS_PCT:
-                logger.info(f"[{self.name}] 🛑 STOP LOSS {ret*100:+.2f}% → VENDIENDO {self.SYMBOL}")
-                await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
-                self._has_position = False
-                self._position[self.SYMBOL] = 0
-                self._entry_price = 0.0
+                logger.info(f"[{self.name}] 🛑 SL {ret*100:+.2f}% → VENDIENDO {sym}")
+                await self.order_manager.sell(sym, strategy_name=self.name)
+                self._has_position[sym] = False
+                self._position[sym] = 0
+                self._entry_price[sym] = 0.0
                 return
             if ret >= self.TAKE_PROFIT_PCT:
-                logger.info(f"[{self.name}] 💰 TAKE PROFIT {ret*100:+.2f}% → VENDIENDO {self.SYMBOL}")
-                await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
-                self._has_position = False
-                self._position[self.SYMBOL] = 0
-                self._entry_price = 0.0
+                logger.info(f"[{self.name}] 💰 TP {ret*100:+.2f}% → VENDIENDO {sym}")
+                await self.order_manager.sell(sym, strategy_name=self.name)
+                self._has_position[sym] = False
+                self._position[sym] = 0
+                self._entry_price[sym] = 0.0
                 return
 
-        if current_rsi < self.RSI_BUY and not self._has_position:
-            # 🔒 COOLDOWN: no comprar si ya compramos hace menos de MIN_BARS_BETWEEN_BUYS barras
-            bars_since_last_buy = self._bar_count - self._last_buy_bar
-            if bars_since_last_buy < self.MIN_BARS_BETWEEN_BUYS:
-                logger.debug(
-                    f"[{self.name}] ⏳ Cooldown activo ({bars_since_last_buy}/{self.MIN_BARS_BETWEEN_BUYS} barras). "
-                    f"Omitiendo compra de {self.SYMBOL}."
-                )
+        # Salida por RSI alto (mantiene la lógica original)
+        if current_rsi > self.RSI_SELL and self._has_position[sym]:
+            logger.info(f"[{self.name}] 🔴 RSI={current_rsi:.1f} > {self.RSI_SELL} → VENDIENDO {sym}")
+            queued = await self.order_manager.sell(sym, strategy_name=self.name)
+            if queued:
+                self._has_position[sym] = False
+                self._position[sym] = 0
+                self._entry_price[sym] = 0.0
+            return
+
+        # Compras solo sobre el símbolo target del régimen actual
+        target = self._target_symbol()
+        if sym != target:
+            return
+
+        if current_rsi < self.RSI_BUY and not self._has_position[sym]:
+            bars_since = self._bar_count - self._last_buy_bar[sym]
+            if bars_since < self.MIN_BARS_BETWEEN_BUYS:
                 return
 
-            # Verificar también en Alpaca que realmente no tenemos posición
-            real_qty = self.sync_position_from_alpaca(self.SYMBOL)
+            real_qty = self.sync_position_from_alpaca(sym)
             if real_qty > 0:
-                logger.info(f"[{self.name}] Posición real detectada en Alpaca (qty={real_qty:.4f}). Sincronizando estado.")
-                self._has_position = True
+                self._has_position[sym] = True
                 return
 
-            # Verificar soft guard de régimen ANTES de loguear la compra
             if self.regime_manager and not self.regime_manager.is_strategy_enabled(self.STRAT_NUMBER, engine="etf"):
-                logger.debug(f"[{self.name}] 🚫 Soft guard: strat {self.STRAT_NUMBER} no habilitada en régimen actual.")
                 return
 
-            logger.info(f"[{self.name}] 🟢 RSI={current_rsi:.1f} < {self.RSI_BUY} → COMPRANDO {self.SYMBOL}")
-            queued = await self.order_manager.buy(self.SYMBOL, strategy_name=self.name)
+            logger.info(f"[{self.name}] 🟢 RSI={current_rsi:.1f} < {self.RSI_BUY} → COMPRANDO {sym}")
+            queued = await self.order_manager.buy(sym, strategy_name=self.name)
             if queued:
-                self._has_position = True
-                self._position[self.SYMBOL] = 1
-                self._entry_price = float(bar.close)
-                self._last_buy_bar = self._bar_count
-
-        elif current_rsi > self.RSI_SELL and self._has_position:
-            logger.info(f"[{self.name}] 🔴 RSI={current_rsi:.1f} > {self.RSI_SELL} → VENDIENDO {self.SYMBOL}")
-            queued = await self.order_manager.sell(self.SYMBOL, strategy_name=self.name)
-            if queued:
-                self._has_position = False
-                self._position[self.SYMBOL] = 0
-                self._entry_price = 0.0
+                self._has_position[sym] = True
+                self._position[sym] = 1
+                self._entry_price[sym] = float(bar.close)
+                self._last_buy_bar[sym] = self._bar_count
