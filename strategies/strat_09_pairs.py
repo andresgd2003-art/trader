@@ -7,8 +7,8 @@ LÓGICA ADAPTADA (Long-Only, Sin Shorts):
   Par: QQQ (Nasdaq 100) ↔ PSQ (ProShares Short QQQ, -1x inverso)
   
   - Calcula el Z-Score de QQQ sobre su media de 20 períodos (1 período = 5 min)
-  - Si Z > 2.0:  QQQ sobrevalorado → Compra PSQ (beneficia de caída de QQQ)
-  - Si Z < -2.0: QQQ infravalorado → Compra QQQ (beneficia de subida)
+  - Si Z > 1.5:  QQQ sobrevalorado → Compra PSQ (beneficia de caída de QQQ)
+  - Si Z < -1.5: QQQ infravalorado → Compra QQQ (beneficia de subida)
   - Si |Z| < 0.5 con posición abierta → Cierra la posición activa
   
   Solo UNA posición activa a la vez (QQQ o PSQ, nunca ambas).
@@ -32,7 +32,7 @@ class PairsTradingStrategy(BaseStrategy):
     SYMBOL_LONG  = "QQQ"   # Activo principal
     SYMBOL_HEDGE = "PSQ"   # ETF Inverso -1x de QQQ (compra = short sintético)
     LOOKBACK     = 20      # Períodos para Z-Score (20 x 5min = 100 min de historia)
-    Z_ENTRY      = 2.0     # Umbral de entrada
+    Z_ENTRY      = 1.5     # Umbral de entrada
     Z_EXIT       = 0.5     # Umbral de cierre
     BAR_AGGREGATE = 5      # Agregar N barras de 1-min en 1 barra de 5-min
     LOG_INTERVAL  = 300    # Loguear cada 300 segundos (5 min)

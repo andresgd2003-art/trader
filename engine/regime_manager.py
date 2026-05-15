@@ -53,7 +53,7 @@ REGIME_ETF_MAP = {
     Regime.BULL:    [1, 2, 4, 5, 8],
     Regime.BEAR:    [3, 6, 9, 11],
     Regime.CHOP:    [7, 10, 11],
-    Regime.UNKNOWN: [5, 6, 7, 8, 10],
+    Regime.UNKNOWN: [6, 7, 8, 10],
 }
 REGIME_CRYPTO_MAP = {
     Regime.BULL:    [1, 2, 4, 8, 9, 11, 12],
